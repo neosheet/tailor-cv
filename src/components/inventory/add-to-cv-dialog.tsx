@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -75,31 +76,33 @@ export function AddToCvDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ItemGroup className="gap-1">
-          {cvs.map((cv) => {
-            const existing = alreadyIn.has(cv.id)
+        <DialogBody>
+          <ItemGroup className="gap-1">
+            {cvs.map((cv) => {
+              const existing = alreadyIn.has(cv.id)
 
-            return (
-              <Item key={cv.id} variant="outline">
-                <Checkbox
-                  checked={existing || selected.has(cv.id)}
-                  disabled={existing}
-                  onCheckedChange={(checked) => toggle(cv.id, checked)}
-                  aria-label={`Add to ${cv.name}`}
-                />
-                <ItemContent>
-                  <ItemTitle>{cv.name}</ItemTitle>
-                  {cv.note ? (
-                    <ItemDescription>{cv.note}</ItemDescription>
+              return (
+                <Item key={cv.id} variant="outline">
+                  <Checkbox
+                    checked={existing || selected.has(cv.id)}
+                    disabled={existing}
+                    onCheckedChange={(checked) => toggle(cv.id, checked)}
+                    aria-label={`Add to ${cv.name}`}
+                  />
+                  <ItemContent>
+                    <ItemTitle>{cv.name}</ItemTitle>
+                    {cv.note ? (
+                      <ItemDescription>{cv.note}</ItemDescription>
+                    ) : null}
+                  </ItemContent>
+                  {existing ? (
+                    <Badge variant="secondary">Already added</Badge>
                   ) : null}
-                </ItemContent>
-                {existing ? (
-                  <Badge variant="secondary">Already added</Badge>
-                ) : null}
-              </Item>
-            )
-          })}
-        </ItemGroup>
+                </Item>
+              )
+            })}
+          </ItemGroup>
+        </DialogBody>
 
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <span className="text-xs text-muted-foreground">

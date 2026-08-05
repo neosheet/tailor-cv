@@ -198,13 +198,13 @@ export function PoolPanel({
         </div>
 
         <Button
-          variant="outline"
-          size="sm"
+          variant="default"
+          size="icon-sm"
           disabled={!formKind}
           onClick={() => formKind && setDialog({ mode: "add" })}
+          aria-label={`Add ${label.toLowerCase()}`}
         >
-          <PlusIcon data-icon="inline-start" />
-          Add {label.toLowerCase()}
+          <PlusIcon />
         </Button>
       </div>
 
@@ -252,9 +252,7 @@ export function PoolPanel({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete “{deleteTarget?.title}”?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete “{deleteTarget?.title}”?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently removes the entry from the pool. This can't be
               undone.

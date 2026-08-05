@@ -1,5 +1,6 @@
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -29,7 +30,7 @@ export function TemplateViewDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[92vh] sm:max-w-3xl">
         {template ? (
           <>
             <DialogHeader>
@@ -37,20 +38,22 @@ export function TemplateViewDialog({
               <DialogDescription>{template.description}</DialogDescription>
             </DialogHeader>
 
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>{template.pageSize}</span>
-              <span>{template.density}</span>
-              <span>{template.atsSafe ? "Parser-safe" : "Human-first"}</span>
-              <span>Showing “{document.cvName}”</span>
-            </div>
+            <DialogBody className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span>{template.pageSize}</span>
+                <span>{template.density}</span>
+                <span>{template.atsSafe ? "Parser-safe" : "Human-first"}</span>
+                <span>Showing “{document.cvName}”</span>
+              </div>
 
-            <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
-              <ResumeRender
-                document={document}
-                templateId={template.id}
-                scale={0.82}
-              />
-            </div>
+              <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
+                <ResumeRender
+                  document={document}
+                  templateId={template.id}
+                  scale={0.82}
+                />
+              </div>
+            </DialogBody>
           </>
         ) : null}
       </DialogContent>

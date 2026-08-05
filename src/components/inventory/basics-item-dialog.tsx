@@ -17,14 +17,26 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
-} from "@/components/ui/field"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
@@ -190,44 +202,97 @@ export function BasicsItemDialog({
   onOpenChange: (open: boolean) => void
   onSaved: () => void
 }) {
+  // Lifted above `BasicsItemForm` because closing can be triggered from outside
+  // it too — Escape, an overlay click, the dialog's own X button — and every
+  // path needs the same unsaved-changes guard, not just the Cancel button.
+  const [dirty, setDirty] = React.useState(false)
+  const [confirmDiscard, setConfirmDiscard] = React.useState(false)
+
+  function requestClose() {
+    if (dirty) {
+      setConfirmDiscard(true)
+    } else {
+      onOpenChange(false)
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-        {/* Keyed so every fresh open starts from clean state — reopening
-            "Add" for a second row, or switching which row "Edit" targets,
-            must not carry over the previous form's values. */}
-        <DialogBody
-          key={`${mode}-${item?.id ?? "new"}-${open}`}
-          kind={kind}
-          mode={mode}
-          item={item}
-          onOpenChange={onOpenChange}
-          onSaved={onSaved}
-        />
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => (next ? onOpenChange(next) : requestClose())}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          {/* Keyed so every fresh open starts from clean state — reopening
+              "Add" for a second row, or switching which row "Edit" targets,
+              must not carry over the previous form's values. */}
+          <BasicsItemForm
+            key={`${mode}-${item?.id ?? "new"}-${open}`}
+            kind={kind}
+            mode={mode}
+            item={item}
+            onDirtyChange={setDirty}
+            onRequestClose={requestClose}
+            onSaved={onSaved}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You've made changes to this {KIND_LABELS[kind]} that haven't been
+              saved. Closing now will discard them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setConfirmDiscard(false)
+                onOpenChange(false)
+              }}
+            >
+              Discard changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
-function DialogBody({
+function BasicsItemForm({
   kind,
   mode,
   item,
-  onOpenChange,
+  onDirtyChange,
+  onRequestClose,
   onSaved,
 }: {
   kind: BasicsKind
   mode: "add" | "edit"
   item?: DbInventoryItem
-  onOpenChange: (open: boolean) => void
+  onDirtyChange: (dirty: boolean) => void
+  onRequestClose: () => void
   onSaved: () => void
 }) {
-  const [state, setState] = React.useState<FormState>(() =>
+  const [initialState] = React.useState<FormState>(() =>
     mode === "edit" && item ? stateFromItem(item) : EMPTY_STATE
   )
+  const [state, setState] = React.useState<FormState>(initialState)
 
   const fields = KIND_FIELDS[kind]
   const titleInvalid = state.title.trim() === ""
+
+  React.useEffect(() => {
+    onDirtyChange(JSON.stringify(state) !== JSON.stringify(initialState))
+    // `initialState` and `onDirtyChange` are stable for this dialog's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
 
   function setField(key: FieldKey, value: string) {
     setState((prev) => ({ ...prev, [key]: value }))
@@ -247,7 +312,6 @@ function DialogBody({
     }
 
     onSaved()
-    onOpenChange(false)
   }
 
   return (
@@ -258,72 +322,79 @@ function DialogBody({
         </DialogTitle>
       </DialogHeader>
 
-      <FieldGroup className="pb-4">
-        {fields.map((field) => {
-          const fieldId = `basics-item-${field.key}`
-          const invalid = field.key === "title" && titleInvalid
+      <DialogBody className="flex flex-col gap-4">
+        <FieldGroup>
+          {fields.map((field) => {
+            const fieldId = `basics-item-${field.key}`
+            const invalid = field.key === "title" && titleInvalid
 
-          return (
-            <Field key={field.key} data-invalid={invalid ? true : undefined}>
-              <FieldLabel htmlFor={fieldId} className="sr-only">
-                {field.label}
-              </FieldLabel>
-              <InputGroup>
-                <InputGroupAddon align="block-start">
-                  <field.icon />
-                  <InputGroupText>{field.label}</InputGroupText>
-                </InputGroupAddon>
-                {field.multiline ? (
-                  <InputGroupTextarea
-                    id={fieldId}
-                    value={state[field.key]}
-                    onChange={(event) =>
-                      setField(field.key, event.target.value)
-                    }
-                  />
-                ) : (
-                  <InputGroupInput
-                    id={fieldId}
-                    value={state[field.key]}
-                    aria-invalid={invalid ? true : undefined}
-                    onChange={(event) =>
-                      setField(field.key, event.target.value)
-                    }
-                  />
-                )}
-              </InputGroup>
-            </Field>
-          )
-        })}
+            return (
+              <Field key={field.key} data-invalid={invalid ? true : undefined}>
+                <FieldLabel htmlFor={fieldId} className="sr-only">
+                  {field.label}
+                </FieldLabel>
+                <InputGroup>
+                  {field.multiline ? (
+                    <>
+                      <InputGroupAddon align="block-start">
+                        <field.icon />
+                        <InputGroupText>{field.label}</InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupTextarea
+                        id={fieldId}
+                        value={state[field.key]}
+                        onChange={(event) =>
+                          setField(field.key, event.target.value)
+                        }
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <InputGroupAddon>
+                        <field.icon />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id={fieldId}
+                        placeholder={field.label}
+                        value={state[field.key]}
+                        aria-invalid={invalid ? true : undefined}
+                        onChange={(event) =>
+                          setField(field.key, event.target.value)
+                        }
+                      />
+                    </>
+                  )}
+                </InputGroup>
+              </Field>
+            )
+          })}
+        </FieldGroup>
 
-        <FieldSeparator />
+        {/* Secondary area: fields every kind shares (unlike the ones above,
+          which vary per kind) get their own muted panel so they read as
+          metadata about the row rather than part of the main form. */}
+        <FieldGroup className="-mx-4 mt-4 w-auto border-t bg-muted/50 px-4 py-4">
+          <NoteInput
+            value={state.note}
+            onValueChange={(note) => setState((prev) => ({ ...prev, note }))}
+          />
 
-        <NoteInput
-          value={state.note}
-          onValueChange={(note) => setState((prev) => ({ ...prev, note }))}
-        />
+          <TagInput
+            id="basics-item-tags"
+            value={state.tags}
+            onValueChange={(tags) => setState((prev) => ({ ...prev, tags }))}
+          />
+        </FieldGroup>
+      </DialogBody>
 
-        <TagInput
-          id="basics-item-tags"
-          value={state.tags}
-          onValueChange={(tags) => setState((prev) => ({ ...prev, tags }))}
-        />
-      </FieldGroup>
-
-      {/* Sticky footer bleeding to the dialog's edges — same pattern as
-          `ItemDetailDialog`'s `DetailFooter`, minus the actions menu. */}
-      <footer className="sticky bottom-0 -mx-4 mt-2 -mb-4 flex items-center justify-end gap-2 border-t bg-popover px-4 py-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onOpenChange(false)}
-        >
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onRequestClose}>
           Cancel
         </Button>
         <Button type="button" onClick={handleSave} disabled={titleInvalid}>
           Save
         </Button>
-      </footer>
+      </DialogFooter>
     </>
   )
 }
