@@ -28,7 +28,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   InputGroup,
@@ -195,7 +202,7 @@ export function BasicsItemDialog({
   onOpenChange: (open: boolean) => void
   onSaved: () => void
 }) {
-  // Lifted above `DialogBody` because closing can be triggered from outside
+  // Lifted above `BasicsItemForm` because closing can be triggered from outside
   // it too — Escape, an overlay click, the dialog's own X button — and every
   // path needs the same unsaved-changes guard, not just the Cancel button.
   const [dirty, setDirty] = React.useState(false)
@@ -215,11 +222,11 @@ export function BasicsItemDialog({
         open={open}
         onOpenChange={(next) => (next ? onOpenChange(next) : requestClose())}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           {/* Keyed so every fresh open starts from clean state — reopening
               "Add" for a second row, or switching which row "Edit" targets,
               must not carry over the previous form's values. */}
-          <DialogBody
+          <BasicsItemForm
             key={`${mode}-${item?.id ?? "new"}-${open}`}
             kind={kind}
             mode={mode}
@@ -236,8 +243,8 @@ export function BasicsItemDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              You've made changes to this {KIND_LABELS[kind]} that haven't
-              been saved. Closing now will discard them.
+              You've made changes to this {KIND_LABELS[kind]} that haven't been
+              saved. Closing now will discard them.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -258,7 +265,7 @@ export function BasicsItemDialog({
   )
 }
 
-function DialogBody({
+function BasicsItemForm({
   kind,
   mode,
   item,
@@ -315,79 +322,79 @@ function DialogBody({
         </DialogTitle>
       </DialogHeader>
 
-      <FieldGroup>
-        {fields.map((field) => {
-          const fieldId = `basics-item-${field.key}`
-          const invalid = field.key === "title" && titleInvalid
+      <DialogBody className="flex flex-col gap-4">
+        <FieldGroup>
+          {fields.map((field) => {
+            const fieldId = `basics-item-${field.key}`
+            const invalid = field.key === "title" && titleInvalid
 
-          return (
-            <Field key={field.key} data-invalid={invalid ? true : undefined}>
-              <FieldLabel htmlFor={fieldId} className="sr-only">
-                {field.label}
-              </FieldLabel>
-              <InputGroup>
-                {field.multiline ? (
-                  <>
-                    <InputGroupAddon align="block-start">
-                      <field.icon />
-                      <InputGroupText>{field.label}</InputGroupText>
-                    </InputGroupAddon>
-                    <InputGroupTextarea
-                      id={fieldId}
-                      value={state[field.key]}
-                      onChange={(event) =>
-                        setField(field.key, event.target.value)
-                      }
-                    />
-                  </>
-                ) : (
-                  <>
-                    <InputGroupAddon>
-                      <field.icon />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      id={fieldId}
-                      placeholder={field.label}
-                      value={state[field.key]}
-                      aria-invalid={invalid ? true : undefined}
-                      onChange={(event) =>
-                        setField(field.key, event.target.value)
-                      }
-                    />
-                  </>
-                )}
-              </InputGroup>
-            </Field>
-          )
-        })}
-      </FieldGroup>
+            return (
+              <Field key={field.key} data-invalid={invalid ? true : undefined}>
+                <FieldLabel htmlFor={fieldId} className="sr-only">
+                  {field.label}
+                </FieldLabel>
+                <InputGroup>
+                  {field.multiline ? (
+                    <>
+                      <InputGroupAddon align="block-start">
+                        <field.icon />
+                        <InputGroupText>{field.label}</InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupTextarea
+                        id={fieldId}
+                        value={state[field.key]}
+                        onChange={(event) =>
+                          setField(field.key, event.target.value)
+                        }
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <InputGroupAddon>
+                        <field.icon />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id={fieldId}
+                        placeholder={field.label}
+                        value={state[field.key]}
+                        aria-invalid={invalid ? true : undefined}
+                        onChange={(event) =>
+                          setField(field.key, event.target.value)
+                        }
+                      />
+                    </>
+                  )}
+                </InputGroup>
+              </Field>
+            )
+          })}
+        </FieldGroup>
 
-      {/* Secondary area: fields every kind shares (unlike the ones above,
+        {/* Secondary area: fields every kind shares (unlike the ones above,
           which vary per kind) get their own muted panel so they read as
           metadata about the row rather than part of the main form. */}
-      <FieldGroup className="-mx-4 mt-4 border-t bg-muted/50 px-4 py-4 w-auto">
-        <NoteInput
-          value={state.note}
-          onValueChange={(note) => setState((prev) => ({ ...prev, note }))}
-        />
+        <FieldGroup className="-mx-4 mt-4 w-auto border-t bg-muted/50 px-4 py-4">
+          <NoteInput
+            value={state.note}
+            onValueChange={(note) => setState((prev) => ({ ...prev, note }))}
+          />
 
-        <TagInput
-          id="basics-item-tags"
-          value={state.tags}
-          onValueChange={(tags) => setState((prev) => ({ ...prev, tags }))}
-        />
-      </FieldGroup>
+          <TagInput
+            id="basics-item-tags"
+            value={state.tags}
+            onValueChange={(tags) => setState((prev) => ({ ...prev, tags }))}
+          />
+        </FieldGroup>
+      </DialogBody>
 
-      {/* Sticky footer bleeding to the dialog's edges — same pattern as
-          `ItemDetailDialog`'s `DetailFooter`, minus the actions menu. */}
-      <footer className="sticky bottom-0 -mx-4 -mb-4 flex items-center justify-end gap-2 border-t bg-popover px-4 py-3 pb-0">
+      <DialogFooter>
         <Button type="button" variant="ghost" onClick={onRequestClose}>
           Cancel
         </Button>
         <Button type="button" onClick={handleSave} disabled={titleInvalid}>
           Save
         </Button>
-      </footer>
+      </DialogFooter>
     </>
   )
 }

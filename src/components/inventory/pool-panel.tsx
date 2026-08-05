@@ -252,9 +252,7 @@ export function PoolPanel({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete “{deleteTarget?.title}”?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete “{deleteTarget?.title}”?</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently removes the entry from the pool. This can't be
               undone.

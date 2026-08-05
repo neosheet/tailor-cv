@@ -1,6 +1,5 @@
 import * as React from "react"
 import {
-  ChevronDownIcon,
   Code,
   CopyIcon,
   Ellipsis,
@@ -9,7 +8,6 @@ import {
   Trash2Icon,
 } from "lucide-react"
 import { Link } from "react-router"
-import { formatDistanceToNow } from 'date-fns';
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +21,7 @@ import {
 import { AddToCvDialog } from "@/components/inventory/add-to-cv-dialog"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -189,14 +188,17 @@ function DetailBody({
         )}
       </DialogHeader>
 
-      <div className="flex flex-col gap-4 w-auto -mx-4 py-4 max-h-[70vh] px-4 overflow-y-auto">
+      <DialogBody className="flex flex-col gap-4 py-4">
         <DetailsSection item={item} />
 
         {/* Omitted entirely when nothing uses the entry — an empty section is
           noise, and the In-CVs column already says as much with its dash. */}
         {usage.length > 0 ? (
           <>
-            <section ref={usageRef} className="flex rounded-xl p-4 bg-muted/50 border flex-col gap-2">
+            <section
+              ref={usageRef}
+              className="flex flex-col gap-2 rounded-xl border bg-muted/50 p-4"
+            >
               <h3>Used In</h3>
               <UsageList item={item} usage={usage} />
             </section>
@@ -204,11 +206,11 @@ function DetailBody({
         ) : null}
 
         {item.note ? (
-          <div className="text-xs text-muted-foreground border-t mt-4 bg-muted/50 p-4 -mx-4 -mb-4 w-auto">
+          <div className="-mx-4 mt-4 -mb-4 w-auto border-t bg-muted/50 p-4 text-xs text-muted-foreground">
             {item.note}
           </div>
         ) : null}
-      </div>
+      </DialogBody>
 
       <DetailFooter item={item} onAddToCv={() => setAddingToCv(true)} />
 
@@ -261,9 +263,6 @@ function DetailsSection({ item }: { item: DbInventoryItem }) {
           ) : null
         )}
       </dl>
-
-
-
 
       {skills.length > 0 ? (
         <>
@@ -320,7 +319,6 @@ function DetailsSection({ item }: { item: DbInventoryItem }) {
           </section>
         )
       })}
-
     </>
   )
 }
@@ -344,7 +342,7 @@ function DetailFooter({
   const [favorite, setFavorite] = React.useState(item.favorite)
   return (
     <DialogFooter>
-      <div className="flex items-center justify-between gap-2 w-full">
+      <div className="flex w-full items-center justify-between gap-2">
         {item.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {item.tags.map((tag) => (
@@ -356,7 +354,9 @@ function DetailFooter({
         )}
 
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" size="icon" />}>
+          <DropdownMenuTrigger
+            render={<Button variant="outline" size="icon" />}
+          >
             <Ellipsis data-icon="inline-end" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
@@ -393,14 +393,6 @@ function DetailFooter({
       </div>
     </DialogFooter>
   )
-}
-
-/**
- * These are real ISO instants, unlike an item's partial `start_date`, so the
- * browser's own formatter is safe here.
- */
-function formatTimestamp(iso: string): string {
-  return formatDistanceToNow(new Date(iso), { addSuffix: true })
 }
 
 /**
