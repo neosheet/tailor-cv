@@ -421,8 +421,9 @@ inventory_lines   b1  tags={backend, api}      ┘ from the registry
 **Postgres cannot foreign-key an array element**, so the "drawn from the registry" rule
 is not an FK and must not be written as one. Two things hold it:
 
-1. The application only ever offers registry names — free-typing a tag onto a row is not
-   a path the UI exposes.
+1. Every row write only ever carries registry names. A tag picker may let someone type a
+   name no suggestion matches, but that path registers it (adds the row to `tags`) before
+   applying it — it never writes an unregistered name onto a row.
 2. A trigger on insert and update of both content tables rejects anything unregistered,
    so a direct SQL write cannot drift:
 

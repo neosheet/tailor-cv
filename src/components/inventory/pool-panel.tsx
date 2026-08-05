@@ -198,13 +198,13 @@ export function PoolPanel({
         </div>
 
         <Button
-          variant="outline"
-          size="sm"
+          variant="default"
+          size="icon-sm"
           disabled={!formKind}
           onClick={() => formKind && setDialog({ mode: "add" })}
+          aria-label={`Add ${label.toLowerCase()}`}
         >
-          <PlusIcon data-icon="inline-start" />
-          Add {label.toLowerCase()}
+          <PlusIcon />
         </Button>
       </div>
 

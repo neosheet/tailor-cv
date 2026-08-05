@@ -13,7 +13,8 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@/components/ui/combobox"
-import { listTags } from "@/mocks/tags"
+import { Field, FieldError } from "@/components/ui/field"
+import { createTag, listTags, validateTagName } from "@/mocks/tags"
 
 /** Enough to pick from without turning the popup into a second list to read. */
 const MAX_SUGGESTIONS = 5
@@ -24,9 +25,9 @@ const MAX_SUGGESTIONS = 5
  * Same interaction as `TagFilter`, but the suggestion pool is the *full*
  * registry rather than what's present on currently-matching rows — a form
  * field has no "currently matching rows" to narrow against, and every tag in
- * the registry is a legal value to write. No "create new tag" affordance: the
- * spec is explicit that this UI only ever offers registry names
- * (`02-inventory-data-model.md:424-427`).
+ * the registry is a legal value to write. Typing something no suggestion
+ * matches and pressing Enter registers it (`createTag`) and applies it in one
+ * step, rather than requiring a detour through Settings first.
  */
 export function TagInput({
   value,
@@ -39,8 +40,10 @@ export function TagInput({
 }) {
   const anchor = useComboboxAnchor()
   const [input, setInput] = React.useState("")
-
-  const registry = React.useMemo(() => listTags().map((tag) => tag.name), [])
+  const [error, setError] = React.useState<string | null>(null)
+  // Recomputed every render (not memoized) so a tag created via Enter below
+  // shows up in `registry` immediately — `listTags()` itself isn't reactive.
+  const registry = listTags().map((tag) => tag.name)
 
   // Prefix match, not substring: typing "back" is how you reach for a tag you
   // already know the start of, and substring matches would put `feedback` in
@@ -53,56 +56,89 @@ export function TagInput({
       .slice(0, MAX_SUGGESTIONS)
   }, [registry, value, input])
 
-  return (
-    <Combobox
-      multiple
-      // Highlights the first suggestion, so Enter picks it without an Arrow Down.
-      autoHighlight
-      items={suggestions}
-      // `suggestions` is already filtered and capped; filtering again would
-      // fight it.
-      filter={null}
-      value={value}
-      onValueChange={(next: string[]) => {
-        onValueChange(next)
-        // Clear the query after a pick, so the next tag starts from the top.
-        setInput("")
-      }}
-      inputValue={input}
-      onInputValueChange={setInput}
-    >
-      <ComboboxChips ref={anchor} className="w-full">
-        <TagsIcon className="size-4 shrink-0 text-muted-foreground" />
-        <ComboboxValue>
-          {(tags: string[]) => (
-            <React.Fragment>
-              {tags.map((tag) => (
-                <ComboboxChip key={tag}>{tag}</ComboboxChip>
-              ))}
-              <ComboboxChipsInput
-                id={id}
-                placeholder={tags.length === 0 ? "Add a tag…" : ""}
-                aria-label="Tags"
-              />
-            </React.Fragment>
-          )}
-        </ComboboxValue>
-      </ComboboxChips>
+  // Enter with no matching suggestion registers what's typed as a new tag
+  // instead of doing nothing — the combobox itself only acts on a
+  // highlighted item, and there isn't one when the list is empty.
+  function createFromInput(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter" || suggestions.length > 0) {
+      return
+    }
 
-      <ComboboxContent anchor={anchor}>
-        <ComboboxEmpty>
-          {registry.length === 0
-            ? "No tags in the registry yet."
-            : "No tag starts with that."}
-        </ComboboxEmpty>
-        <ComboboxList>
-          {(tag: string) => (
-            <ComboboxItem key={tag} value={tag}>
-              {tag}
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+    if (!input.trim()) {
+      return
+    }
+
+    const problem = validateTagName(input)
+
+    if (problem) {
+      setError(problem)
+      return
+    }
+
+    const name = createTag(input)
+    onValueChange([...value, name])
+    setInput("")
+    setError(null)
+  }
+
+  return (
+    <Field data-invalid={error ? true : undefined}>
+      <Combobox
+        multiple
+        // Highlights the first suggestion, so Enter picks it without an Arrow Down.
+        autoHighlight
+        items={suggestions}
+        // `suggestions` is already filtered and capped; filtering again would
+        // fight it.
+        filter={null}
+        value={value}
+        onValueChange={(next: string[]) => {
+          onValueChange(next)
+          // Clear the query after a pick, so the next tag starts from the top.
+          setInput("")
+        }}
+        inputValue={input}
+        onInputValueChange={(next: string) => {
+          setInput(next)
+          setError(null)
+        }}
+      >
+        <ComboboxChips ref={anchor} className="w-full">
+          <TagsIcon className="size-4 shrink-0 text-muted-foreground" />
+          <ComboboxValue>
+            {(tags: string[]) => (
+              <React.Fragment>
+                {tags.map((tag) => (
+                  <ComboboxChip key={tag}>{tag}</ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  id={id}
+                  placeholder={tags.length === 0 ? "Add a tag…" : ""}
+                  aria-label="Tags"
+                  aria-invalid={error ? true : undefined}
+                  onKeyDown={createFromInput}
+                />
+              </React.Fragment>
+            )}
+          </ComboboxValue>
+        </ComboboxChips>
+
+        <ComboboxContent anchor={anchor}>
+          <ComboboxEmpty>
+            {registry.length === 0
+              ? "No tags in the registry yet — press Enter to create one."
+              : "No tag starts with that — press Enter to create it."}
+          </ComboboxEmpty>
+          <ComboboxList>
+            {(tag: string) => (
+              <ComboboxItem key={tag} value={tag}>
+                {tag}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+      {error ? <FieldError>{error}</FieldError> : null}
+    </Field>
   )
 }

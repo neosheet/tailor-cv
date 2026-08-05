@@ -1,13 +1,15 @@
 import * as React from "react"
 import {
   ChevronDownIcon,
+  Code,
   CopyIcon,
+  Ellipsis,
   FilePlus2Icon,
   StarIcon,
   Trash2Icon,
 } from "lucide-react"
 import { Link } from "react-router"
-
+import { formatDistanceToNow } from 'date-fns';
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +25,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -144,7 +147,7 @@ export function ItemDetailDialog({
         }
       }}
     >
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[85vh] gap-0 sm:max-w-2xl">
         {/* Keyed on the item so each row opens fresh, scrolled to the top. */}
         {item ? (
           <DetailBody key={item.id} item={item} focusUsage={focusUsage} />
@@ -175,7 +178,7 @@ function DetailBody({
 
   return (
     <>
-      <DialogHeader>
+      <DialogHeader className="pb-4">
         <DialogTitle>{item.title}</DialogTitle>
         {item.subtitle ? (
           <DialogDescription>{item.subtitle}</DialogDescription>
@@ -186,24 +189,26 @@ function DetailBody({
         )}
       </DialogHeader>
 
-      <DetailsSection item={item} />
+      <div className="flex flex-col gap-4 w-auto -mx-4 py-4 max-h-[70vh] px-4 overflow-y-auto">
+        <DetailsSection item={item} />
 
-      {/* Omitted entirely when nothing uses the entry — an empty section is
+        {/* Omitted entirely when nothing uses the entry — an empty section is
           noise, and the In-CVs column already says as much with its dash. */}
-      {usage.length > 0 ? (
-        <>
-          <Separator />
-          <section ref={usageRef} className="flex scroll-mt-4 flex-col gap-2">
-            <h3 className="text-sm font-medium">
-              Used in CVs
-              <span className="ml-2 font-normal text-muted-foreground tabular-nums">
-                {usage.length}
-              </span>
-            </h3>
-            <UsageList item={item} usage={usage} />
-          </section>
-        </>
-      ) : null}
+        {usage.length > 0 ? (
+          <>
+            <section ref={usageRef} className="flex rounded-xl p-4 bg-muted/50 border flex-col gap-2">
+              <h3>Used In</h3>
+              <UsageList item={item} usage={usage} />
+            </section>
+          </>
+        ) : null}
+
+        {item.note ? (
+          <div className="text-xs text-muted-foreground border-t mt-4 bg-muted/50 p-4 -mx-4 -mb-4 w-auto">
+            {item.note}
+          </div>
+        ) : null}
+      </div>
 
       <DetailFooter item={item} onAddToCv={() => setAddingToCv(true)} />
 
@@ -255,25 +260,10 @@ function DetailsSection({ item }: { item: DbInventoryItem }) {
             </Field>
           ) : null
         )}
-
-        <Field label="Tags">
-          {item.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {item.tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <span className="text-muted-foreground">None</span>
-          )}
-        </Field>
-
-        <Field label="Note">
-          {item.note ?? <span className="text-muted-foreground">None</span>}
-        </Field>
       </dl>
+
+
+
 
       {skills.length > 0 ? (
         <>
@@ -330,6 +320,7 @@ function DetailsSection({ item }: { item: DbInventoryItem }) {
           </section>
         )
       })}
+
     </>
   )
 }
@@ -352,51 +343,55 @@ function DetailFooter({
   // state exists only to re-render — both surfaces read the same object.
   const [favorite, setFavorite] = React.useState(item.favorite)
   return (
-    <footer className="sticky bottom-0 -mx-4 mt-2 -mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-popover px-4 py-3">
-      <div className="flex flex-col text-xs text-muted-foreground">
-        <span>
-          Created {formatTimestamp(item.createdAt)}
-          {item.updatedAt !== item.createdAt ? (
-            <> · Updated {formatTimestamp(item.updatedAt)}</>
-          ) : null}
-        </span>
-        <span className="font-mono">
-          {item.kind} · {item.id}
-        </span>
-      </div>
+    <DialogFooter>
+      <div className="flex items-center justify-between gap-2 w-full">
+        {item.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {item.tags.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
 
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-          Actions
-          <ChevronDownIcon data-icon="inline-end" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-44">
-          <DropdownMenuGroup>
-            <DropdownMenuItem onClick={onAddToCv}>
-              <FilePlus2Icon />
-              Add to CV
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setFavorite(toggleFavorite(item.id))}
-            >
-              <StarIcon className={favorite ? "fill-current" : undefined} />
-              {favorite ? "Remove from favourites" : "Favourite"}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled>
-              <CopyIcon />
-              Duplicate
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem variant="destructive" disabled>
-              <Trash2Icon />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </footer>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" size="icon" />}>
+            <Ellipsis data-icon="inline-end" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={onAddToCv}>
+                <FilePlus2Icon />
+                Add to CV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setFavorite(toggleFavorite(item.id))}
+              >
+                <StarIcon className={favorite ? "fill-current" : undefined} />
+                {favorite ? "Remove from favourites" : "Favourite"}
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                <CopyIcon />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                {/* for id in database */}
+                <Code />
+                Copy ID
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem variant="destructive" disabled>
+                <Trash2Icon />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </DialogFooter>
   )
 }
 
@@ -405,10 +400,7 @@ function DetailFooter({
  * browser's own formatter is safe here.
  */
 function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  })
+  return formatDistanceToNow(new Date(iso), { addSuffix: true })
 }
 
 /**
