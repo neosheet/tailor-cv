@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Navigate } from "react-router"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -10,13 +11,22 @@ import {
 } from "@/components/ui/card"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 
 export function LoginPage() {
+  const { session, loading } = useAuth()
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+
+  // RequireAuth only guards the *other* routes (redirects away from them when
+  // signed out) — nothing else redirects away from /login once signed in, so
+  // this route needs the reverse check itself.
+  if (!loading && session) {
+    return <Navigate to="/" replace />
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
