@@ -24,6 +24,7 @@ import { SkillsPage } from "@/pages/inventory/skills"
 import { VolunteerPage } from "@/pages/inventory/volunteer"
 import { WorkPage } from "@/pages/inventory/work"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
+import { InventoryStoreProvider } from "@/lib/inventory-store"
 
 function RequireAuth() {
   const { session, loading } = useAuth()
@@ -36,7 +37,11 @@ function RequireAuth() {
     return <Navigate to="/login" replace />
   }
 
-  return <AppLayout />
+  return (
+    <InventoryStoreProvider>
+      <AppLayout />
+    </InventoryStoreProvider>
+  )
 }
 
 export function App() {

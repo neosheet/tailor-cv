@@ -52,7 +52,8 @@ import {
   type BasicsItemInput,
   type BasicsKind,
   type DbInventoryItem,
-} from "@/mocks"
+} from "@/lib/inventory"
+import { useInventoryStore } from "@/lib/inventory-store"
 
 /**
  * Add/edit form for one of the six Basics pools.
@@ -280,6 +281,7 @@ function BasicsItemForm({
   onRequestClose: () => void
   onSaved: () => void
 }) {
+  const store = useInventoryStore()
   const [initialState] = React.useState<FormState>(() =>
     mode === "edit" && item ? stateFromItem(item) : EMPTY_STATE
   )
@@ -298,7 +300,7 @@ function BasicsItemForm({
     setState((prev) => ({ ...prev, [key]: value }))
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (titleInvalid) {
       return
     }
@@ -306,9 +308,9 @@ function BasicsItemForm({
     const input = buildInput(fields, state)
 
     if (mode === "edit" && item) {
-      updateItem(item.id, input)
+      await updateItem(store, item.id, input)
     } else {
-      createItem(kind, input)
+      await createItem(store, kind, input)
     }
 
     onSaved()

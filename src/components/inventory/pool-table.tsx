@@ -27,7 +27,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { DbInventoryItem } from "@/mocks"
+import { useInventoryStore } from "@/lib/inventory-store"
+import type { InventoryStore } from "@/lib/inventory-store"
+import type { DbInventoryItem } from "@/lib/inventory"
 
 /** What a cell can do to its own row. Passed to every `cell` renderer. */
 export type PoolCellActions = {
@@ -38,7 +40,18 @@ export type PoolCellActions = {
 
 export type PoolColumn = {
   header: string
-  cell: (item: DbInventoryItem, actions: PoolCellActions) => React.ReactNode
+  /**
+   * `store` is the fetched inventory store — passed through so a column's
+   * `cell` (a plain callback, not a component, so it can't call
+   * `useInventoryStore()` itself) can still read selectors like `linesOf`
+   * that need the store's data. `PoolTable` calls the hook once and threads
+   * the result into every cell call.
+   */
+  cell: (
+    item: DbInventoryItem,
+    actions: PoolCellActions,
+    store: InventoryStore
+  ) => React.ReactNode
   /** Applied to both the header and the cells, for width and alignment. */
   className?: string
 }
@@ -72,6 +85,7 @@ export function PoolTable({
   /** Present only for pools with a form config; absent leaves Delete disabled. */
   onRequestDelete?: (item: DbInventoryItem) => void
 }) {
+  const store = useInventoryStore()
   const allSelected =
     rows.length > 0 && rows.every((row) => selected.has(row.id))
   // Checkbox + configured columns + favourite + actions.
@@ -151,10 +165,10 @@ export function PoolTable({
                       className="h-auto justify-start p-0 font-medium"
                       onClick={() => setDetail({ item, focusUsage: false })}
                     >
-                      {column.cell(item, actionsFor(item))}
+                      {column.cell(item, actionsFor(item), store)}
                     </Button>
                   ) : (
-                    column.cell(item, actionsFor(item))
+                    column.cell(item, actionsFor(item), store)
                   )}
                 </TableCell>
               ))}

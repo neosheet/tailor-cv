@@ -5,7 +5,7 @@ import {
   ValueCell,
   type PoolColumn,
 } from "@/components/inventory/pool-table"
-import { linesOf, type DbInventoryItem, type LineKind } from "@/mocks"
+import { linesOf, type DbInventoryItem, type LineKind } from "@/lib/inventory"
 import { cvUsageCount } from "@/mocks/cv"
 
 /**
@@ -138,9 +138,12 @@ const LINE_LABEL: Record<LineKind, [singular: string, plural: string]> = {
 export function linesColumn(header: string, kinds: LineKind[]): PoolColumn {
   return {
     header,
-    cell: (item) => {
+    cell: (item, _actions, store) => {
       const parts = kinds
-        .map((kind) => ({ kind, count: linesOf(item.id, kind).length }))
+        .map((kind) => ({
+          kind,
+          count: linesOf(store, item.id, kind).length,
+        }))
         .filter(({ count }) => count > 0)
         .map(({ kind, count }) => {
           const [singular, plural] = LINE_LABEL[kind]

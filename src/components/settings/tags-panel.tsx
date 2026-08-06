@@ -38,19 +38,21 @@ import {
   renameTag,
   validateTagName,
   type TagUsage,
-} from "@/mocks/tags"
+} from "@/lib/tags"
+import { useInventoryStore } from "@/lib/inventory-store"
 
 /**
  * The tag registry — every tag, what it's on, and the three things you can do
  * to one.
  *
- * `listTags` returns a fresh array on every call, so re-reading it after a write
- * is the whole re-render story. The version-counter trick `PoolPanel` needs for
- * favourites doesn't apply here: there the array reference stayed stable while
- * the sort order went stale.
+ * `listTags(store)` is computed fresh on every render straight from the
+ * store — the store's own state updates (via its `setTags`/`setItems`/
+ * `setLines`) are what re-renders this component, so there's no separate
+ * local copy to keep in sync the way the mocks version needed.
  */
 export function TagsPanel() {
-  const [tags, setTags] = React.useState(listTags)
+  const store = useInventoryStore()
+  const tags = listTags(store)
   const [query, setQuery] = React.useState("")
 
   // Which rows a dialog is open for. One dialog for the table, not one per row.
@@ -87,12 +89,11 @@ export function TagsPanel() {
     })
   }
 
-  function applyDelete(names: string[]) {
+  async function applyDelete(names: string[]) {
     for (const name of names) {
-      deleteTag(name)
+      await deleteTag(store, name)
     }
 
-    setTags(listTags())
     setSelected(new Set())
     setDeleting(null)
   }
@@ -108,9 +109,9 @@ export function TagsPanel() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <SearchInput value={query} onChange={setQuery} label="tags" />
         <AddTagField
-          onAdd={(name) => {
-            createTag(name)
-            setTags(listTags())
+          registry={store.tags}
+          onAdd={async (name) => {
+            await createTag(store, name)
           }}
         />
       </div>
@@ -221,9 +222,8 @@ export function TagsPanel() {
           tag={renaming}
           open
           onCancel={() => setRenaming(null)}
-          onRename={(name) => {
-            renameTag(renaming.name, name)
-            setTags(listTags())
+          onRename={async (name) => {
+            await renameTag(store, renaming.name, name)
             setRenaming(null)
           }}
         />
@@ -282,9 +282,15 @@ function BulkActions({
  * The error only appears once you've typed something — an empty box is not yet
  * a mistake, and colouring it red before the first keystroke would say it is.
  */
-function AddTagField({ onAdd }: { onAdd: (name: string) => void }) {
+function AddTagField({
+  registry,
+  onAdd,
+}: {
+  registry: string[]
+  onAdd: (name: string) => void
+}) {
   const [value, setValue] = React.useState("")
-  const problem = validateTagName(value)
+  const problem = validateTagName(value, registry)
   const showProblem = value.trim().length > 0 && problem !== null
 
   function submit(event: React.FormEvent) {

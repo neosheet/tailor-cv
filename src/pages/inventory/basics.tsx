@@ -1,5 +1,3 @@
-import * as React from "react"
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/layout/page-header"
 import { TAGS_NOTE } from "@/components/inventory/columns"
@@ -10,7 +8,8 @@ import {
   itemsOfKind,
   locationDetails,
   type BasicsKind,
-} from "@/mocks"
+} from "@/lib/inventory"
+import { useInventoryStore } from "@/lib/inventory-store"
 import { inventoryPages } from "@/lib/navigation"
 
 const POOLS: {
@@ -119,12 +118,7 @@ const POOLS: {
 ]
 
 export function BasicsPage() {
-  // itemsOfKind() reads a module-level array that create/update/delete mutate
-  // in place (and, for create/delete, resize) — bumping this forces the page
-  // to re-render so every `itemsOfKind(pool.kind)` call below re-reads fresh.
-  // The value itself is never read (unused-var trigger avoided by not
-  // binding it), only the setter call matters.
-  const [, setRefreshKey] = React.useState(0)
+  const store = useInventoryStore()
 
   return (
     <>
@@ -139,7 +133,7 @@ export function BasicsPage() {
             <TabsTrigger key={pool.kind} value={pool.kind}>
               {pool.label}
               <span className="text-muted-foreground tabular-nums">
-                {itemsOfKind(pool.kind).length}
+                {itemsOfKind(store, pool.kind).length}
               </span>
             </TabsTrigger>
           ))}
@@ -156,9 +150,8 @@ export function BasicsPage() {
               label={pool.label}
               description={pool.description}
               columns={pool.columns}
-              rows={itemsOfKind(pool.kind)}
+              rows={itemsOfKind(store, pool.kind)}
               formKind={pool.kind}
-              onDataChanged={() => setRefreshKey((k) => k + 1)}
             />
           </TabsContent>
         ))}

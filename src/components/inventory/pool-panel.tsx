@@ -30,7 +30,8 @@ import {
   type BasicsKind,
   type DbInventoryItem,
   type ItemKind,
-} from "@/mocks"
+} from "@/lib/inventory"
+import { useInventoryStore } from "@/lib/inventory-store"
 
 /**
  * Everything on a row that search should match, flattened to one lowercase
@@ -116,6 +117,7 @@ export function PoolPanel({
    */
   onDataChanged?: () => void
 }) {
+  const store = useInventoryStore()
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set())
   const [dialog, setDialog] = React.useState<{
     mode: "add" | "edit"
@@ -136,8 +138,8 @@ export function PoolPanel({
   // correct — what goes stale is the *order*. Bumping this re-runs the sort.
   const [favouriteVersion, setFavouriteVersion] = React.useState(0)
 
-  function onToggleFavourite(id: string) {
-    toggleFavorite(id)
+  async function onToggleFavourite(id: string) {
+    await toggleFavorite(store, id)
     setFavouriteVersion((version) => version + 1)
   }
 
@@ -264,9 +266,9 @@ export function PoolPanel({
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => {
+              onClick={async () => {
                 if (!deleteTarget) return
-                deleteItem(deleteTarget.id)
+                await deleteItem(store, deleteTarget.id)
                 setSelected((current) => {
                   if (!current.has(deleteTarget.id)) return current
                   const next = new Set(current)

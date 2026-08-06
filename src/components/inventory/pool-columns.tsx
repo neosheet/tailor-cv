@@ -7,7 +7,7 @@ import {
   textColumn,
 } from "@/components/inventory/columns"
 import type { PoolColumn } from "@/components/inventory/pool-table"
-import type { ItemKind } from "@/mocks"
+import type { ItemKind } from "@/lib/inventory"
 
 /**
  * Columns for every non-Basics pool, following the field mapping in

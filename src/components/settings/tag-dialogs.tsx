@@ -23,7 +23,8 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { usageSentence } from "@/lib/tag-copy"
-import { usageOfAny, validateTagName, type TagUsage } from "@/mocks/tags"
+import { usageOfAny, validateTagName, type TagUsage } from "@/lib/tags"
+import { useInventoryStore } from "@/lib/inventory-store"
 
 /**
  * Rename a tag. Same validation as the add field, plus the tag's own name is
@@ -41,8 +42,9 @@ export function RenameTagDialog({
   onCancel: () => void
   onRename: (name: string) => void
 }) {
+  const store = useInventoryStore()
   const [value, setValue] = React.useState(tag.name)
-  const problem = validateTagName(value, { except: tag.name })
+  const problem = validateTagName(value, store.tags, { except: tag.name })
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -109,10 +111,11 @@ export function DeleteTagDialog({
   onCancel: () => void
   onDelete: () => void
 }) {
+  const store = useInventoryStore()
   const batch = tags.length > 1
   // One tag can answer for itself; a batch has to be counted over distinct rows.
   const usage: TagUsage = batch
-    ? { name: "", ...usageOfAny(tags.map((tag) => tag.name)) }
+    ? { name: "", ...usageOfAny(store, tags.map((tag) => tag.name)) }
     : tags[0]
   const inUse = usage.itemCount + usage.lineCount > 0
 

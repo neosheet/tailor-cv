@@ -45,7 +45,8 @@ import {
   type DbInventoryItem,
   type ItemKind,
   type LineKind,
-} from "@/mocks"
+} from "@/lib/inventory"
+import { useInventoryStore, type InventoryStore } from "@/lib/inventory-store"
 import { cvsUsingItem, type ItemUsage } from "@/mocks/cv"
 
 /**
@@ -163,6 +164,7 @@ function DetailBody({
   item: DbInventoryItem
   focusUsage: boolean
 }) {
+  const store = useInventoryStore()
   const usage = cvsUsingItem(item.id)
   const usageRef = React.useRef<HTMLElement>(null)
   const [addingToCv, setAddingToCv] = React.useState(false)
@@ -189,7 +191,7 @@ function DetailBody({
       </DialogHeader>
 
       <DialogBody className="flex flex-col gap-4 py-4">
-        <DetailsSection item={item} />
+        <DetailsSection item={item} store={store} />
 
         {/* Omitted entirely when nothing uses the entry — an empty section is
           noise, and the In-CVs column already says as much with its dash. */}
@@ -200,7 +202,7 @@ function DetailBody({
               className="flex flex-col gap-2 rounded-xl border bg-muted/50 p-4"
             >
               <h3>Used In</h3>
-              <UsageList item={item} usage={usage} />
+              <UsageList item={item} usage={usage} store={store} />
             </section>
           </>
         ) : null}
@@ -212,7 +214,11 @@ function DetailBody({
         ) : null}
       </DialogBody>
 
-      <DetailFooter item={item} onAddToCv={() => setAddingToCv(true)} />
+      <DetailFooter
+        item={item}
+        store={store}
+        onAddToCv={() => setAddingToCv(true)}
+      />
 
       <AddToCvDialog
         item={item}
@@ -223,10 +229,16 @@ function DetailBody({
   )
 }
 
-function DetailsSection({ item }: { item: DbInventoryItem }) {
+function DetailsSection({
+  item,
+  store,
+}: {
+  item: DbInventoryItem
+  store: InventoryStore
+}) {
   const labels = { ...DEFAULT_LABELS, ...FIELD_LABELS[item.kind] }
-  const lines = allLinesOf(item.id)
-  const skills = skillsOf(item.id)
+  const lines = allLinesOf(store, item.id)
+  const skills = skillsOf(store, item.id)
 
   const start = formatPartialDate(item.startDate)
   const end = formatPartialDate(item.endDate)
@@ -332,9 +344,11 @@ function DetailsSection({ item }: { item: DbInventoryItem }) {
  */
 function DetailFooter({
   item,
+  store,
   onAddToCv,
 }: {
   item: DbInventoryItem
+  store: InventoryStore
   onAddToCv: () => void
 }) {
   // Mirrors the row's star. `toggleFavorite` mutates the shared row, so this
@@ -366,7 +380,10 @@ function DetailFooter({
                 Add to CV
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setFavorite(toggleFavorite(item.id))}
+                onClick={async () => {
+                  const next = await toggleFavorite(store, item.id)
+                  setFavorite(next)
+                }}
               >
                 <StarIcon className={favorite ? "fill-current" : undefined} />
                 {favorite ? "Remove from favourites" : "Favourite"}
@@ -405,9 +422,11 @@ function DetailFooter({
 function UsageList({
   item,
   usage,
+  store,
 }: {
   item: DbInventoryItem
   usage: ItemUsage[]
+  store: InventoryStore
 }) {
   if (usage.length === 0) {
     return (
@@ -435,7 +454,7 @@ function UsageList({
               {entrySelected
                 ? "Entry included"
                 : "Bullets only — entry not selected"}
-              {describeSelection(item, lineIds)}
+              {describeSelection(store, item, lineIds)}
             </ItemDescription>
           </ItemContent>
           <ItemActions>
@@ -454,11 +473,15 @@ function UsageList({
  * different things — a combined "5 of 8" told you a number and nothing else,
  * and used the database's word for them.
  */
-function describeSelection(item: DbInventoryItem, lineIds: string[]) {
+function describeSelection(
+  store: InventoryStore,
+  item: DbInventoryItem,
+  lineIds: string[]
+) {
   const chosen = new Set(lineIds)
 
   const parts = LINE_ORDER.flatMap((kind) => {
-    const total = allLinesOf(item.id).filter(
+    const total = allLinesOf(store, item.id).filter(
       (line) => line.listKind === kind
     ).length
 
@@ -466,7 +489,7 @@ function describeSelection(item: DbInventoryItem, lineIds: string[]) {
       return []
     }
 
-    const taken = allLinesOf(item.id).filter(
+    const taken = allLinesOf(store, item.id).filter(
       (line) => line.listKind === kind && chosen.has(line.id)
     ).length
 

@@ -14,7 +14,8 @@ import {
   useComboboxAnchor,
 } from "@/components/ui/combobox"
 import { Field, FieldError } from "@/components/ui/field"
-import { createTag, listTags, validateTagName } from "@/mocks/tags"
+import { createTag, listTags, validateTagName } from "@/lib/tags"
+import { useInventoryStore } from "@/lib/inventory-store"
 
 /** Enough to pick from without turning the popup into a second list to read. */
 const MAX_SUGGESTIONS = 5
@@ -38,12 +39,14 @@ export function TagInput({
   onValueChange: (tags: string[]) => void
   id?: string
 }) {
+  const store = useInventoryStore()
   const anchor = useComboboxAnchor()
   const [input, setInput] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   // Recomputed every render (not memoized) so a tag created via Enter below
-  // shows up in `registry` immediately — `listTags()` itself isn't reactive.
-  const registry = listTags().map((tag) => tag.name)
+  // shows up in `registry` immediately — `store.tags` updates trigger this
+  // component's own re-render.
+  const registry = listTags(store).map((tag) => tag.name)
 
   // Prefix match, not substring: typing "back" is how you reach for a tag you
   // already know the start of, and substring matches would put `feedback` in
@@ -59,7 +62,7 @@ export function TagInput({
   // Enter with no matching suggestion registers what's typed as a new tag
   // instead of doing nothing — the combobox itself only acts on a
   // highlighted item, and there isn't one when the list is empty.
-  function createFromInput(event: React.KeyboardEvent<HTMLInputElement>) {
+  async function createFromInput(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key !== "Enter" || suggestions.length > 0) {
       return
     }
@@ -68,14 +71,14 @@ export function TagInput({
       return
     }
 
-    const problem = validateTagName(input)
+    const problem = validateTagName(input, store.tags)
 
     if (problem) {
       setError(problem)
       return
     }
 
-    const name = createTag(input)
+    const name = await createTag(store, input)
     onValueChange([...value, name])
     setInput("")
     setError(null)

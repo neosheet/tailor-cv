@@ -1,4 +1,4 @@
-import type { TagUsage } from "@/mocks/tags"
+import type { TagUsage } from "@/lib/tags"
 
 /**
  * How a tag's usage reads, shared between the tag table and the dialogs that act
