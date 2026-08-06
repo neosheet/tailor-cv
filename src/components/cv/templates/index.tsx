@@ -1,3 +1,4 @@
+import { TemplateNodeRenderer } from "@/components/cv/template-node-renderer"
 import { cvTemplates } from "@/lib/cv-templates"
 import type { ResumeDocument } from "@/mocks/cv"
 
@@ -11,9 +12,9 @@ import type { ResumeDocument } from "@/mocks/cv"
  * the first is always a valid answer, and reordering the list moves the default
  * with it.
  *
- * Rendering `<template.component>` off the entry keeps `cvTemplates` the single
- * source of truth: no switch to fall out of sync, and no component assigned to a
- * local during render.
+ * Rendering via `TemplateNodeRenderer` off the entry's `definition` keeps
+ * `cvTemplates` the single source of truth: no switch to fall out of sync, and
+ * no component assigned to a local during render.
  */
 export function TemplateRender({
   templateId,
@@ -26,5 +27,7 @@ export function TemplateRender({
     cvTemplates.find((candidate) => candidate.id === templateId) ??
     cvTemplates[0]
 
-  return <template.component document={document} />
+  return (
+    <TemplateNodeRenderer definition={template.definition} context={document} />
+  )
 }

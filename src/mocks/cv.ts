@@ -205,6 +205,12 @@ export type ResumeEntry = {
   lineGroups: ResumeLineGroup[]
   /** Titles of the skills this entry used, already resolved. */
   skills: string[]
+  /** The entry's section kind, denormalized so a template can branch on it without reaching into an ancestor scope. */
+  kind: ItemKind
+  /** Pre-formatted date range ("Jan 2020 – Present"), or a single date for award/certificate/publication kinds. */
+  dateRangeText: string | null
+  /** The entry's "keywords" line group items, if any — the skill entry's inline keyword suffix. */
+  keywords: string[]
 }
 
 export type ResumeSection = {
@@ -228,6 +234,8 @@ export type ResumeDocument = {
   location: string | null
   socials: { network: string; username: string | null; url: string | null }[]
   sections: ResumeSection[]
+  /** Contact line, pre-assembled: email, phone, location, url, then each social — blanks already dropped. */
+  contactParts: string[]
 }
 
 /** Basics pools become the header block, not sections. */
@@ -262,6 +270,61 @@ const LINE_ORDER: LineKind[] = [
   "roles",
 ]
 
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+]
+
+/**
+ * Partial ISO dates — `2014`, `2014-06`, `2014-06-29` — rendered readably.
+ * Duplicated from `components/inventory/columns.tsx` rather than imported,
+ * since that module imports `cvUsageCount` from here — importing back would
+ * be a circular value dependency between the two.
+ */
+function formatPartialDate(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  const [year, month, day] = value.split("-")
+  if (!month) {
+    return year
+  }
+
+  const name = MONTHS[Number(month) - 1] ?? month
+  return day ? `${Number(day)} ${name} ${year}` : `${name} ${year}`
+}
+
+/** Kinds where a null `end_date` means "single date", not "ongoing". */
+const SINGLE_DATE_KINDS: ItemKind[] = ["award", "certificate", "publication"]
+
+function formatEntryDates(
+  startDate: string | null,
+  endDate: string | null,
+  kind: ItemKind
+): string | null {
+  const start = formatPartialDate(startDate)
+  if (!start) {
+    return null
+  }
+
+  if (SINGLE_DATE_KINDS.includes(kind)) {
+    return start
+  }
+
+  return `${start} – ${formatPartialDate(endDate) ?? "Present"}`
+}
+
 /**
  * Resolves one CV into the flat, ordered shape a template renders.
  *
@@ -291,6 +354,13 @@ export function buildResumeDocument(cvId: string): ResumeDocument {
   const nameItem = firstIn("name")
   const contactItem = firstIn("contact")
   const locationItem = firstIn("location")
+  const contact = contactItem ? contactDetails(contactItem) : null
+  const location = locationItem ? formatLocation(locationItem) : null
+  const socials = selectedIn("social").map((item) => ({
+    network: item.title,
+    username: item.subtitle,
+    url: item.url,
+  }))
 
   const sections = cvDb.cvSections
     .filter((row) => row.cvId === cvId && !HEADER_KINDS.includes(row.kind))
@@ -298,7 +368,9 @@ export function buildResumeDocument(cvId: string): ResumeDocument {
     .map((row) => ({
       kind: row.kind,
       heading: SECTION_HEADING[row.kind] ?? row.kind,
-      entries: selectedIn(row.kind).map((item) => toEntry(cvId, item)),
+      entries: selectedIn(row.kind).map((item) =>
+        toEntry(cvId, item, row.kind)
+      ),
     }))
     // A section whose every entry was deleted still has a row; printing a bare
     // heading would be worse than omitting it. See spec 03.
@@ -310,30 +382,39 @@ export function buildResumeDocument(cvId: string): ResumeDocument {
     name: nameItem?.title ?? "",
     headline: firstIn("headline")?.title ?? null,
     summary: firstIn("summary")?.summary ?? null,
-    contact: contactItem ? contactDetails(contactItem) : null,
-    location: locationItem ? formatLocation(locationItem) : null,
-    socials: selectedIn("social").map((item) => ({
-      network: item.title,
-      username: item.subtitle,
-      url: item.url,
-    })),
+    contact,
+    location,
+    socials,
     sections,
+    contactParts: [
+      contact?.email,
+      contact?.phone,
+      location,
+      contact?.url?.replace(/^https?:\/\//, ""),
+      ...socials.map(
+        (social) => social.url?.replace(/^https?:\/\//, "") ?? social.network
+      ),
+    ].filter((part): part is string => Boolean(part)),
   }
 }
 
-function toEntry(cvId: string, item: DbInventoryItem): ResumeEntry {
+function toEntry(
+  cvId: string,
+  item: DbInventoryItem,
+  kind: ItemKind
+): ResumeEntry {
   const chosen = new Set(
     cvDb.cvLines
       .filter((row) => row.cvId === cvId && row.itemId === item.id)
       .map((row) => row.lineId)
   )
 
-  const lineGroups = LINE_ORDER.flatMap((kind) => {
-    const items = linesOf(item.id, kind)
+  const lineGroups = LINE_ORDER.flatMap((lineKind) => {
+    const items = linesOf(item.id, lineKind)
       .filter((line) => chosen.has(line.id))
       .map((line) => line.content)
 
-    return items.length > 0 ? [{ kind, items }] : []
+    return items.length > 0 ? [{ kind: lineKind, items }] : []
   })
 
   return {
@@ -347,5 +428,8 @@ function toEntry(cvId: string, item: DbInventoryItem): ResumeEntry {
     details: item.details,
     lineGroups,
     skills: skillsOf(item.id).map((skill) => skill.title),
+    kind,
+    dateRangeText: formatEntryDates(item.startDate, item.endDate, kind),
+    keywords: lineGroups.find((g) => g.kind === "keywords")?.items ?? [],
   }
 }
