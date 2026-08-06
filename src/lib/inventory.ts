@@ -1,11 +1,12 @@
 import { Constants } from "@/lib/database.types"
 import type { Json } from "@/lib/database.types"
-import { mapItemRow } from "@/lib/inventory-store"
+import { mapItemRow, mapLineRow, mapItemSkillRow } from "@/lib/inventory-store"
 import type { InventoryData, InventoryStore } from "@/lib/inventory-store"
 import { supabase } from "@/lib/supabase"
 import type {
   DbInventoryItem,
   DbInventoryLine,
+  DbItemSkill,
   ItemKind,
   LineKind,
 } from "@/mocks/types"
@@ -141,13 +142,13 @@ export const BASICS_KINDS = [
 export type BasicsKind = (typeof BASICS_KINDS)[number]
 
 /**
- * The writable subset of `DbInventoryItem` a Basics form submits.
+ * The writable subset of `DbInventoryItem` an item form submits.
  *
- * Leaves out everything a Basics form never edits: `id`, `userId`, `kind`,
- * `startDate`/`endDate`, `yearsExperience`, `favorite`, `position`, and the
- * timestamps — those are either fixed at creation or owned by other UI.
+ * Leaves out everything no pool's form edits directly: `id`, `userId`,
+ * `kind`, `favorite`, `position`, and the timestamps — those are either
+ * fixed at creation or owned by other UI.
  */
-export type BasicsItemInput = {
+export type ItemInput = {
   title: string
   subtitle?: string | null
   summary?: string | null
@@ -155,6 +156,9 @@ export type BasicsItemInput = {
   details?: Record<string, unknown>
   tags?: string[]
   note?: string | null
+  startDate?: string | null
+  endDate?: string | null
+  yearsExperience?: number | null
 }
 
 export type ContactDetails = {
@@ -243,7 +247,7 @@ function requireUserId(store: InventoryStore): string {
 export async function createItem(
   store: InventoryStore,
   kind: ItemKind,
-  input: BasicsItemInput
+  input: ItemInput
 ): Promise<DbInventoryItem> {
   const userId = requireUserId(store)
   const tags = input.tags ?? []
@@ -261,6 +265,9 @@ export async function createItem(
       details: (input.details ?? {}) as unknown as Json,
       tags,
       note: input.note ?? null,
+      start_date: input.startDate ?? null,
+      end_date: input.endDate ?? null,
+      years_experience: input.yearsExperience ?? null,
       position: itemsOfKind(store, kind).length,
     })
     .select()
@@ -278,7 +285,7 @@ export async function createItem(
 export async function updateItem(
   store: InventoryStore,
   itemId: string,
-  patch: BasicsItemInput
+  patch: ItemInput
 ): Promise<DbInventoryItem> {
   if (patch.tags) {
     assertTagsRegistered(store, patch.tags)
@@ -296,6 +303,13 @@ export async function updateItem(
         : {}),
       ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
       ...(patch.note !== undefined ? { note: patch.note } : {}),
+      ...(patch.startDate !== undefined
+        ? { start_date: patch.startDate }
+        : {}),
+      ...(patch.endDate !== undefined ? { end_date: patch.endDate } : {}),
+      ...(patch.yearsExperience !== undefined
+        ? { years_experience: patch.yearsExperience }
+        : {}),
     })
     .eq("id", itemId)
     .select()
@@ -356,4 +370,131 @@ export async function toggleFavorite(
   )
 
   return updated.favorite
+}
+
+/** Adds a new row to one entry's nested list and returns it. */
+export async function createLine(
+  store: InventoryStore,
+  itemId: string,
+  listKind: LineKind,
+  input: { content: string; tags?: string[]; note?: string | null }
+): Promise<DbInventoryLine> {
+  const tags = input.tags ?? []
+  assertTagsRegistered(store, tags)
+
+  const { data, error } = await supabase
+    .from("inventory_lines")
+    .insert({
+      item_id: itemId,
+      list_kind: listKind,
+      content: input.content,
+      tags,
+      note: input.note ?? null,
+      position: linesOf(store, itemId, listKind).length,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const line = mapLineRow(data)
+  store.setLines((current) => [...current, line])
+
+  return line
+}
+
+/** Merges a patch onto an existing line and returns it. */
+export async function updateLine(
+  store: InventoryStore,
+  lineId: string,
+  patch: {
+    content?: string
+    tags?: string[]
+    note?: string | null
+    position?: number
+  }
+): Promise<DbInventoryLine> {
+  if (patch.tags) {
+    assertTagsRegistered(store, patch.tags)
+  }
+
+  const { data, error } = await supabase
+    .from("inventory_lines")
+    .update({
+      ...(patch.content !== undefined ? { content: patch.content } : {}),
+      ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
+      ...(patch.note !== undefined ? { note: patch.note } : {}),
+      ...(patch.position !== undefined ? { position: patch.position } : {}),
+    })
+    .eq("id", lineId)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const line = mapLineRow(data)
+  store.setLines((current) =>
+    current.map((existing) => (existing.id === lineId ? line : existing))
+  )
+
+  return line
+}
+
+/** Removes a row from its nested list — a hard delete, matching the schema. */
+export async function deleteLine(
+  store: InventoryStore,
+  lineId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("inventory_lines")
+    .delete()
+    .eq("id", lineId)
+
+  if (error) throw error
+
+  store.setLines((current) => current.filter((line) => line.id !== lineId))
+}
+
+/**
+ * Full-replaces one entry's skill links — deletes every existing link for
+ * `itemId` and inserts fresh rows from `skillIds`, in order. Not an
+ * incremental diff: there's no reorder-in-place UI for this list (just
+ * add/remove + save), and `item_skills` has no soft-delete semantics to
+ * preserve.
+ */
+export async function replaceItemSkills(
+  store: InventoryStore,
+  itemId: string,
+  skillIds: string[]
+): Promise<void> {
+  const { error: deleteError } = await supabase
+    .from("item_skills")
+    .delete()
+    .eq("item_id", itemId)
+
+  if (deleteError) throw deleteError
+
+  let inserted: DbItemSkill[] = []
+
+  if (skillIds.length > 0) {
+    const { data, error: insertError } = await supabase
+      .from("item_skills")
+      .insert(
+        skillIds.map((skillId, position) => ({
+          item_id: itemId,
+          skill_id: skillId,
+          position,
+        }))
+      )
+      .select()
+
+    if (insertError) throw insertError
+
+    inserted = (data ?? []).map(mapItemSkillRow)
+  }
+
+  store.setItemSkills((current) => [
+    ...current.filter((link) => link.itemId !== itemId),
+    ...inserted,
+  ])
 }

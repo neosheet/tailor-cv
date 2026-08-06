@@ -49,7 +49,7 @@ import { TagInput } from "@/components/inventory/tag-input"
 import {
   createItem,
   updateItem,
-  type BasicsItemInput,
+  type ItemInput,
   type BasicsKind,
   type DbInventoryItem,
 } from "@/lib/inventory"
@@ -166,8 +166,8 @@ function normalize(value: string): string | null {
   return trimmed === "" ? null : trimmed
 }
 
-/** Maps the flat form state back onto `BasicsItemInput`, `details` included. */
-function buildInput(fields: FieldConfig[], state: FormState): BasicsItemInput {
+/** Maps the flat form state back onto `ItemInput`, `details` included. */
+function buildInput(fields: FieldConfig[], state: FormState): ItemInput {
   const has = (key: FieldKey) => fields.some((field) => field.key === key)
 
   const details: Record<string, unknown> = {}
