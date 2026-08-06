@@ -27,18 +27,17 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useTheme } from "@/components/theme-provider"
+import { useAuth } from "@/lib/auth-context"
 import { sections } from "@/lib/navigation"
-
-/** Placeholder identity — replaced once Supabase auth lands. */
-const placeholderUser = {
-  name: "Signed-out preview",
-  email: "no account yet",
-  initials: "TC",
-}
+import { supabase } from "@/lib/supabase"
 
 export function UserMenu() {
   const { isMobile } = useSidebar()
   const { theme, setTheme } = useTheme()
+  const { session } = useAuth()
+
+  const email = session?.user.email ?? "Signed out"
+  const initials = email.slice(0, 2).toUpperCase()
 
   return (
     <SidebarMenu>
@@ -47,20 +46,13 @@ export function UserMenu() {
           <SidebarMenuButton
             size="lg"
             render={<DropdownMenuTrigger />}
-            tooltip={placeholderUser.name}
+            tooltip={email}
           >
             <Avatar className="size-8 rounded-lg">
-              <AvatarFallback className="rounded-lg">
-                {placeholderUser.initials}
-              </AvatarFallback>
+              <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex min-w-0 flex-col text-left group-data-[collapsible=icon]:hidden">
-              <span className="truncate text-sm font-medium">
-                {placeholderUser.name}
-              </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {placeholderUser.email}
-              </span>
+              <span className="truncate text-sm font-medium">{email}</span>
             </div>
             <ChevronsUpDownIcon className="ml-auto group-data-[collapsible=icon]:hidden" />
           </SidebarMenuButton>
@@ -70,7 +62,7 @@ export function UserMenu() {
             align="end"
           >
             <DropdownMenuGroup>
-              <DropdownMenuLabel>{placeholderUser.name}</DropdownMenuLabel>
+              <DropdownMenuLabel>{email}</DropdownMenuLabel>
               <DropdownMenuItem
                 render={<Link to={sections.settings.path} />}
                 nativeButton={false}
@@ -102,7 +94,7 @@ export function UserMenu() {
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem disabled>
+              <DropdownMenuItem onClick={() => supabase.auth.signOut()}>
                 <LogOutIcon />
                 Sign out
               </DropdownMenuItem>
