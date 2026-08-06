@@ -208,6 +208,7 @@ const KIND_FIELDS: Record<Exclude<ItemKind, "work">, FieldConfig[]> = {
   ],
   reference: [
     { key: "title", label: "Name", icon: UserIcon },
+    { key: "subtitle", label: "Role", icon: BriefcaseIcon },
     { key: "summary", label: "Reference", kind: "multiline", icon: QuoteIcon },
   ],
 }
@@ -326,21 +327,27 @@ function buildInput(fields: FieldConfig[], state: FormState): ItemInput {
   if (has("entity")) details.entity = normalize(state.entity)
   if (has("type")) details.type = normalize(state.type)
 
+  // Fields this kind doesn't configure stay `undefined`, not `null` — an
+  // omitted key leaves the existing DB column untouched (see `updateItem`'s
+  // merge-patch pattern). A kind's field config can be a strict subset of
+  // what the column has ever held (e.g. `reference.subtitle` predates this
+  // form and isn't in every kind's config), and defaulting the unconfigured
+  // case to `null` would silently wipe that data on the first edit.
   return {
     title: state.title.trim(),
-    subtitle: has("subtitle") ? normalize(state.subtitle) : null,
-    summary: has("summary") ? normalize(state.summary) : null,
-    url: has("url") ? normalize(state.url) : null,
+    subtitle: has("subtitle") ? normalize(state.subtitle) : undefined,
+    summary: has("summary") ? normalize(state.summary) : undefined,
+    url: has("url") ? normalize(state.url) : undefined,
     details,
     tags: state.tags,
     note: state.note,
-    startDate: has("startDate") ? normalize(state.startDate) : null,
-    endDate: has("endDate") ? normalize(state.endDate) : null,
+    startDate: has("startDate") ? normalize(state.startDate) : undefined,
+    endDate: has("endDate") ? normalize(state.endDate) : undefined,
     yearsExperience: has("yearsExperience")
       ? normalize(state.yearsExperience) === null
         ? null
         : Number(state.yearsExperience)
-      : null,
+      : undefined,
   }
 }
 
