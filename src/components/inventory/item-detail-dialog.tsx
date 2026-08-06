@@ -102,6 +102,7 @@ export function ItemDetailDialog({
   focusUsage = false,
   onClose,
   onEditRow,
+  onRequestDelete,
 }: {
   /** Null closes the dialog — one instance serves the whole table. */
   item: DbInventoryItem | null
@@ -110,6 +111,8 @@ export function ItemDetailDialog({
   onClose: () => void
   /** Present only for pools with a form config; absent leaves Edit disabled. */
   onEditRow?: (item: DbInventoryItem) => void
+  /** Present only for pools with a form config; absent leaves Delete disabled. */
+  onRequestDelete?: (item: DbInventoryItem) => void
 }) {
   return (
     <Dialog
@@ -128,6 +131,7 @@ export function ItemDetailDialog({
             item={item}
             focusUsage={focusUsage}
             onEditRow={onEditRow}
+            onRequestDelete={onRequestDelete}
           />
         ) : null}
       </DialogContent>
@@ -139,10 +143,12 @@ function DetailBody({
   item,
   focusUsage,
   onEditRow,
+  onRequestDelete,
 }: {
   item: DbInventoryItem
   focusUsage: boolean
   onEditRow?: (item: DbInventoryItem) => void
+  onRequestDelete?: (item: DbInventoryItem) => void
 }) {
   const store = useInventoryStore()
   const usage = cvsUsingItem(item.id)
@@ -193,7 +199,12 @@ function DetailBody({
         ) : null}
       </DialogBody>
 
-      <DetailFooter item={item} store={store} onEditRow={onEditRow} />
+      <DetailFooter
+        item={item}
+        store={store}
+        onEditRow={onEditRow}
+        onRequestDelete={onRequestDelete}
+      />
     </>
   )
 }
@@ -315,10 +326,12 @@ function DetailFooter({
   item,
   store,
   onEditRow,
+  onRequestDelete,
 }: {
   item: DbInventoryItem
   store: InventoryStore
   onEditRow?: (item: DbInventoryItem) => void
+  onRequestDelete?: (item: DbInventoryItem) => void
 }) {
   // Mirrors the row's star. `toggleFavorite` mutates the shared row, so this
   // state exists only to re-render — both surfaces read the same object.
@@ -372,7 +385,11 @@ function DetailFooter({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem variant="destructive" disabled>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={!onRequestDelete}
+                onClick={() => onRequestDelete?.(item)}
+              >
                 <Trash2Icon />
                 Delete
               </DropdownMenuItem>

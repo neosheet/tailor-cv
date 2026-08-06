@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
-import { BasicsItemDialog } from "@/components/inventory/basics-item-dialog"
+import { ItemDialog } from "@/components/inventory/item-dialog"
 import { PoolTable, type PoolColumn } from "@/components/inventory/pool-table"
 import { TagFilter } from "@/components/inventory/tag-filter"
 import { useSessionState } from "@/hooks/use-session-state"
@@ -27,7 +27,6 @@ import {
   byFavouriteThenPosition,
   deleteItem,
   toggleFavorite,
-  type BasicsKind,
   type DbInventoryItem,
   type ItemKind,
 } from "@/lib/inventory"
@@ -105,11 +104,10 @@ export function PoolPanel({
   columns: PoolColumn[]
   rows: DbInventoryItem[]
   /**
-   * Which Basics kind's add/edit form to use. Only Basics pools set this
-   * today — every other pool leaves it undefined and keeps the disabled
-   * Add/Edit/Delete controls exactly as before.
+   * Which kind's add/edit form to use. Pools with no config leave it
+   * undefined and keep the disabled Add/Edit/Delete controls.
    */
-  formKind?: BasicsKind
+  formKind?: Exclude<ItemKind, "work">
   /**
    * Called after a successful create/update/delete so the parent re-reads
    * `itemsOfKind()` and passes a fresh `rows` array — add/delete change the
@@ -235,7 +233,7 @@ export function PoolPanel({
       </div>
 
       {formKind ? (
-        <BasicsItemDialog
+        <ItemDialog
           kind={formKind}
           mode={dialog?.mode ?? "add"}
           item={dialog?.item}

@@ -111,6 +111,15 @@ export function PoolTable({
       }
     : undefined
 
+  // Same close-before-handoff pattern as `handleEditRow`, so Delete triggered
+  // from inside the detail view doesn't leave it open behind the confirm dialog.
+  const handleRequestDelete = onRequestDelete
+    ? (item: DbInventoryItem) => {
+        setDetail(null)
+        onRequestDelete(item)
+      }
+    : undefined
+
   return (
     <>
       <Table>
@@ -205,6 +214,7 @@ export function PoolTable({
         focusUsage={detail?.focusUsage ?? false}
         onClose={() => setDetail(null)}
         onEditRow={handleEditRow}
+        onRequestDelete={handleRequestDelete}
       />
     </>
   )
