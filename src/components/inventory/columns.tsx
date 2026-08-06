@@ -130,6 +130,24 @@ const LINE_LABEL: Record<LineKind, [singular: string, plural: string]> = {
   roles: ["role", "roles"],
 }
 
+/** Section headings for a line kind, shared by the detail view and item form. */
+export const LINE_HEADING: Record<LineKind, string> = {
+  responsibilities: "Responsibilities",
+  highlights: "Highlights",
+  courses: "Courses",
+  keywords: "Keywords",
+  roles: "Roles",
+}
+
+/** Order lists appear in, so a dialog reads the same way every time. */
+export const LINE_ORDER: LineKind[] = [
+  "responsibilities",
+  "highlights",
+  "courses",
+  "keywords",
+  "roles",
+]
+
 /**
  * A summary of an entry's nested lists — "6 highlights · 4 responsibilities".
  * Counts rather than content: the lines themselves belong in the detail view,

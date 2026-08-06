@@ -36,14 +36,17 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { Separator } from "@/components/ui/separator"
-import { formatPartialDate } from "@/components/inventory/columns"
+import {
+  formatPartialDate,
+  LINE_HEADING,
+  LINE_ORDER,
+} from "@/components/inventory/columns"
 import {
   allLinesOf,
   skillsOf,
   toggleFavorite,
   type DbInventoryItem,
   type ItemKind,
-  type LineKind,
 } from "@/lib/inventory"
 import { useInventoryStore, type InventoryStore } from "@/lib/inventory-store"
 import { cvsUsingItem, type ItemUsage } from "@/mocks/cv"
@@ -70,23 +73,6 @@ const FIELD_LABELS: Partial<Record<ItemKind, Partial<FieldLabels>>> = {
   project: { summary: "Description" },
   reference: { summary: "Reference" },
 }
-
-const LINE_HEADING: Record<LineKind, string> = {
-  responsibilities: "Responsibilities",
-  highlights: "Highlights",
-  courses: "Courses",
-  keywords: "Keywords",
-  roles: "Roles",
-}
-
-/** Order lists appear in, so a dialog reads the same way every time. */
-const LINE_ORDER: LineKind[] = [
-  "responsibilities",
-  "highlights",
-  "courses",
-  "keywords",
-  "roles",
-]
 
 function Field({
   label,
