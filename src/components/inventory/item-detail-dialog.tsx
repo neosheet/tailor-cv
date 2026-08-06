@@ -3,7 +3,7 @@ import {
   Code,
   CopyIcon,
   Ellipsis,
-  FilePlus2Icon,
+  PencilIcon,
   StarIcon,
   Trash2Icon,
 } from "lucide-react"
@@ -18,7 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { AddToCvDialog } from "@/components/inventory/add-to-cv-dialog"
 import {
   Dialog,
   DialogBody,
@@ -52,39 +51,24 @@ import { cvsUsingItem, type ItemUsage } from "@/mocks/cv"
 /**
  * Every field on one entry, read-only.
  *
- * Built against the shared item shape rather than per pool, so it works for any
- * `kind`. Only the field *labels* differ — a `title` is a company on Work and an
- * institution on Education — which is what `FIELD_LABELS` carries.
+ * Title and subtitle already appear in the dialog header, so the body only
+ * needs the *other* fields — and the summary's label is the one that still
+ * varies by `kind` (a company's is "Description", a reference's "Reference").
  */
 
 type FieldLabels = {
-  title: string
-  subtitle: string
   summary: string
 }
 
 const DEFAULT_LABELS: FieldLabels = {
-  title: "Title",
-  subtitle: "Subtitle",
   summary: "Summary",
 }
 
 const FIELD_LABELS: Partial<Record<ItemKind, Partial<FieldLabels>>> = {
-  work: { title: "Company", subtitle: "Position", summary: "Description" },
-  volunteer: {
-    title: "Organisation",
-    subtitle: "Position",
-    summary: "Description",
-  },
-  education: { title: "Institution", subtitle: "Area" },
-  skill: { title: "Skill", subtitle: "Level" },
-  project: { title: "Project", summary: "Description" },
-  award: { title: "Award", subtitle: "Awarder" },
-  certificate: { title: "Certificate", subtitle: "Issuer" },
-  publication: { title: "Publication", subtitle: "Publisher" },
-  language: { title: "Language", subtitle: "Fluency" },
-  interest: { title: "Interest" },
-  reference: { title: "Name", subtitle: "Role", summary: "Reference" },
+  work: { summary: "Description" },
+  volunteer: { summary: "Description" },
+  project: { summary: "Description" },
+  reference: { summary: "Reference" },
 }
 
 const LINE_HEADING: Record<LineKind, string> = {
@@ -131,12 +115,15 @@ export function ItemDetailDialog({
   item,
   focusUsage = false,
   onClose,
+  onEditRow,
 }: {
   /** Null closes the dialog — one instance serves the whole table. */
   item: DbInventoryItem | null
   /** Opened from the In-CVs count: scroll to that section rather than the top. */
   focusUsage?: boolean
   onClose: () => void
+  /** Present only for pools with a form config; absent leaves Edit disabled. */
+  onEditRow?: (item: DbInventoryItem) => void
 }) {
   return (
     <Dialog
@@ -150,7 +137,12 @@ export function ItemDetailDialog({
       <DialogContent className="max-h-[85vh] gap-0 sm:max-w-2xl">
         {/* Keyed on the item so each row opens fresh, scrolled to the top. */}
         {item ? (
-          <DetailBody key={item.id} item={item} focusUsage={focusUsage} />
+          <DetailBody
+            key={item.id}
+            item={item}
+            focusUsage={focusUsage}
+            onEditRow={onEditRow}
+          />
         ) : null}
       </DialogContent>
     </Dialog>
@@ -160,14 +152,15 @@ export function ItemDetailDialog({
 function DetailBody({
   item,
   focusUsage,
+  onEditRow,
 }: {
   item: DbInventoryItem
   focusUsage: boolean
+  onEditRow?: (item: DbInventoryItem) => void
 }) {
   const store = useInventoryStore()
   const usage = cvsUsingItem(item.id)
   const usageRef = React.useRef<HTMLElement>(null)
-  const [addingToCv, setAddingToCv] = React.useState(false)
 
   // Opened from the count, so bring that section into view. A DOM side effect,
   // which is what an effect is actually for.
@@ -180,7 +173,7 @@ function DetailBody({
   return (
     <>
       <DialogHeader className="pb-4">
-        <DialogTitle>{item.title}</DialogTitle>
+        <DialogTitle className="text-3xl font-bold">{item.title}</DialogTitle>
         {item.subtitle ? (
           <DialogDescription>{item.subtitle}</DialogDescription>
         ) : (
@@ -214,17 +207,7 @@ function DetailBody({
         ) : null}
       </DialogBody>
 
-      <DetailFooter
-        item={item}
-        store={store}
-        onAddToCv={() => setAddingToCv(true)}
-      />
-
-      <AddToCvDialog
-        item={item}
-        open={addingToCv}
-        onClose={() => setAddingToCv(false)}
-      />
+      <DetailFooter item={item} store={store} onEditRow={onEditRow} />
     </>
   )
 }
@@ -247,8 +230,8 @@ function DetailsSection({
   return (
     <>
       <dl className="flex flex-col gap-3">
-        <TextField label={labels.title} value={item.title} />
-        <TextField label={labels.subtitle} value={item.subtitle} />
+        {/* Title and subtitle are already shown in the dialog header — repeating
+          them here would just echo what the user is looking at. */}
         {dates ? <Field label="Dates">{dates}</Field> : null}
         <TextField label={labels.summary} value={item.summary} />
         {item.yearsExperience !== null ? (
@@ -345,11 +328,11 @@ function DetailsSection({
 function DetailFooter({
   item,
   store,
-  onAddToCv,
+  onEditRow,
 }: {
   item: DbInventoryItem
   store: InventoryStore
-  onAddToCv: () => void
+  onEditRow?: (item: DbInventoryItem) => void
 }) {
   // Mirrors the row's star. `toggleFavorite` mutates the shared row, so this
   // state exists only to re-render — both surfaces read the same object.
@@ -375,9 +358,12 @@ function DetailFooter({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={onAddToCv}>
-                <FilePlus2Icon />
-                Add to CV
+              <DropdownMenuItem
+                disabled={!onEditRow}
+                onClick={() => onEditRow?.(item)}
+              >
+                <PencilIcon />
+                Edit
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={async () => {

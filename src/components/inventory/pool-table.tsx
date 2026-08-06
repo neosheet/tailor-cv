@@ -102,6 +102,15 @@ export function PoolTable({
     openUsage: () => setDetail({ item, focusUsage: true }),
   })
 
+  // Closes the detail dialog before handing off to the edit form, so the two
+  // never stack when Edit is triggered from inside the detail view.
+  const handleEditRow = onEditRow
+    ? (item: DbInventoryItem) => {
+        setDetail(null)
+        onEditRow(item)
+      }
+    : undefined
+
   return (
     <>
       <Table>
@@ -195,6 +204,7 @@ export function PoolTable({
         item={detail?.item ?? null}
         focusUsage={detail?.focusUsage ?? false}
         onClose={() => setDetail(null)}
+        onEditRow={handleEditRow}
       />
     </>
   )
