@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Seed script credentials — never commit, copy from .env.seed.example
+.env.seed
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
