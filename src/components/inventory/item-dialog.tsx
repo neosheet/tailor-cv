@@ -507,6 +507,66 @@ function ItemForm({
     setState((prev) => ({ ...prev, [key]: value }))
   }
 
+  function renderField(field: FieldConfig) {
+    const fieldId = `item-${field.key}`
+    const titleFieldInvalid = field.key === "title" && titleInvalid
+    const endDateFieldInvalid = field.key === "endDate" && dateRangeInvalid
+    const invalid = titleFieldInvalid || endDateFieldInvalid
+
+    if (field.kind === "date") {
+      return (
+        <Field key={field.key} data-invalid={invalid ? true : undefined}>
+          <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
+          <PartialDatePicker
+            id={fieldId}
+            value={state[field.key] || null}
+            onValueChange={(iso) => setField(field.key, iso ?? "")}
+          />
+          {endDateFieldInvalid ? (
+            <FieldError>End date can't be before start date.</FieldError>
+          ) : null}
+        </Field>
+      )
+    }
+
+    return (
+      <Field key={field.key} data-invalid={invalid ? true : undefined}>
+        <FieldLabel htmlFor={fieldId} className="sr-only">
+          {field.label}
+        </FieldLabel>
+        <InputGroup>
+          {field.kind === "multiline" ? (
+            <>
+              <InputGroupAddon align="block-start">
+                <field.icon />
+                <InputGroupText>{field.label}</InputGroupText>
+              </InputGroupAddon>
+              <InputGroupTextarea
+                id={fieldId}
+                value={state[field.key]}
+                onChange={(event) => setField(field.key, event.target.value)}
+              />
+            </>
+          ) : (
+            <>
+              <InputGroupAddon>
+                <field.icon />
+              </InputGroupAddon>
+              <InputGroupInput
+                id={fieldId}
+                type={field.kind === "number" ? "number" : "text"}
+                placeholder={field.label}
+                value={state[field.key]}
+                aria-invalid={invalid ? true : undefined}
+                onChange={(event) => setField(field.key, event.target.value)}
+              />
+            </>
+          )}
+        </InputGroup>
+      </Field>
+    )
+  }
+
   async function handleSave() {
     if (!canSave) {
       return
@@ -575,71 +635,32 @@ function ItemForm({
         </DialogTitle>
       </DialogHeader>
 
-      <DialogBody className="flex flex-col gap-4">
+      <DialogBody className="flex flex-col gap-4 pt-2 -mb-4">
         <FieldGroup>
-          {fields.map((field) => {
-            const fieldId = `item-${field.key}`
-            const titleFieldInvalid = field.key === "title" && titleInvalid
-            const endDateFieldInvalid =
-              field.key === "endDate" && dateRangeInvalid
-            const invalid = titleFieldInvalid || endDateFieldInvalid
+          {fields.map((field, index) => {
+            // Start/end dates render together in one row rather than as two
+            // stacked fields — `renderField` on both, `endDate` skipped on
+            // its own turn since the `startDate` pass already emitted it.
+            if (
+              field.key === "endDate" &&
+              fields[index - 1]?.key === "startDate"
+            ) {
+              return null
+            }
 
-            if (field.kind === "date") {
+            if (
+              field.key === "startDate" &&
+              fields[index + 1]?.key === "endDate"
+            ) {
               return (
-                <Field key={field.key} data-invalid={invalid ? true : undefined}>
-                  <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
-                  <PartialDatePicker
-                    id={fieldId}
-                    value={state[field.key] || null}
-                    onValueChange={(iso) => setField(field.key, iso ?? "")}
-                  />
-                  {endDateFieldInvalid ? (
-                    <FieldError>End date can't be before start date.</FieldError>
-                  ) : null}
-                </Field>
+                <div key="date-range" className="grid grid-cols-2 gap-4">
+                  {renderField(field)}
+                  {renderField(fields[index + 1])}
+                </div>
               )
             }
 
-            return (
-              <Field key={field.key} data-invalid={invalid ? true : undefined}>
-                <FieldLabel htmlFor={fieldId} className="sr-only">
-                  {field.label}
-                </FieldLabel>
-                <InputGroup>
-                  {field.kind === "multiline" ? (
-                    <>
-                      <InputGroupAddon align="block-start">
-                        <field.icon />
-                        <InputGroupText>{field.label}</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupTextarea
-                        id={fieldId}
-                        value={state[field.key]}
-                        onChange={(event) =>
-                          setField(field.key, event.target.value)
-                        }
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <InputGroupAddon>
-                        <field.icon />
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        id={fieldId}
-                        type={field.kind === "number" ? "number" : "text"}
-                        placeholder={field.label}
-                        value={state[field.key]}
-                        aria-invalid={invalid ? true : undefined}
-                        onChange={(event) =>
-                          setField(field.key, event.target.value)
-                        }
-                      />
-                    </>
-                  )}
-                </InputGroup>
-              </Field>
-            )
+            return renderField(field)
           })}
         </FieldGroup>
 

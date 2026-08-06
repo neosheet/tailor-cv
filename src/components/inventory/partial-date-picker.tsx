@@ -3,9 +3,13 @@ import { CalendarIcon, XIcon } from "lucide-react"
 import { format } from "date-fns"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Field, FieldLabel } from "@/components/ui/field"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+} from "@/components/ui/input-group"
 import {
   Popover,
   PopoverContent,
@@ -110,34 +114,36 @@ export function PartialDatePicker({
         Date
       </FieldLabel>
       <Popover>
-        <div className="flex items-center gap-1">
+        <InputGroup>
+          <InputGroupAddon>
+            <CalendarIcon />
+          </InputGroupAddon>
           <PopoverTrigger
             render={
-              <Button
+              <button
                 id={inputId}
                 type="button"
-                variant="outline"
-                className="flex-1 justify-start font-normal"
+                data-slot="input-group-control"
+                className="flex h-full flex-1 items-center bg-transparent pl-1.5 text-left text-sm outline-none"
               />
             }
           >
-            <CalendarIcon />
             <span className={cn(!label && "text-muted-foreground")}>
               {label ?? "Pick a date"}
             </span>
           </PopoverTrigger>
           {value && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Clear date"
-              onClick={() => onValueChange(null)}
-            >
-              <XIcon />
-            </Button>
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                aria-label="Clear date"
+                size="icon-xs"
+                onClick={() => onValueChange(null)}
+              >
+                <XIcon />
+              </InputGroupButton>
+            </InputGroupAddon>
           )}
-        </div>
+        </InputGroup>
         <PopoverContent className="w-auto">
           <ToggleGroup
             value={[precision]}
