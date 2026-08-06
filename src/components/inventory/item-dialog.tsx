@@ -63,6 +63,7 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NoteInput } from "@/components/inventory/note-input"
 import { TagInput } from "@/components/inventory/tag-input"
 import { SkillLinkInput } from "@/components/inventory/skill-link-input"
@@ -86,15 +87,15 @@ import {
 import { useInventoryStore } from "@/lib/inventory-store"
 
 /**
- * Add/edit form for one entry in any pool except `work`.
+ * Add/edit form for one entry in any pool.
  *
  * A single dialog handles every kind — the field set, labels, and dialog
  * title all key off `kind`/`mode` rather than branching into a dozen
  * near-duplicate components. Basics kinds' fields live directly on
- * `inventory_items` with no nested lines; the other 10 kinds add a mix of
- * dates, `details` keys, `inventory_lines` sections, and (for `volunteer`/
- * `project`) a skill-link picker, per `docs/specs/02-inventory-data-model.md`'s
- * field mapping.
+ * `inventory_items` with no nested lines; the other 11 kinds add a mix of
+ * dates, `details` keys, `inventory_lines` sections, and (for `work`/
+ * `volunteer`/`project`) a skill-link picker, per
+ * `docs/specs/02-inventory-data-model.md`'s field mapping.
  */
 
 type FieldKey =
@@ -114,6 +115,9 @@ type FieldKey =
   | "score"
   | "entity"
   | "type"
+  | "employmentType"
+  | "workplaceType"
+  | "location"
 
 type FieldConfig = {
   key: FieldKey
@@ -124,7 +128,7 @@ type FieldConfig = {
 }
 
 /** Which fields each kind shows, in order, per the spec's field mapping. */
-const KIND_FIELDS: Record<Exclude<ItemKind, "work">, FieldConfig[]> = {
+const KIND_FIELDS: Record<ItemKind, FieldConfig[]> = {
   name: [{ key: "title", label: "Full name", icon: UserIcon }],
   headline: [{ key: "title", label: "Headline", icon: MegaphoneIcon }],
   summary: [
@@ -151,6 +155,17 @@ const KIND_FIELDS: Record<Exclude<ItemKind, "work">, FieldConfig[]> = {
     { key: "url", label: "Profile URL", icon: LinkIcon },
   ],
 
+  work: [
+    { key: "title", label: "Company", icon: Building2Icon },
+    { key: "subtitle", label: "Position", icon: BriefcaseIcon },
+    { key: "url", label: "Company website", icon: LinkIcon },
+    { key: "summary", label: "Description", kind: "multiline", icon: TextIcon },
+    { key: "employmentType", label: "Employment type", icon: ClipboardListIcon },
+    { key: "workplaceType", label: "Workplace type", icon: HomeIcon },
+    { key: "location", label: "Location", icon: MapPinIcon },
+    { key: "startDate", label: "Start date", kind: "date", icon: CalendarIcon },
+    { key: "endDate", label: "End date", kind: "date", icon: CalendarIcon },
+  ],
   volunteer: [
     { key: "title", label: "Organisation", icon: BuildingIcon },
     { key: "subtitle", label: "Position", icon: BriefcaseIcon },
@@ -215,6 +230,7 @@ const KIND_FIELDS: Record<Exclude<ItemKind, "work">, FieldConfig[]> = {
 
 /** Which `LineKind`s each kind shows, in the fixed order every dialog uses. */
 const KIND_LINE_KINDS: Partial<Record<ItemKind, LineKind[]>> = {
+  work: ["responsibilities", "highlights"],
   volunteer: ["responsibilities", "highlights"],
   education: ["courses"],
   skill: ["keywords"],
@@ -222,11 +238,11 @@ const KIND_LINE_KINDS: Partial<Record<ItemKind, LineKind[]>> = {
   project: ["highlights", "keywords", "roles"],
 }
 
-/** Only these two kinds get the "Skills used" picker, per spec 02. */
-const SKILL_LINK_KINDS: readonly ItemKind[] = ["volunteer", "project"]
+/** Only these three kinds get the "Skills used" picker, per spec 02. */
+const SKILL_LINK_KINDS: readonly ItemKind[] = ["work", "volunteer", "project"]
 
 /** Lowercased so it reads naturally in "Add {label}" / "Edit {label}". */
-const KIND_LABELS: Record<Exclude<ItemKind, "work">, string> = {
+const KIND_LABELS: Record<ItemKind, string> = {
   name: "name",
   headline: "headline",
   summary: "summary",
@@ -234,6 +250,7 @@ const KIND_LABELS: Record<Exclude<ItemKind, "work">, string> = {
   location: "location",
   social: "social",
 
+  work: "work entry",
   volunteer: "volunteer entry",
   education: "education entry",
   skill: "skill",
@@ -270,6 +287,9 @@ const EMPTY_STATE: FormState = {
   score: "",
   entity: "",
   type: "",
+  employmentType: "",
+  workplaceType: "",
+  location: "",
   tags: [],
   note: null,
   lines: {},
@@ -301,6 +321,9 @@ function stateFromItem(
     score: asString(details.score),
     entity: asString(details.entity),
     type: asString(details.type),
+    employmentType: asString(details.employmentType),
+    workplaceType: asString(details.workplaceType),
+    location: asString(details.location),
     tags: item.tags,
     note: item.note,
   }
@@ -326,6 +349,9 @@ function buildInput(fields: FieldConfig[], state: FormState): ItemInput {
   if (has("score")) details.score = normalize(state.score)
   if (has("entity")) details.entity = normalize(state.entity)
   if (has("type")) details.type = normalize(state.type)
+  if (has("employmentType")) details.employmentType = normalize(state.employmentType)
+  if (has("workplaceType")) details.workplaceType = normalize(state.workplaceType)
+  if (has("location")) details.location = normalize(state.location)
 
   // Fields this kind doesn't configure stay `undefined`, not `null` — an
   // omitted key leaves the existing DB column untouched (see `updateItem`'s
@@ -359,7 +385,7 @@ export function ItemDialog({
   onOpenChange,
   onSaved,
 }: {
-  kind: Exclude<ItemKind, "work">
+  kind: ItemKind
   mode: "add" | "edit"
   item?: DbInventoryItem
   open: boolean
@@ -437,7 +463,7 @@ function ItemForm({
   onRequestClose,
   onSaved,
 }: {
-  kind: Exclude<ItemKind, "work">
+  kind: ItemKind
   mode: "add" | "edit"
   item?: DbInventoryItem
   onDirtyChange: (dirty: boolean) => void
@@ -505,6 +531,25 @@ function ItemForm({
 
   function setField(key: FieldKey, value: string) {
     setState((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function renderLineEditor(listKind: LineKind) {
+    return (
+      <LineListEditor
+        key={listKind}
+        listKind={listKind}
+        label={LINE_HEADING[listKind]}
+        value={state.lines[listKind] ?? []}
+        onValueChange={(lines) =>
+          setState((prev) => ({
+            ...prev,
+            lines: { ...prev.lines, [listKind]: lines },
+          }))
+        }
+        multiline={listKind === "responsibilities"}
+        showLabel={!useTabbedLines}
+      />
+    )
   }
 
   function renderField(field: FieldConfig) {
@@ -627,6 +672,76 @@ function ItemForm({
     onSaved()
   }
 
+  // Work entries carry two long, bullet-heavy lists — splitting them into
+  // their own tabs keeps the main details from being buried under a wall of
+  // responsibilities and highlights. Other kinds' line lists are short enough
+  // to sit inline.
+  const useTabbedLines = kind === "work" && lineKinds.length > 0
+
+  const detailsPanel = (
+    <>
+      <FieldGroup>
+        {fields.map((field, index) => {
+          // Start/end dates render together in one row rather than as two
+          // stacked fields — `renderField` on both, `endDate` skipped on
+          // its own turn since the `startDate` pass already emitted it.
+          if (
+            field.key === "endDate" &&
+            fields[index - 1]?.key === "startDate"
+          ) {
+            return null
+          }
+
+          if (
+            field.key === "startDate" &&
+            fields[index + 1]?.key === "endDate"
+          ) {
+            return (
+              <div key="date-range" className="grid grid-cols-2 gap-4">
+                {renderField(field)}
+                {renderField(fields[index + 1])}
+              </div>
+            )
+          }
+
+          return renderField(field)
+        })}
+      </FieldGroup>
+
+      {useTabbedLines ? null : lineKinds.map(renderLineEditor)}
+
+      {showSkillLink ? (
+        <Field>
+          <FieldLabel htmlFor="item-skills">Skills used</FieldLabel>
+          <SkillLinkInput
+            id="item-skills"
+            value={state.skillIds}
+            onValueChange={(skillIds) =>
+              setState((prev) => ({ ...prev, skillIds }))
+            }
+            excludeItemId={item?.id}
+          />
+        </Field>
+      ) : null}
+
+      {/* Secondary area: fields every kind shares (unlike the ones above,
+        which vary per kind) get their own muted panel so they read as
+        metadata about the row rather than part of the main form. */}
+      <FieldGroup className="-mx-4 mt-4 w-auto border-t bg-muted/50 px-4 py-4">
+        <NoteInput
+          value={state.note}
+          onValueChange={(note) => setState((prev) => ({ ...prev, note }))}
+        />
+
+        <TagInput
+          id="item-tags"
+          value={state.tags}
+          onValueChange={(tags) => setState((prev) => ({ ...prev, tags }))}
+        />
+      </FieldGroup>
+    </>
+  )
+
   return (
     <>
       <DialogHeader>
@@ -636,78 +751,33 @@ function ItemForm({
       </DialogHeader>
 
       <DialogBody className="flex flex-col gap-4 pt-2 -mb-4">
-        <FieldGroup>
-          {fields.map((field, index) => {
-            // Start/end dates render together in one row rather than as two
-            // stacked fields — `renderField` on both, `endDate` skipped on
-            // its own turn since the `startDate` pass already emitted it.
-            if (
-              field.key === "endDate" &&
-              fields[index - 1]?.key === "startDate"
-            ) {
-              return null
-            }
+        {useTabbedLines ? (
+          <Tabs defaultValue="details" className="gap-4">
+            <TabsList variant="line">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              {lineKinds.map((listKind) => (
+                <TabsTrigger key={listKind} value={listKind}>
+                  {LINE_HEADING[listKind]}
+                  <span className="text-muted-foreground tabular-nums">
+                    {(state.lines[listKind] ?? []).length}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-            if (
-              field.key === "startDate" &&
-              fields[index + 1]?.key === "endDate"
-            ) {
-              return (
-                <div key="date-range" className="grid grid-cols-2 gap-4">
-                  {renderField(field)}
-                  {renderField(fields[index + 1])}
-                </div>
-              )
-            }
+            <TabsContent value="details" className="flex flex-col gap-4">
+              {detailsPanel}
+            </TabsContent>
 
-            return renderField(field)
-          })}
-        </FieldGroup>
-
-        {lineKinds.map((listKind) => (
-          <LineListEditor
-            key={listKind}
-            listKind={listKind}
-            label={LINE_HEADING[listKind]}
-            value={state.lines[listKind] ?? []}
-            onValueChange={(lines) =>
-              setState((prev) => ({
-                ...prev,
-                lines: { ...prev.lines, [listKind]: lines },
-              }))
-            }
-          />
-        ))}
-
-        {showSkillLink ? (
-          <Field>
-            <FieldLabel htmlFor="item-skills">Skills used</FieldLabel>
-            <SkillLinkInput
-              id="item-skills"
-              value={state.skillIds}
-              onValueChange={(skillIds) =>
-                setState((prev) => ({ ...prev, skillIds }))
-              }
-              excludeItemId={item?.id}
-            />
-          </Field>
-        ) : null}
-
-        {/* Secondary area: fields every kind shares (unlike the ones above,
-          which vary per kind) get their own muted panel so they read as
-          metadata about the row rather than part of the main form. */}
-        <FieldGroup className="-mx-4 mt-4 w-auto border-t bg-muted/50 px-4 py-4">
-          <NoteInput
-            value={state.note}
-            onValueChange={(note) => setState((prev) => ({ ...prev, note }))}
-          />
-
-          <TagInput
-            id="item-tags"
-            value={state.tags}
-            onValueChange={(tags) => setState((prev) => ({ ...prev, tags }))}
-          />
-        </FieldGroup>
+            {lineKinds.map((listKind) => (
+              <TabsContent key={listKind} value={listKind} className="pb-4">
+                {renderLineEditor(listKind)}
+              </TabsContent>
+            ))}
+          </Tabs>
+        ) : (
+          detailsPanel
+        )}
       </DialogBody>
 
       <DialogFooter>

@@ -8,7 +8,11 @@ import {
 } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupTextarea,
+} from "@/components/ui/input-group"
 import { NoteInput } from "@/components/inventory/note-input"
 import { TagInput } from "@/components/inventory/tag-input"
 import type { LineKind } from "@/lib/inventory"
@@ -45,11 +49,17 @@ export function LineListEditor({
   label,
   value,
   onValueChange,
+  multiline = false,
+  showLabel = true,
 }: {
   listKind: LineKind
   label: string
   value: LineDraft[]
   onValueChange: (lines: LineDraft[]) => void
+  /** Longer bullets (e.g. responsibilities) read easier as a wrapping textarea. */
+  multiline?: boolean
+  /** Off when a surrounding tab already names this list — the legend would only repeat it. */
+  showLabel?: boolean
 }) {
   const baseId = React.useId()
   const [openRows, setOpenRows] = React.useState<Set<number>>(new Set())
@@ -117,7 +127,7 @@ export function LineListEditor({
 
   return (
     <FieldSet data-list-kind={listKind}>
-      <FieldLegend variant="label">{label}</FieldLegend>
+      {showLabel ? <FieldLegend variant="label">{label}</FieldLegend> : null}
 
       <FieldGroup className="gap-3">
         {value.map((row, index) => {
@@ -165,15 +175,27 @@ export function LineListEditor({
                     {label}
                   </FieldLabel>
                   <InputGroup>
-                    <InputGroupInput
-                      id={contentId}
-                      placeholder={label}
-                      value={row.content}
-                      aria-invalid={invalid ? true : undefined}
-                      onChange={(event) =>
-                        updateRow(index, { content: event.target.value })
-                      }
-                    />
+                    {multiline ? (
+                      <InputGroupTextarea
+                        id={contentId}
+                        placeholder={label}
+                        value={row.content}
+                        aria-invalid={invalid ? true : undefined}
+                        onChange={(event) =>
+                          updateRow(index, { content: event.target.value })
+                        }
+                      />
+                    ) : (
+                      <InputGroupInput
+                        id={contentId}
+                        placeholder={label}
+                        value={row.content}
+                        aria-invalid={invalid ? true : undefined}
+                        onChange={(event) =>
+                          updateRow(index, { content: event.target.value })
+                        }
+                      />
+                    )}
                   </InputGroup>
                 </Field>
 

@@ -47,7 +47,7 @@ export function PoolPage({ page, kind }: { page: NavPage; kind: ItemKind }) {
         label={page.title}
         columns={columns}
         rows={itemsOfKind(store, kind)}
-        formKind={kind === "work" ? undefined : kind}
+        formKind={kind}
       />
     </>
   )

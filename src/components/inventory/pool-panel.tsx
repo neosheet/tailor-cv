@@ -107,7 +107,7 @@ export function PoolPanel({
    * Which kind's add/edit form to use. Pools with no config leave it
    * undefined and keep the disabled Add/Edit/Delete controls.
    */
-  formKind?: Exclude<ItemKind, "work">
+  formKind?: ItemKind
   /**
    * Called after a successful create/update/delete so the parent re-reads
    * `itemsOfKind()` and passes a fresh `rows` array — add/delete change the

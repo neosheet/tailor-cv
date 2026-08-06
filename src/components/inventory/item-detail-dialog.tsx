@@ -47,7 +47,9 @@ import {
   toggleFavorite,
   type DbInventoryItem,
   type ItemKind,
+  type LineKind,
 } from "@/lib/inventory"
+import { cn } from "@/lib/utils"
 import { useInventoryStore, type InventoryStore } from "@/lib/inventory-store"
 import { cvsUsingItem, type ItemUsage } from "@/mocks/cv"
 
@@ -73,6 +75,9 @@ const FIELD_LABELS: Partial<Record<ItemKind, Partial<FieldLabels>>> = {
   project: { summary: "Description" },
   reference: { summary: "Reference" },
 }
+
+/** Prose bullets get a visible marker; keyword/course lists read fine without one. */
+const BULLET_LINE_KINDS: readonly LineKind[] = ["responsibilities", "highlights"]
 
 function Field({
   label,
@@ -290,21 +295,29 @@ function DetailsSection({
                 {group.length}
               </span>
             </h3>
-            <ul className="flex flex-col gap-2">
+            <ul
+              className={cn(
+                "flex flex-col gap-2",
+                BULLET_LINE_KINDS.includes(kind) && "list-disc pl-5"
+              )}
+            >
               {group.map((line) => (
-                // Tags sit on their own row under the content, so a long bullet
-                // isn't squeezed by the chips beside it.
-                <li key={line.id} className="flex flex-col gap-1.5 text-sm">
-                  <span>{line.content}</span>
-                  {line.tags.length > 0 ? (
-                    <span className="flex flex-wrap gap-1">
-                      {line.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </span>
-                  ) : null}
+                // The marker box only renders when the <li> keeps its default
+                // list-item display, so the flex layout lives on a child div
+                // instead of the <li> itself.
+                <li key={line.id} className="text-sm">
+                  <div className="flex flex-col gap-1.5">
+                    <span>{line.content}</span>
+                    {line.tags.length > 0 ? (
+                      <span className="flex flex-wrap gap-1">
+                        {line.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </span>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
