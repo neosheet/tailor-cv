@@ -1,4 +1,4 @@
-# 04 — CV Template Format
+# 05 — CV Template Format
 
 A JSON format for CV *layouts* — the four things `src/components/cv/templates/*.tsx`
 are today — so a template becomes data: storable in Supabase as `jsonb`, hand-editable
@@ -52,6 +52,7 @@ logic-free — each one ports an existing helper (`primitives.tsx`,
 | `contactParts` | `string[]` | `ContactLine`'s inline `parts` array — email, phone, location, url, socials, already filtered to non-null |
 | `sections[].entries[].kind` | `ItemKind` | `EntryBlock(entry, kind)`'s second argument — denormalized onto the entry so a block can branch on it without reaching into an ancestor scope |
 | `sections[].entries[].dateRangeText` | `string \| null` | `formatEntryDates()` — single-date kinds (`award`, `certificate`, `publication`) vs ranges, "Present" for open-ended, already joined |
+| `sections[].entries[].keywords` | `string[]` | `entry.lineGroups.find(g => g.kind === "keywords")?.items ?? []` — the skill entry's inline keyword suffix needs one specific group by name, not the whole array `EntryBlock` iterates for the generic case |
 
 Nothing else changes shape. `details: Record<string, unknown>` stays a grab bag — a
 template binds into it by path (`entry.details.studyType`) exactly as `asText()` does
@@ -97,7 +98,7 @@ Same shape and unit rules as React's `style` prop — `fontSize: 24` means `24px
 number) — never a Tailwind class name, never a token that needs a lookup table to mean
 anything. The renderer applies `style` objects directly; nothing is compiled, nothing
 is imported. A definition that only ever reached this codebase's renderer would still
-render correctly rendered by anything else that understands `TemplateNode` — that
+be rendered correctly by anything else that understands `TemplateNode` — that
 portability is the point of storing layout as JSON at all.
 
 **This is a deliberate, scoped exception to this repo's "Tailwind only, never inline
@@ -143,12 +144,22 @@ type BoxNode = {
   children?: TemplateNode[]
 }
 
-/** Bound text. Renders nothing if the bound value is falsy. */
+/**
+ * Text — either bound to a path or a literal string, never both. `literal`
+ * is what a separator glyph, unit of punctuation, or hardcoded label is —
+ * `bind` alone cannot express these, since it only ever resolves a path.
+ *
+ * `href`, when given, is itself a bind path resolved to a URL; if that
+ * resolves truthy the node renders as `<a href>` around its text instead of
+ * plain text — same falsy rule as everywhere else, so an entry with no URL
+ * silently renders as plain text rather than a dead link. Renders nothing at
+ * all if its own text (`bind` or `literal`) is falsy, same as before.
+ */
 type TextNode = {
   type: "text"
-  bind: string
   style?: Style
-}
+  href?: string
+} & ({ bind: string } | { literal: string })
 
 /**
  * A fixed set of optional parts, joined by a literal separator, blanks
@@ -196,10 +207,21 @@ type RefNode = {
 }
 ```
 
-Falsy, for `if` and for a bare `TextNode`/omitted array in `repeat`: `null`,
-`undefined`, `""`, `[]`. (Note this is stricter than raw JS truthiness — an empty array
-is truthy in JS but must hide a section here, same as `document.summary === ""` must
-hide a paragraph.)
+Falsy, for `if`, for a bare `TextNode`/omitted array in `repeat`, and for `TextNode.href`:
+`null`, `undefined`, `""`, `[]`. (Note this is stricter than raw JS truthiness — an empty
+array is truthy in JS but must hide a section here, same as `document.summary === ""`
+must hide a paragraph.)
+
+**Empty propagation.** A `box` whose `children` array was given but every entry in it
+resolves to no visible output renders `null` itself, not an empty element — and this
+propagates recursively (a `box` wrapping only an empty `join` disappears too). This is
+what lets `EntryBlock`'s `{condition ? <p>...</p> : null}` pattern
+(`primitives.tsx:146-151`, the education entry's `subtitle · studyType (score)` line)
+become an unconditionally-present `box` wrapping a `join` — the `join` already drops
+blank parts and yields nothing when none survive, and the rule above means the `<p>`
+around it vanishes too rather than leaving a hollow, empty paragraph in the DOM. Scoped
+deliberately to "`children` given but all-empty" — a `box` with no `children` key at
+all still renders as a normal, if pointless, empty element.
 
 ### Binding and scope
 
@@ -249,8 +271,8 @@ same name; nothing stops renaming it if a block wants a different local name.
 self-contained file" above. The four built-ins authoring the same `entryBlock`,
 `bulletList`, etc. four times over is a real cost, paid once, at the boundary this spec
 draws deliberately: authoring-time duplication in exchange for zero runtime
-dependencies. Phase planning should spread that cost by generating the four `blocks`
-maps from one shared TypeScript source at build/seed time — an authoring convenience,
+dependencies. Plan-level work spreads that cost by generating the four `blocks` maps
+from one shared TypeScript source at build/seed time — an authoring convenience,
 invisible to anything that later reads the JSON back out.
 
 ## Worked example: Classic, abridged
@@ -283,8 +305,7 @@ invisible to anything that later reads the JSON back out.
           { "type": "repeat", "bind": "contactParts", "as": "part", "tag": "p",
             "style": { "display": "flex", "flexWrap": "wrap", "justifyContent": "center",
                        "gap": "0 8px", "fontSize": 11, "color": "#525252" },
-            "separator": { "type": "box", "tag": "span", "style": { "color": "#a3a3a3" },
-                           "children": [{ "type": "text", "bind": "literal:·" }] },
+            "separator": { "type": "text", "literal": "·", "style": { "color": "#a3a3a3" } },
             "child": { "type": "text", "bind": "part" } }
         ] },
       { "type": "if", "bind": "summary",
@@ -299,7 +320,9 @@ invisible to anything that later reads the JSON back out.
 }
 ```
 
-(`"literal:·"` needs a real answer, not a placeholder — see Open points #1.)
+A link, for reference (a project entry's URL, shown as its title): `{ "type": "text",
+"bind": "entry.title", "href": "entry.url" }` — plain text if `entry.url` is null,
+`<a href="...">` around the same text otherwise.
 
 ## Rendering
 
@@ -309,8 +332,9 @@ as `TemplateContext`) and returns a React tree. It replaces the `component` fiel
 `src/lib/cv-templates.ts` (the entry gains `definition: TemplateDefinition` in place of
 `component: TemplateComponent`) and `src/components/cv/templates/index.tsx`
 (`TemplateRender` renders `<TemplateNodeRenderer definition={template.definition}
-context={buildTemplateContext(document)} />` instead of `<template.component
-document={document} />`). Everything downstream — `ResumeRender`, `TemplateCard`,
+context={document} />` instead of `<template.component document={document} />` — spec's
+`TemplateContext` additions live directly on `ResumeDocument`, so no separate builder
+call is needed). Everything downstream — `ResumeRender`, `TemplateCard`,
 `TemplateViewDialog`, `pages/templates.tsx` — already goes through `templateId` and
 never imports a template component directly, so nothing there changes.
 
@@ -349,23 +373,22 @@ sufficient the day it's needed.
 
 ## Open points
 
-1. **Literal text inside a definition** (the `"·"` separator glyph above, punctuation,
-   any hardcoded string that isn't a bind) has no answer yet — `TextNode.bind` as
-   specified only resolves paths, and a `"literal:..."` prefix is a placeholder, not a
-   design. Needs one of: a `literal` node type, a `bind`/`literal` union on `TextNode`,
-   or a sigil convention (`"='·'"` vs a plain path) — small, but must be settled before
-   any definition can be written, since separators and units ("Present", "·", "(", ")")
-   appear constantly.
-2. **Whether the `slot` escape hatch this design's earlier drafts assumed is needed at
-   all.** `join` + `if equals/in` covers every case found while porting the four
-   existing templates on paper. If porting them for real (plan phase) turns up
-   something that genuinely can't be expressed — likely candidate: the education
-   entry's `subtitle · studyType (score)` line, which nests a join inside a join — the
-   spec gets a small, closed, named-component escape hatch amended in. Not designed
-   speculatively.
+1. ~~Literal text inside a definition.~~ **Resolved.** `TextNode` takes `bind` XOR
+   `literal` (never both, never neither) — no sigil convention, no string parsing at
+   render time; the runtime schema (Open point 4) enforces the exclusivity directly.
+2. ~~Whether a code-level `slot` escape hatch is needed.~~ **Resolved — not needed.**
+   Dry-running the six hardest fragments across all four real templates on paper
+   (`EntryBlock`'s three-way kind branch, the skill entry's keyword suffix, the
+   education entry's `subtitle · studyType (score)` line, Sidebar's stacked contact
+   block, Academic's priority reorder, Sidebar's rail/main filter) — every one is
+   expressible with `join` + `if equals/in` + the empty-propagation rule above + one
+   extra `TemplateContext` field (`keywords`, added above). No `slot` node type
+   exists. If a future template finds a genuine gap these fragments didn't
+   anticipate, that is a new, specific addition to bring back here — not a reason to
+   add a generic code-escape pre-emptively.
 3. **`schemaVersion` has no migration story yet** — only the column to hang one on
    later. Fine while there is one version and zero stored rows; needs an answer before
    the `cv_templates` table (Storage, above) holds anyone's edits.
-4. **Validation.** A `TemplateDefinition` read from `jsonb` (eventually) or a hand-edited
-   file (now) needs a runtime check before it reaches the renderer — a zod schema
-   mirroring the types above is the obvious shape, not designed here.
+4. ~~Validation.~~ **Resolved.** A zod discriminated union on `type`, mirroring the
+   `TemplateNode` variants above, with `TextNode`'s `bind`/`literal` exclusivity
+   enforced via `.refine()`. `zod` is a new dependency (not in `package.json` today).
