@@ -1,16 +1,16 @@
 /**
  * One-shot dev seed script — not part of the app bundle, run via `npm run seed`.
  *
- * Populates the real Supabase project with the same demo dataset the app renders
- * from `src/mocks/` today (see `src/mocks/README.md`), so there is something real
- * for the app to read once it cuts over from mocks to Supabase.
+ * Populates the real Supabase project with the same demo dataset the app reads
+ * (see `src/mocks/README.md` for the authored source).
  *
  * Not idempotent, and does not attempt to roll back on failure: Postgres doesn't
  * give a JS client an easy way to wrap several separate `.insert()` round trips in
  * one transaction, and by the time a later step fails, earlier ones already
  * committed. A failed run is expected to be cleaned up by hand — truncate
- * `tags`, `inventory_items`, `inventory_lines`, `item_skills`, `cvs`,
- * `cv_sections`, `cv_items`, `cv_lines` for this user — then re-run.
+ * `tags`, `inventory_items`, `inventory_lines`, `item_skills`, `personas`,
+ * `persona_sections`, `persona_items`, `persona_lines`, `cvs` for this user —
+ * then re-run.
  */
 
 import { randomUUID } from "node:crypto"
@@ -38,9 +38,10 @@ import {
 import { projects } from "../src/mocks/data/projects"
 import { skills } from "../src/mocks/data/skills"
 import { work } from "../src/mocks/data/work"
+import { personas as sourcePersonas } from "../src/mocks/data/personas"
 import { cvs as sourceCvs } from "../src/mocks/data/cvs"
 import { flatten } from "../src/mocks/flatten"
-import type { DbInventoryLine, SourceCvLines, SourcePool } from "../src/mocks/types"
+import type { DbInventoryLine, SourcePersonaLines, SourcePool } from "../src/mocks/types"
 
 config({ path: ".env.seed" })
 
@@ -108,6 +109,9 @@ async function main() {
 
   const itemIdMap = new Map(items.map((item) => [item.id, randomUUID()]))
   const lineIdMap = new Map(lines.map((line) => [line.id, randomUUID()]))
+  const personaIdMap = new Map(
+    sourcePersonas.map((persona) => [persona.id, randomUUID()])
+  )
 
   const resolveItemId = (slug: string): string => {
     const id = itemIdMap.get(slug)
@@ -119,9 +123,15 @@ async function main() {
     if (!id) throw new Error(`Seed: no generated id for line "${slug}".`)
     return id
   }
+  const resolvePersonaId = (slug: string): string => {
+    const id = personaIdMap.get(slug)
+    if (!id) throw new Error(`Seed: no generated id for persona "${slug}".`)
+    return id
+  }
 
-  // `profiles` has no signup trigger provisioning it, and inventory_items/tags/cvs
-  // all FK to it — the row has to exist before any content insert can succeed.
+  // `profiles` has no signup trigger provisioning it, and inventory_items/tags/
+  // personas/cvs all FK to it — the row has to exist before any content insert
+  // can succeed.
   const { error: profileError } = await supabase
     .from("profiles")
     .upsert({ id: userId }, { onConflict: "id", ignoreDuplicates: true })
@@ -197,10 +207,10 @@ async function main() {
     linesByItem.set(line.itemId, bucket)
   }
 
-  // data/cvs.ts authors line selections as tag filters ("tagsAny"/"all"/"none"/
-  // "ids"), not literal line ids — this mirrors src/mocks/cv.ts's `selectLineIds`
-  // to expand them into the same concrete rows the app would compute.
-  function selectLineSlugIds(itemSlug: string, spec: SourceCvLines | undefined): string[] {
+  // data/personas.ts authors line selections as tag filters ("tagsAny"/"all"/
+  // "none"/"ids"), not literal line ids — this mirrors src/lib/persona.ts's
+  // `buildResumeDocument` line-resolution logic, expanded here to concrete rows.
+  function selectLineSlugIds(itemSlug: string, spec: SourcePersonaLines | undefined): string[] {
     if (spec === undefined || spec === "none") return []
 
     const itemLines = (linesByItem.get(itemSlug) ?? [])
@@ -215,58 +225,86 @@ async function main() {
       .map((line) => line.id)
   }
 
-  for (const sourceCv of sourceCvs) {
-    const cvId = randomUUID()
+  for (const sourcePersona of sourcePersonas) {
+    const personaId = resolvePersonaId(sourcePersona.id)
 
-    const { error: cvError } = await supabase.from("cvs").insert({
-      id: cvId,
+    const { error: personaError } = await supabase.from("personas").insert({
+      id: personaId,
       user_id: userId,
-      name: sourceCv.name,
-      note: sourceCv.note ?? null,
+      name: sourcePersona.name,
+      note: sourcePersona.note ?? null,
+      tags: sourcePersona.tags ?? [],
+      favorite: sourcePersona.favorite ?? false,
     })
-    if (cvError) fail(`cvs (${sourceCv.id})`, cvError)
+    if (personaError) fail(`personas (${sourcePersona.id})`, personaError)
 
-    const { error: sectionsError } = await supabase.from("cv_sections").insert(
-      sourceCv.sections.map((section, sectionIndex) => ({
-        cv_id: cvId,
+    const { error: sectionsError } = await supabase.from("persona_sections").insert(
+      sourcePersona.sections.map((section, sectionIndex) => ({
+        persona_id: personaId,
         kind: section.kind,
         position: sectionIndex,
       }))
     )
-    if (sectionsError) fail(`cv_sections (${sourceCv.id})`, sectionsError)
+    if (sectionsError) fail(`persona_sections (${sourcePersona.id})`, sectionsError)
 
-    const cvItemRows = sourceCv.sections.flatMap((section) =>
+    const personaItemRows = sourcePersona.sections.flatMap((section) =>
       section.items.map((item, itemIndex) => ({
-        cv_id: cvId,
+        persona_id: personaId,
         item_id: resolveItemId(item.itemId),
         position: itemIndex,
       }))
     )
-    const { error: cvItemsError } = await supabase.from("cv_items").insert(cvItemRows)
-    if (cvItemsError) fail(`cv_items (${sourceCv.id})`, cvItemsError)
+    const { error: personaItemsError } = await supabase
+      .from("persona_items")
+      .insert(personaItemRows)
+    if (personaItemsError) fail(`persona_items (${sourcePersona.id})`, personaItemsError)
 
-    const cvLineRows = sourceCv.sections.flatMap((section) =>
+    const personaLineRows = sourcePersona.sections.flatMap((section) =>
       section.items.flatMap((item) =>
         selectLineSlugIds(item.itemId, item.lines).map((lineSlug, lineIndex) => ({
-          cv_id: cvId,
+          persona_id: personaId,
           item_id: resolveItemId(item.itemId),
           line_id: resolveLineId(lineSlug),
           position: lineIndex,
         }))
       )
     )
-    if (cvLineRows.length > 0) {
-      const { error: cvLinesError } = await supabase.from("cv_lines").insert(cvLineRows)
-      if (cvLinesError) fail(`cv_lines (${sourceCv.id})`, cvLinesError)
+    if (personaLineRows.length > 0) {
+      const { error: personaLinesError } = await supabase
+        .from("persona_lines")
+        .insert(personaLineRows)
+      if (personaLinesError) fail(`persona_lines (${sourcePersona.id})`, personaLinesError)
     }
   }
 
-  const expected = { items: 68, lines: 165, itemSkills: 45, tags: 47, cvs: 2 }
+  // Saved (Persona, Template) pairings — the new meaning of `cvs`. Each row
+  // just points at a persona already inserted above, by its mock slug.
+  const { error: cvsError } = await supabase.from("cvs").insert(
+    sourceCvs.map((sourceCv) => ({
+      id: randomUUID(),
+      user_id: userId,
+      persona_id: resolvePersonaId(sourceCv.personaId),
+      template_id: sourceCv.templateId,
+      name: sourceCv.name,
+      note: sourceCv.note ?? null,
+    }))
+  )
+  if (cvsError) fail("cvs", cvsError)
+
+  const expected = {
+    items: 68,
+    lines: 165,
+    itemSkills: 45,
+    tags: 47,
+    personas: 2,
+    cvs: 2,
+  }
   const actual = {
     items: items.length,
     lines: lines.length,
     itemSkills: itemSkills.length,
     tags: tagNames.size,
+    personas: sourcePersonas.length,
     cvs: sourceCvs.length,
   }
 

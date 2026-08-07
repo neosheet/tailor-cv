@@ -6,19 +6,77 @@ import {
   TAGS_NOTE,
   textColumn,
 } from "@/components/inventory/columns"
-import type { PoolColumn } from "@/components/inventory/pool-table"
-import type { ItemKind } from "@/lib/inventory"
+import { ValueCell, type PoolColumn } from "@/components/inventory/pool-table"
+import { contactDetails, locationDetails, type ItemKind } from "@/lib/inventory"
 
 /**
- * Columns for every non-Basics pool, following the field mapping in
- * `docs/specs/02-inventory-data-model.md`. One entry per `item_kind`, so adding
- * a pool page is a config change, not a new table implementation.
+ * Columns for every pool, Basics included, following the field mapping in
+ * `docs/specs/02-inventory-data-model.md`. One entry per `item_kind` — a total
+ * map, not partial, since the Persona section picker needs columns for every
+ * kind, not just the 11 non-Basics pools that get their own page.
  *
  * `url` is deliberately not a column anywhere — it would push every table into
  * horizontal scroll for a value that is rarely the thing you scan for. It stays
  * searchable, and belongs in the detail view.
  */
-export const POOL_COLUMNS: Partial<Record<ItemKind, PoolColumn[]>> = {
+export const POOL_COLUMNS: Record<ItemKind, PoolColumn[]> = {
+  name: [{ header: "Name", cell: (item) => item.title }, ...TAGS_NOTE],
+  headline: [
+    { header: "Headline", cell: (item) => item.title },
+    ...TAGS_NOTE,
+  ],
+  summary: [
+    { header: "Label", cell: (item) => item.title },
+    { header: "Summary", cell: (item) => <ValueCell value={item.summary} /> },
+    ...TAGS_NOTE,
+  ],
+  contact: [
+    { header: "Label", cell: (item) => item.title },
+    {
+      header: "Email",
+      cell: (item) => <ValueCell value={contactDetails(item).email} />,
+    },
+    {
+      header: "Phone",
+      cell: (item) => <ValueCell value={contactDetails(item).phone} />,
+    },
+    {
+      header: "Website",
+      cell: (item) => (
+        <ValueCell
+          value={contactDetails(item).url?.replace(/^https?:\/\//, "") ?? null}
+        />
+      ),
+    },
+    ...TAGS_NOTE,
+  ],
+  location: [
+    { header: "City", cell: (item) => locationDetails(item).city },
+    {
+      header: "Region",
+      cell: (item) => <ValueCell value={locationDetails(item).region} />,
+    },
+    {
+      header: "Postal",
+      cell: (item) => <ValueCell value={locationDetails(item).postalCode} />,
+    },
+    {
+      header: "Country",
+      cell: (item) => <ValueCell value={locationDetails(item).countryCode} />,
+    },
+    ...TAGS_NOTE,
+  ],
+  social: [
+    { header: "Network", cell: (item) => item.title },
+    { header: "Username", cell: (item) => <ValueCell value={item.subtitle} /> },
+    {
+      header: "URL",
+      cell: (item) => (
+        <ValueCell value={item.url?.replace(/^https?:\/\//, "") ?? null} />
+      ),
+    },
+    ...TAGS_NOTE,
+  ],
   work: [
     textColumn("Company", (item) => item.title),
     textColumn("Position", (item) => item.subtitle),

@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge"
 import { NavCard } from "@/components/layout/nav-card"
 import { PageHeader } from "@/components/layout/page-header"
-import { inventoryGroups } from "@/lib/navigation"
+import { inventoryGroups, sections } from "@/lib/navigation"
 
 /**
  * The Inventory landing view — a completeness overview across every pool.
@@ -11,8 +11,8 @@ export function InventoryIndexPage() {
   return (
     <>
       <PageHeader
-        title="Profile"
-        description="Your raw material, one pool per section. Add everything you've ever done — each CV selects from it, and none of it is sent to anyone."
+        title={sections.inventory.title}
+        description={sections.inventory.description}
       />
 
       {inventoryGroups.map((group) => (

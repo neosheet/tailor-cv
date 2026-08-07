@@ -81,7 +81,7 @@ function InventoryMenu() {
           <ChevronRightIcon
             className={cn("transition-transform", open && "rotate-90")}
           />
-          <span className="sr-only">Toggle Profile sections</span>
+          <span className="sr-only">Toggle Profile Inventory sections</span>
         </SidebarMenuAction>
         <CollapsibleContent>
           <SidebarMenuSub>
@@ -151,9 +151,9 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SectionMenuItem page={sections.dashboard} />
-              <InventoryMenu />
+              <SectionMenuItem page={sections.personas} />
               <SectionMenuItem page={sections.cvs} />
-              <SectionMenuItem page={sections.templates} />
+              <InventoryMenu />
               <SectionMenuItem page={sections.applications} />
             </SidebarMenu>
           </SidebarGroupContent>
@@ -161,9 +161,8 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        <SidebarMenu>
-          <SectionMenuItem page={sections.settings} />
-        </SidebarMenu>
+        {/* Settings lives in the account menu below, not as its own sidebar
+            item — it's one click away either way. */}
         <UserMenu />
       </SidebarFooter>
     </Sidebar>

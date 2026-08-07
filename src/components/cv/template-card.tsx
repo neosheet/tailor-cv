@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { ResumeRender } from "@/components/cv/resume-render"
 import type { CvTemplate } from "@/lib/cv-templates"
-import type { ResumeDocument } from "@/mocks/cv"
+import type { ResumeDocument } from "@/lib/persona"
 
 function Spec({
   icon: Icon,

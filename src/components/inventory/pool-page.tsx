@@ -1,8 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { PoolPanel } from "@/components/inventory/pool-panel"
-import { POOL_COLUMNS } from "@/components/inventory/pool-columns"
-import { itemsOfKind, type ItemKind } from "@/lib/inventory"
-import { useInventoryStore } from "@/lib/inventory-store"
+import { usePoolData } from "@/components/inventory/use-pool-data"
+import type { ItemKind } from "@/lib/inventory"
 import type { NavPage } from "@/lib/navigation"
 
 /**
@@ -12,14 +11,9 @@ import type { NavPage } from "@/lib/navigation"
  * several pools, so it composes `PoolPanel` under tabs instead.
  */
 export function PoolPage({ page, kind }: { page: NavPage; kind: ItemKind }) {
-  const store = useInventoryStore()
-  const columns = POOL_COLUMNS[kind]
+  const { columns, rows, loading, error } = usePoolData(kind)
 
-  if (!columns) {
-    throw new Error(`No column config for pool "${kind}".`)
-  }
-
-  if (store.loading) {
+  if (loading) {
     return (
       <>
         <PageHeader title={page.title} description={page.description} />
@@ -28,12 +22,12 @@ export function PoolPage({ page, kind }: { page: NavPage; kind: ItemKind }) {
     )
   }
 
-  if (store.error) {
+  if (error) {
     return (
       <>
         <PageHeader title={page.title} description={page.description} />
         <p className="text-sm text-destructive">
-          Couldn't load {page.title.toLowerCase()}: {store.error.message}
+          Couldn't load {page.title.toLowerCase()}: {error.message}
         </p>
       </>
     )
@@ -46,7 +40,7 @@ export function PoolPage({ page, kind }: { page: NavPage; kind: ItemKind }) {
         kind={kind}
         label={page.title}
         columns={columns}
-        rows={itemsOfKind(store, kind)}
+        rows={rows}
         formKind={kind}
       />
     </>

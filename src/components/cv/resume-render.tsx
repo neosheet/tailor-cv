@@ -1,6 +1,6 @@
 import { TemplateRender } from "@/components/cv/templates"
 import { cn } from "@/lib/utils"
-import type { ResumeDocument } from "@/mocks/cv"
+import type { ResumeDocument } from "@/lib/persona"
 
 /**
  * A rendered CV at a chosen scale.

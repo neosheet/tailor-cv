@@ -10,46 +10,41 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { PageHeader } from "@/components/layout/page-header"
-import { allCvs, buildResumeDocument } from "@/mocks/cv"
-import { sections } from "@/lib/navigation"
+import { cvTemplates } from "@/lib/cv-templates"
+import { allCvs } from "@/lib/cv"
+import { findPersona } from "@/lib/persona"
+import { usePersonaStore } from "@/lib/persona-store"
 
-export function CvsPage() {
-  const rows = allCvs().map((cv) => {
-    const document = buildResumeDocument(cv.id)
-    const entries = document.sections.reduce(
-      (total, section) => total + section.entries.length,
-      0
-    )
-    return { cv, document, entries }
-  })
+/** Saved (Persona, Template) pairings — see docs/specs/06-persona-cv-split.md. */
+export function CvListPanel() {
+  const store = usePersonaStore()
+  const rows = allCvs(store).map((cv) => ({
+    cv,
+    persona: findPersona(store, cv.personaId),
+    template: cvTemplates.find((candidate) => candidate.id === cv.templateId),
+  }))
 
   return (
-    <>
-      <PageHeader
-        title={sections.cvs.title}
-        description={sections.cvs.description}
-        action={
-          <Button variant="outline" size="sm" disabled>
-            <PlusIcon data-icon="inline-start" />
-            New CV
-          </Button>
-        }
-      />
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" disabled>
+          <PlusIcon data-icon="inline-start" />
+          New CV
+        </Button>
+      </div>
 
       <div className="overflow-hidden rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Headline</TableHead>
-              <TableHead>Sections</TableHead>
-              <TableHead>Entries</TableHead>
+              <TableHead>Persona</TableHead>
+              <TableHead>Template</TableHead>
               <TableHead>Note</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map(({ cv, document, entries }) => (
+            {rows.map(({ cv, persona, template }) => (
               <TableRow key={cv.id}>
                 <TableCell className="align-top font-medium whitespace-nowrap">
                   <Button
@@ -61,14 +56,11 @@ export function CvsPage() {
                     {cv.name}
                   </Button>
                 </TableCell>
-                <TableCell className="align-top whitespace-normal">
-                  {document.headline ?? "—"}
+                <TableCell className="align-top whitespace-nowrap">
+                  {persona?.name ?? "—"}
                 </TableCell>
-                <TableCell className="align-top tabular-nums">
-                  {document.sections.length}
-                </TableCell>
-                <TableCell className="align-top tabular-nums">
-                  {entries}
+                <TableCell className="align-top whitespace-nowrap">
+                  {template?.name ?? "—"}
                 </TableCell>
                 <TableCell className="align-top whitespace-normal text-muted-foreground">
                   {cv.note ?? "—"}
@@ -78,6 +70,6 @@ export function CvsPage() {
           </TableBody>
         </Table>
       </div>
-    </>
+    </div>
   )
 }

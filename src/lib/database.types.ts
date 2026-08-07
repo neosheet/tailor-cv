@@ -14,107 +14,14 @@ export type Database = {
   }
   public: {
     Tables: {
-      cv_items: {
-        Row: {
-          cv_id: string
-          item_id: string
-          position: number
-        }
-        Insert: {
-          cv_id: string
-          item_id: string
-          position?: number
-        }
-        Update: {
-          cv_id?: string
-          item_id?: string
-          position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cv_items_cv_id_fkey"
-            columns: ["cv_id"]
-            isOneToOne: false
-            referencedRelation: "cvs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cv_items_item_id_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_items"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cv_lines: {
-        Row: {
-          cv_id: string
-          item_id: string
-          line_id: string
-          position: number
-        }
-        Insert: {
-          cv_id: string
-          item_id: string
-          line_id: string
-          position?: number
-        }
-        Update: {
-          cv_id?: string
-          item_id?: string
-          line_id?: string
-          position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cv_lines_cv_id_item_id_fkey"
-            columns: ["cv_id", "item_id"]
-            isOneToOne: false
-            referencedRelation: "cv_items"
-            referencedColumns: ["cv_id", "item_id"]
-          },
-          {
-            foreignKeyName: "cv_lines_line_id_fkey"
-            columns: ["line_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_lines"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cv_sections: {
-        Row: {
-          cv_id: string
-          kind: Database["public"]["Enums"]["item_kind"]
-          position: number
-        }
-        Insert: {
-          cv_id: string
-          kind: Database["public"]["Enums"]["item_kind"]
-          position?: number
-        }
-        Update: {
-          cv_id?: string
-          kind?: Database["public"]["Enums"]["item_kind"]
-          position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cv_sections_cv_id_fkey"
-            columns: ["cv_id"]
-            isOneToOne: false
-            referencedRelation: "cvs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       cvs: {
         Row: {
           created_at: string
           id: string
           name: string
           note: string | null
+          persona_id: string
+          template_id: string
           updated_at: string
           user_id: string
         }
@@ -123,6 +30,8 @@ export type Database = {
           id?: string
           name: string
           note?: string | null
+          persona_id: string
+          template_id: string
           updated_at?: string
           user_id: string
         }
@@ -131,10 +40,19 @@ export type Database = {
           id?: string
           name?: string
           note?: string | null
+          persona_id?: string
+          template_id?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cvs_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cvs_user_id_fkey"
             columns: ["user_id"]
@@ -295,6 +213,142 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_items"
             referencedColumns: ["id", "kind"]
+          },
+        ]
+      }
+      persona_items: {
+        Row: {
+          item_id: string
+          persona_id: string
+          position: number
+        }
+        Insert: {
+          item_id: string
+          persona_id: string
+          position?: number
+        }
+        Update: {
+          item_id?: string
+          persona_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "persona_items_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      persona_lines: {
+        Row: {
+          item_id: string
+          line_id: string
+          persona_id: string
+          position: number
+        }
+        Insert: {
+          item_id: string
+          line_id: string
+          persona_id: string
+          position?: number
+        }
+        Update: {
+          item_id?: string
+          line_id?: string
+          persona_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_lines_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "persona_lines_persona_id_item_id_fkey"
+            columns: ["persona_id", "item_id"]
+            isOneToOne: false
+            referencedRelation: "persona_items"
+            referencedColumns: ["persona_id", "item_id"]
+          },
+        ]
+      }
+      persona_sections: {
+        Row: {
+          kind: Database["public"]["Enums"]["item_kind"]
+          persona_id: string
+          position: number
+        }
+        Insert: {
+          kind: Database["public"]["Enums"]["item_kind"]
+          persona_id: string
+          position?: number
+        }
+        Update: {
+          kind?: Database["public"]["Enums"]["item_kind"]
+          persona_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_sections_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personas: {
+        Row: {
+          created_at: string
+          favorite: boolean
+          id: string
+          name: string
+          note: string | null
+          tags: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          favorite?: boolean
+          id?: string
+          name: string
+          note?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          favorite?: boolean
+          id?: string
+          name?: string
+          note?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }

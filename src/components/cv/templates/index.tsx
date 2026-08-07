@@ -1,6 +1,6 @@
 import { TemplateNodeRenderer } from "@/components/cv/template-node-renderer"
 import { cvTemplates } from "@/lib/cv-templates"
-import type { ResumeDocument } from "@/mocks/cv"
+import type { ResumeDocument } from "@/lib/persona"
 
 /**
  * Renders a CV under the template `templateId` names.

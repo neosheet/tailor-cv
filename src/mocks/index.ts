@@ -217,9 +217,9 @@ export function byFavouriteThenPosition(
 /**
  * Every item in one pool, in Inventory display order — favourites first.
  *
- * Display only. `buildResumeDocument` orders a CV's entries by
- * `cv_items.position` and never calls this, so favouriting cannot reorder or
- * otherwise affect a rendered CV. See Favourites in spec 02.
+ * Display only. `buildResumeDocument` orders a Persona's entries by
+ * `persona_items.position` and never calls this, so favouriting cannot
+ * reorder or otherwise affect a rendered CV. See Favourites in spec 02.
  */
 export function itemsOfKind(kind: ItemKind): DbInventoryItem[] {
   return items

@@ -51,7 +51,8 @@ import {
 } from "@/lib/inventory"
 import { cn } from "@/lib/utils"
 import { useInventoryStore, type InventoryStore } from "@/lib/inventory-store"
-import { cvsUsingItem, type ItemUsage } from "@/mocks/cv"
+import { usePersonaStore } from "@/lib/persona-store"
+import { personasUsingItem, type ItemUsage } from "@/lib/persona"
 
 /**
  * Every field on one entry, read-only.
@@ -111,7 +112,7 @@ export function ItemDetailDialog({
 }: {
   /** Null closes the dialog — one instance serves the whole table. */
   item: DbInventoryItem | null
-  /** Opened from the In-CVs count: scroll to that section rather than the top. */
+  /** Opened from the In-Personas count: scroll to that section rather than the top. */
   focusUsage?: boolean
   onClose: () => void
   /** Present only for pools with a form config; absent leaves Edit disabled. */
@@ -156,7 +157,8 @@ function DetailBody({
   onRequestDelete?: (item: DbInventoryItem) => void
 }) {
   const store = useInventoryStore()
-  const usage = cvsUsingItem(item.id)
+  const personaStore = usePersonaStore()
+  const usage = personasUsingItem(personaStore, item.id)
   const usageRef = React.useRef<HTMLElement>(null)
 
   // Opened from the count, so bring that section into view. A DOM side effect,
@@ -184,7 +186,7 @@ function DetailBody({
         <DetailsSection item={item} store={store} />
 
         {/* Omitted entirely when nothing uses the entry — an empty section is
-          noise, and the In-CVs column already says as much with its dash. */}
+          noise, and the In-Personas column already says as much with its dash. */}
         {usage.length > 0 ? (
           <>
             <section
@@ -415,9 +417,9 @@ function DetailFooter({
 }
 
 /**
- * Which CVs draw on this entry, and how.
+ * Which Personas draw on this entry, and how.
  *
- * The distinction that matters: a CV can use an entry's bullets without
+ * The distinction that matters: a Persona can use an entry's bullets without
  * selecting the entry as a heading, so "not selected directly" is a real state
  * rather than a bug. It is also the case a delete warning must not miss.
  */
@@ -433,23 +435,23 @@ function UsageList({
   if (usage.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Not on any CV yet — nothing selects this, so deleting it would affect
-        nothing.
+        Not on any Persona yet — nothing selects this, so deleting it would
+        affect nothing.
       </p>
     )
   }
 
   return (
     <ItemGroup className="gap-1">
-      {usage.map(({ cv, entrySelected, lineIds }) => (
-        <Item key={cv.id} variant="outline">
+      {usage.map(({ persona, entrySelected, lineIds }) => (
+        <Item key={persona.id} variant="outline">
           <ItemContent>
             <ItemTitle>
               <Link
-                to={`/cvs/${cv.id}/print`}
+                to={`/personas/${persona.id}`}
                 className="hover:underline hover:underline-offset-4"
               >
-                {cv.name}
+                {persona.name}
               </Link>
             </ItemTitle>
             <ItemDescription>

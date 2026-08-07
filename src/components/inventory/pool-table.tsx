@@ -30,27 +30,31 @@ import {
 import { useInventoryStore } from "@/lib/inventory-store"
 import type { InventoryStore } from "@/lib/inventory-store"
 import type { DbInventoryItem } from "@/lib/inventory"
+import { usePersonaStore } from "@/lib/persona-store"
+import type { PersonaStore } from "@/lib/persona-store"
 
 /** What a cell can do to its own row. Passed to every `cell` renderer. */
 export type PoolCellActions = {
   openDetail: () => void
-  /** Same dialog, scrolled to the Used-in-CVs section. */
+  /** Same dialog, scrolled to the Used-in-Personas section. */
   openUsage: () => void
 }
 
 export type PoolColumn = {
   header: string
   /**
-   * `store` is the fetched inventory store — passed through so a column's
-   * `cell` (a plain callback, not a component, so it can't call
-   * `useInventoryStore()` itself) can still read selectors like `linesOf`
-   * that need the store's data. `PoolTable` calls the hook once and threads
-   * the result into every cell call.
+   * `inventory`/`persona` are the fetched stores — passed through so a
+   * column's `cell` (a plain callback, not a component, so it can't call
+   * `useInventoryStore()`/`usePersonaStore()` itself) can still read
+   * selectors like `linesOf`/`personaUsageCount` that need store data.
+   * `PoolTable` calls both hooks once and threads the results into every
+   * cell call.
    */
   cell: (
     item: DbInventoryItem,
     actions: PoolCellActions,
-    store: InventoryStore
+    inventory: InventoryStore,
+    persona: PersonaStore
   ) => React.ReactNode
   /** Applied to both the header and the cells, for width and alignment. */
   className?: string
@@ -72,6 +76,7 @@ export function PoolTable({
   emptyMessage = "No entries yet.",
   onEditRow,
   onRequestDelete,
+  selectAllHidden = false,
 }: {
   columns: PoolColumn[]
   rows: DbInventoryItem[]
@@ -84,8 +89,11 @@ export function PoolTable({
   onEditRow?: (item: DbInventoryItem) => void
   /** Present only for pools with a form config; absent leaves Delete disabled. */
   onRequestDelete?: (item: DbInventoryItem) => void
+  /** Hides the header "select all" checkbox — single-select picker mode. */
+  selectAllHidden?: boolean
 }) {
   const store = useInventoryStore()
+  const personaStore = usePersonaStore()
   const allSelected =
     rows.length > 0 && rows.every((row) => selected.has(row.id))
   // Checkbox + configured columns + favourite + actions.
@@ -126,11 +134,13 @@ export function PoolTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-0">
-              <Checkbox
-                checked={allSelected}
-                onCheckedChange={onToggleAll}
-                aria-label="Select all rows"
-              />
+              {selectAllHidden ? null : (
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={onToggleAll}
+                  aria-label="Select all rows"
+                />
+              )}
             </TableHead>
             {columns.map((column) => (
               <TableHead key={column.header} className={column.className}>
@@ -183,10 +193,10 @@ export function PoolTable({
                       className="h-auto justify-start p-0 font-medium"
                       onClick={() => setDetail({ item, focusUsage: false })}
                     >
-                      {column.cell(item, actionsFor(item), store)}
+                      {column.cell(item, actionsFor(item), store, personaStore)}
                     </Button>
                   ) : (
-                    column.cell(item, actionsFor(item), store)
+                    column.cell(item, actionsFor(item), store, personaStore)
                   )}
                 </TableCell>
               ))}

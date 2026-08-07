@@ -1,4 +1,3 @@
-import * as React from "react"
 import { ArrowLeftIcon, PrinterIcon } from "lucide-react"
 import { Link, useParams } from "react-router"
 
@@ -11,13 +10,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { PreviewSelect } from "@/components/cv/preview-select"
 import { ResumeRender } from "@/components/cv/resume-render"
-import { cvTemplates } from "@/lib/cv-templates"
-import { buildResumeDocument, findCv } from "@/mocks/cv"
+import { resolveCv } from "@/lib/cv"
+import { useInventoryStore } from "@/lib/inventory-store"
+import { usePersonaStore } from "@/lib/persona-store"
 
 /**
  * One CV at full size, ready for the browser's print dialog.
+ *
+ * A saved CV is a fixed (Persona, Template) pairing — see spec 06 — so unlike
+ * the ad hoc Templates preview, there's no layout picker here.
  *
  * Renders outside the app shell: `data-print-root` is what the print rules in
  * `index.css` key off to hide the sidebar and header, so what prints is the page
@@ -25,9 +27,13 @@ import { buildResumeDocument, findCv } from "@/mocks/cv"
  */
 export function CvPrintPage() {
   const { cvId } = useParams()
-  const cv = cvId ? findCv(cvId) : undefined
+  const personaStore = usePersonaStore()
+  const inventoryStore = useInventoryStore()
+  const resolved = cvId
+    ? resolveCv(personaStore, inventoryStore, cvId)
+    : undefined
 
-  if (!cv) {
+  if (!resolved) {
     return (
       <Empty className="min-h-72 flex-none border">
         <EmptyHeader>
@@ -52,14 +58,7 @@ export function CvPrintPage() {
     )
   }
 
-  return <CvPreview cvId={cv.id} name={cv.name} />
-}
-
-function CvPreview({ cvId, name }: { cvId: string; name: string }) {
-  // Preview-only: the chosen layout is not saved to the CV. Which template an
-  // employer actually received belongs to the application. See spec 03.
-  const [templateId, setTemplateId] = React.useState(cvTemplates[0].id)
-  const document = React.useMemo(() => buildResumeDocument(cvId), [cvId])
+  const { cv, document, template } = resolved
 
   return (
     <div className="flex flex-col gap-4">
@@ -71,19 +70,13 @@ function CvPreview({ cvId, name }: { cvId: string; name: string }) {
           nativeButton={false}
         >
           <ArrowLeftIcon data-icon="inline-start" />
-          {name}
+          {cv.name}
         </Button>
 
         <div className="flex flex-wrap items-center gap-2">
-          <PreviewSelect
-            label="Template"
-            value={templateId}
-            onChange={setTemplateId}
-            options={cvTemplates.map((template) => ({
-              value: template.id,
-              label: template.name,
-            }))}
-          />
+          <span className="text-sm text-muted-foreground">
+            {template.name}
+          </span>
           <Button size="sm" onClick={() => window.print()}>
             <PrinterIcon data-icon="inline-start" />
             Print
@@ -95,7 +88,7 @@ function CvPreview({ cvId, name }: { cvId: string; name: string }) {
         data-print-root
         className="mx-auto w-fit overflow-x-auto shadow-lg ring-1 ring-foreground/10 print:shadow-none print:ring-0"
       >
-        <ResumeRender document={document} templateId={templateId} />
+        <ResumeRender document={document} templateId={template.id} />
       </div>
     </div>
   )

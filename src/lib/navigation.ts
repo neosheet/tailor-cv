@@ -7,7 +7,6 @@ import {
   HandHeartIcon,
   HeartIcon,
   LayoutDashboardIcon,
-  LayoutTemplateIcon,
   LayersIcon,
   LanguagesIcon,
   type LucideIcon,
@@ -18,6 +17,7 @@ import {
   SettingsIcon,
   SparklesIcon,
   UserIcon,
+  UsersIcon,
 } from "lucide-react"
 
 /**
@@ -251,40 +251,40 @@ export const sections = {
       action: "Track an application",
     },
   },
+  personas: {
+    path: "/personas",
+    title: "Personas",
+    description:
+      "Named, reusable selections of entries and bullet points from your Profile — content only, no layout yet.",
+    icon: UsersIcon,
+    empty: {
+      title: "No Personas yet",
+      body: "A Persona is a selection from your Profile, assembled for a specific role. Pair one with a Template to get a CV.",
+      action: "Create a Persona",
+    },
+  },
+  cvs: {
+    path: "/cvs",
+    title: "CV",
+    description:
+      "Saved documents, each pairing a Persona with a Template. Browse what you've saved, or explore layouts in Templates.",
+    icon: FileTextIcon,
+    empty: {
+      title: "No CVs yet",
+      body: "A CV pairs a Persona with a Template so it's ready to print or send. Save one from a Persona.",
+      action: "New CV",
+    },
+  },
   inventory: {
     path: "/inventory",
-    title: "Profile",
+    title: "Profile Inventory",
     description:
-      "The raw material. Add everything you've ever done here — each CV selects from it, and none of it is sent to anyone.",
+      "The raw material. Add everything you've ever done here — each Persona selects from it, and none of it is sent to anyone.",
     icon: LayersIcon,
     empty: {
       title: "Your Profile is empty",
       body: "Start with Basics, then add the pools that matter for the roles you're chasing.",
       action: "Start with Basics",
-    },
-  },
-  cvs: {
-    path: "/cvs",
-    title: "CVs",
-    description:
-      "Tailored documents, each composed by selecting entries and bullet points from your Profile.",
-    icon: FileTextIcon,
-    empty: {
-      title: "No CVs yet",
-      body: "A CV is a selection from your Profile, assembled for a specific role. Build one per application.",
-      action: "Create a CV",
-    },
-  },
-  templates: {
-    path: "/templates",
-    title: "Templates",
-    description:
-      "How a CV looks on the page. Pick the layout your CV is rendered and printed with — the content always comes from your Profile.",
-    icon: LayoutTemplateIcon,
-    empty: {
-      title: "No templates available",
-      body: "Templates control print layout only. They never change which entries or bullet points a CV includes.",
-      action: "Browse templates",
     },
   },
   applications: {

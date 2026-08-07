@@ -30,7 +30,7 @@ swapping it for real Supabase queries later should be a like-for-like replacemen
 Plus the six Basics pools — name (2), headline (3), summary (3), contact (2),
 location (2), social (3).
 
-The data is deliberately **over-supplied and heavily tagged**. No sensible CV would
+The data is deliberately **over-supplied and heavily tagged**. No sensible Persona would
 carry all ten jobs or all twenty skills — that is the point. Filtering by `leadership`
 (8 lines) versus `backend` (19 lines) should produce visibly different résumés from the
 same rows, which is the behaviour the product exists to demonstrate.
@@ -66,8 +66,8 @@ the raw rows. `profile` is just `{ id }`: it is the account anchor and holds no 
 
 **Basics is a pool, like everything else.** There is no single identity record — name,
 headline, summary, contact, location, and social are six pools with several rows each,
-and a CV picks between them. The first five are pick-one at CV level; a CV may show
-several socials.
+and a Persona picks between them. The first five are pick-one at Persona level; a
+Persona may show several socials.
 
 ## How it's organised
 

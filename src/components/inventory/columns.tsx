@@ -6,7 +6,7 @@ import {
   type PoolColumn,
 } from "@/components/inventory/pool-table"
 import { linesOf, type DbInventoryItem, type LineKind } from "@/lib/inventory"
-import { cvUsageCount } from "@/mocks/cv"
+import { personaUsageCount } from "@/lib/persona"
 
 /**
  * Column builders shared by every pool table.
@@ -17,15 +17,16 @@ import { cvUsageCount } from "@/mocks/cv"
  */
 
 /**
- * How many CVs draw on this entry. Unused reads as a dash, like every other
- * column; a real count opens the detail dialog scrolled to its Used-in-CVs
- * section, since the number is only interesting alongside *which* CVs.
+ * How many Personas draw on this entry. Unused reads as a dash, like every
+ * other column; a real count opens the detail dialog scrolled to its
+ * Used-in-Personas section, since the number is only interesting alongside
+ * *which* Personas.
  */
 export const USAGE_COLUMN: PoolColumn = {
-  header: "In CVs",
+  header: "In Personas",
   className: "text-center",
-  cell: (item, { openUsage }) => {
-    const count = cvUsageCount(item.id)
+  cell: (item, { openUsage }, _inventory, persona) => {
+    const count = personaUsageCount(persona, item.id)
 
     if (count === 0) {
       return <span className="text-muted-foreground">—</span>
@@ -39,7 +40,7 @@ export const USAGE_COLUMN: PoolColumn = {
           <button
             type="button"
             onClick={openUsage}
-            aria-label={`${item.title} is used in ${count} ${count === 1 ? "CV" : "CVs"} — show which`}
+            aria-label={`${item.title} is used in ${count} ${count === 1 ? "Persona" : "Personas"} — show which`}
           />
         }
       >

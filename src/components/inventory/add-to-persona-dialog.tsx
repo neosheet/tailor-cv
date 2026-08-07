@@ -19,17 +19,18 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@/components/ui/item"
-import { allCvs, cvsUsingItem } from "@/mocks/cv"
+import { allPersonas, personasUsingItem } from "@/lib/persona"
+import { usePersonaStore } from "@/lib/persona-store"
 import type { DbInventoryItem } from "@/mocks"
 
 /**
- * Pick which CVs an entry should be added to. Multi-select.
+ * Pick which Personas an entry should be added to. Multi-select.
  *
- * CVs that already include the entry are shown checked and disabled — the
- * question is which CVs to *add* it to, and offering to add it somewhere it
- * already exists is a way to produce a confusing no-op.
+ * Personas that already include the entry are shown checked and disabled —
+ * the question is which Personas to *add* it to, and offering to add it
+ * somewhere it already exists is a way to produce a confusing no-op.
  */
-export function AddToCvDialog({
+export function AddToPersonaDialog({
   item,
   open,
   onClose,
@@ -38,21 +39,25 @@ export function AddToCvDialog({
   open: boolean
   onClose: () => void
 }) {
-  const cvs = allCvs()
+  const store = usePersonaStore()
+  const personas = allPersonas(store)
   const alreadyIn = React.useMemo(
-    () => new Set(cvsUsingItem(item.id).map((usage) => usage.cv.id)),
-    [item.id]
+    () =>
+      new Set(
+        personasUsingItem(store, item.id).map((usage) => usage.persona.id)
+      ),
+    [store, item.id]
   )
 
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set())
 
-  function toggle(cvId: string, checked: boolean) {
+  function toggle(personaId: string, checked: boolean) {
     setSelected((current) => {
       const next = new Set(current)
       if (checked) {
-        next.add(cvId)
+        next.add(personaId)
       } else {
-        next.delete(cvId)
+        next.delete(personaId)
       }
       return next
     })
@@ -70,29 +75,29 @@ export function AddToCvDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add to CV</DialogTitle>
+          <DialogTitle>Add to Persona</DialogTitle>
           <DialogDescription>
-            Choose which CVs should include “{item.title}”.
+            Choose which Personas should include “{item.title}”.
           </DialogDescription>
         </DialogHeader>
 
         <DialogBody>
           <ItemGroup className="gap-1">
-            {cvs.map((cv) => {
-              const existing = alreadyIn.has(cv.id)
+            {personas.map((persona) => {
+              const existing = alreadyIn.has(persona.id)
 
               return (
-                <Item key={cv.id} variant="outline">
+                <Item key={persona.id} variant="outline">
                   <Checkbox
-                    checked={existing || selected.has(cv.id)}
+                    checked={existing || selected.has(persona.id)}
                     disabled={existing}
-                    onCheckedChange={(checked) => toggle(cv.id, checked)}
-                    aria-label={`Add to ${cv.name}`}
+                    onCheckedChange={(checked) => toggle(persona.id, checked)}
+                    aria-label={`Add to ${persona.name}`}
                   />
                   <ItemContent>
-                    <ItemTitle>{cv.name}</ItemTitle>
-                    {cv.note ? (
-                      <ItemDescription>{cv.note}</ItemDescription>
+                    <ItemTitle>{persona.name}</ItemTitle>
+                    {persona.note ? (
+                      <ItemDescription>{persona.note}</ItemDescription>
                     ) : null}
                   </ItemContent>
                   {existing ? (
@@ -115,7 +120,8 @@ export function AddToCvDialog({
               Cancel
             </Button>
             <Button size="sm" disabled>
-              Add to {selected.size || "…"} CV{selected.size === 1 ? "" : "s"}
+              Add to {selected.size || "…"} Persona
+              {selected.size === 1 ? "" : "s"}
             </Button>
           </div>
         </DialogFooter>

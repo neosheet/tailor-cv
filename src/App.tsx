@@ -2,13 +2,14 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router"
 
 import { AppLayout } from "@/components/layout/app-layout"
 import { ApplicationsPage } from "@/pages/applications"
+import { CvPage } from "@/pages/cv"
 import { CvPrintPage } from "@/pages/cv-print"
-import { CvsPage } from "@/pages/cvs"
 import { DashboardPage } from "@/pages/dashboard"
 import { LoginPage } from "@/pages/login"
 import { NotFoundPage } from "@/pages/not-found"
+import { PersonaDetailPage } from "@/pages/persona-detail"
+import { PersonasPage } from "@/pages/personas"
 import { SettingsPage } from "@/pages/settings"
-import { TemplatesPage } from "@/pages/templates"
 import { AwardsPage } from "@/pages/inventory/awards"
 import { BasicsPage } from "@/pages/inventory/basics"
 import { CertificatesPage } from "@/pages/inventory/certificates"
@@ -25,6 +26,7 @@ import { VolunteerPage } from "@/pages/inventory/volunteer"
 import { WorkPage } from "@/pages/inventory/work"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
 import { InventoryStoreProvider } from "@/lib/inventory-store"
+import { PersonaStoreProvider } from "@/lib/persona-store"
 
 function RequireAuth() {
   const { session, loading } = useAuth()
@@ -39,7 +41,9 @@ function RequireAuth() {
 
   return (
     <InventoryStoreProvider>
-      <AppLayout />
+      <PersonaStoreProvider>
+        <AppLayout />
+      </PersonaStoreProvider>
     </InventoryStoreProvider>
   )
 }
@@ -71,9 +75,10 @@ export function App() {
               <Route path="import-export" element={<ImportExportPage />} />
             </Route>
 
-            <Route path="cvs" element={<CvsPage />} />
+            <Route path="personas" element={<PersonasPage />} />
+            <Route path="personas/:id" element={<PersonaDetailPage />} />
+            <Route path="cvs" element={<CvPage />} />
             <Route path="cvs/:cvId/print" element={<CvPrintPage />} />
-            <Route path="templates" element={<TemplatesPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="settings" element={<SettingsPage />} />
 

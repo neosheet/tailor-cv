@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog"
 import { ResumeRender } from "@/components/cv/resume-render"
 import type { CvTemplate } from "@/lib/cv-templates"
-import type { ResumeDocument } from "@/mocks/cv"
+import type { ResumeDocument } from "@/lib/persona"
 
 /** A template at close to full page size, rendered with real CV content. */
 export function TemplateViewDialog({
@@ -43,7 +43,7 @@ export function TemplateViewDialog({
                 <span>{template.pageSize}</span>
                 <span>{template.density}</span>
                 <span>{template.atsSafe ? "Parser-safe" : "Human-first"}</span>
-                <span>Showing “{document.cvName}”</span>
+                <span>Showing “{document.personaName}”</span>
               </div>
 
               <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">

@@ -10,7 +10,7 @@ import type {
   TemplateNode,
   TextNode,
 } from "@/lib/cv-template-schema"
-import type { ResumeDocument } from "@/mocks/cv"
+import type { ResumeDocument } from "@/lib/persona"
 
 /**
  * Interprets a `TemplateDefinition` (docs/specs/05-cv-template-format.md)

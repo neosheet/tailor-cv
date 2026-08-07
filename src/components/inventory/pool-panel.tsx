@@ -95,6 +95,11 @@ export function PoolPanel({
   rows,
   formKind,
   onDataChanged,
+  mode = "manage",
+  selectionMode = "multiple",
+  selected: controlledSelected,
+  onSelectedChange,
+  pinnedIds,
 }: {
   /** Keys the persisted search and tag filter, so each pool keeps its own. */
   kind: ItemKind
@@ -114,9 +119,40 @@ export function PoolPanel({
    * array's length, which an internal counter alone can't reflect.
    */
   onDataChanged?: () => void
+  /**
+   * "pick" is the Persona section picker's popup: no bulk-action bar (bulk
+   * semantics don't apply inside a picker), selection can be externally
+   * controlled. Add/Edit/Delete stay wired exactly as in "manage", gated
+   * only on `formKind` either way.
+   */
+  mode?: "manage" | "pick"
+  /** "single" replaces the whole selection on each pick — pick-one Basics kinds. */
+  selectionMode?: "multiple" | "single"
+  /** Controlled selection, for the picker. Uncontrolled (internal state) when omitted. */
+  selected?: ReadonlySet<string>
+  onSelectedChange?: (next: ReadonlySet<string>) => void
+  /**
+   * Sort priority only — frozen at whatever was last saved, not the live
+   * `selected` set. Checking a box shouldn't reshuffle the list out from
+   * under the person mid-pick; the newly-picked rows earn their place at the
+   * top the next time the picker opens, after a successful confirm.
+   */
+  pinnedIds?: ReadonlySet<string>
 }) {
   const store = useInventoryStore()
-  const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set())
+  const [internalSelected, setInternalSelected] = React.useState<
+    ReadonlySet<string>
+  >(new Set())
+  const selected = controlledSelected ?? internalSelected
+
+  function updateSelected(next: ReadonlySet<string>) {
+    if (onSelectedChange) {
+      onSelectedChange(next)
+    } else {
+      setInternalSelected(next)
+    }
+  }
+
   const [dialog, setDialog] = React.useState<{
     mode: "add" | "edit"
     item?: DbInventoryItem
@@ -142,7 +178,21 @@ export function PoolPanel({
   }
 
   const visible = React.useMemo(() => {
-    const ordered = [...rows].sort(byFavouriteThenPosition)
+    // In "pick" mode, previously-saved picks float to the top — ahead of
+    // favourite. Sorted by `pinnedIds`, not the live `selected` set: checking
+    // a box mid-session must not reshuffle the list out from under the
+    // person picking. "manage" mode keeps the plain favourite-then-position
+    // order untouched.
+    const sortRows =
+      mode === "pick" && pinnedIds
+        ? (a: DbInventoryItem, b: DbInventoryItem) => {
+            const pinnedDiff =
+              Number(pinnedIds.has(b.id)) - Number(pinnedIds.has(a.id))
+            return pinnedDiff !== 0 ? pinnedDiff : byFavouriteThenPosition(a, b)
+          }
+        : byFavouriteThenPosition
+
+    const ordered = [...rows].sort(sortRows)
     const needle = query.trim().toLowerCase()
 
     return ordered
@@ -150,7 +200,7 @@ export function PoolPanel({
       .filter((row) => tagFilter.every((tag) => row.tags.includes(tag)))
     // favouriteVersion is the signal that an in-place mutation happened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, query, tagFilter, favouriteVersion])
+  }, [rows, query, tagFilter, favouriteVersion, mode, pinnedIds])
 
   // Offered tags come from the rows that survive the current filters, so every
   // suggestion narrows the list instead of emptying it.
@@ -162,19 +212,22 @@ export function PoolPanel({
   // Select-all applies to what's on screen, so it never quietly selects rows
   // the current search has hidden.
   function toggleAll(checked: boolean) {
-    setSelected(checked ? new Set(visible.map((row) => row.id)) : new Set())
+    updateSelected(checked ? new Set(visible.map((row) => row.id)) : new Set())
   }
 
   function toggleRow(id: string, checked: boolean) {
-    setSelected((current) => {
-      const next = new Set(current)
-      if (checked) {
-        next.add(id)
-      } else {
-        next.delete(id)
-      }
-      return next
-    })
+    if (selectionMode === "single") {
+      updateSelected(checked ? new Set([id]) : new Set())
+      return
+    }
+
+    const next = new Set(selected)
+    if (checked) {
+      next.add(id)
+    } else {
+      next.delete(id)
+    }
+    updateSelected(next)
   }
 
   return (
@@ -209,10 +262,10 @@ export function PoolPanel({
       </div>
 
       <div className="overflow-hidden rounded-xl border">
-        {selected.size > 0 ? (
+        {mode === "manage" && selected.size > 0 ? (
           <BulkActions
             count={selected.size}
-            onClear={() => setSelected(new Set())}
+            onClear={() => updateSelected(new Set())}
           />
         ) : null}
         <PoolTable
@@ -229,6 +282,7 @@ export function PoolPanel({
           onRequestDelete={
             formKind ? (item) => setDeleteTarget(item) : undefined
           }
+          selectAllHidden={mode === "pick" && selectionMode === "single"}
         />
       </div>
 
@@ -267,12 +321,11 @@ export function PoolPanel({
               onClick={async () => {
                 if (!deleteTarget) return
                 await deleteItem(store, deleteTarget.id)
-                setSelected((current) => {
-                  if (!current.has(deleteTarget.id)) return current
-                  const next = new Set(current)
+                if (selected.has(deleteTarget.id)) {
+                  const next = new Set(selected)
                   next.delete(deleteTarget.id)
-                  return next
-                })
+                  updateSelected(next)
+                }
                 onDataChanged?.()
                 setDeleteTarget(null)
               }}

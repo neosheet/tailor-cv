@@ -90,46 +90,40 @@ export type DbItemSkill = DbTimestamps & {
 }
 
 // ---------------------------------------------------------------------------
-// CV selection — see docs/specs/03-cv-selection.md
+// Persona selection — see docs/specs/06-persona-cv-split.md (formerly "CV
+// selection" in docs/specs/03-cv-selection.md)
 // ---------------------------------------------------------------------------
 
 /**
- * No `templateId`. A CV is content — which entries, which bullets, in what
- * order. Layout is a preview choice, and the binding that matters ("which layout
- * did Globex receive?") belongs to the application. See spec 03.
+ * `DbPersona` itself is NOT defined here — it's defined schema-accurately in
+ * `src/lib/persona-store.tsx` (this shape would carry a `deletedAt` with no
+ * backing column; soft delete isn't implemented for Personas). These three
+ * are schema-accurate already and reused as-is by `lib/persona.ts`.
  */
-export type DbCv = DbTimestamps & {
-  id: string
-  userId: string
-  name: string
-  note: string | null
-  deletedAt: string | null
-}
-
-export type DbCvSection = {
-  cvId: string
+export type DbPersonaSection = {
+  personaId: string
   kind: ItemKind
   position: number
 }
 
-export type DbCvItem = {
-  cvId: string
+export type DbPersonaItem = {
+  personaId: string
   itemId: string
   /** Order within its section, not the document. */
   position: number
 }
 
-export type DbCvLine = {
-  cvId: string
+export type DbPersonaLine = {
+  personaId: string
   itemId: string
   lineId: string
   position: number
 }
 
 /**
- * The Inventory half of the dataset. CV selection rows live in `cvDb` from
- * `mocks/cv.ts` — kept separate because that module reads this one, and folding
- * them together would make the import circular.
+ * The Inventory half of the dataset. Persona selection rows live in
+ * `personaDb` from `mocks/persona.ts` — kept separate because that module
+ * reads this one, and folding them together would make the import circular.
  */
 export type MockDatabase = {
   profile: DbProfile
@@ -139,33 +133,58 @@ export type MockDatabase = {
 }
 
 // ---------------------------------------------------------------------------
-// CV authoring shapes
+// Persona authoring shapes
 // ---------------------------------------------------------------------------
 
 /**
- * Which of an entry's lines the CV takes. Listing 80 line ids by hand would be
- * unreadable and would rot the moment a bullet is reordered, so selections are
- * authored as a tag filter and expanded to real `cv_lines` rows on load.
+ * Which of an entry's lines the Persona takes. Listing 80 line ids by hand
+ * would be unreadable and would rot the moment a bullet is reordered, so
+ * selections are authored as a tag filter and expanded to real
+ * `persona_lines` rows on load.
  */
-export type SourceCvLines =
+export type SourcePersonaLines =
   "all" | "none" | { tagsAny: string[] } | { ids: string[] }
 
-export type SourceCvItem = {
+export type SourcePersonaItem = {
   itemId: string
-  lines?: SourceCvLines
+  lines?: SourcePersonaLines
 }
 
-export type SourceCvSection = {
+export type SourcePersonaSection = {
   kind: ItemKind
-  items: SourceCvItem[]
+  items: SourcePersonaItem[]
+}
+
+export type SourcePersona = {
+  id: string
+  name: string
+  note?: string
+  tags?: string[]
+  favorite?: boolean
+  /** Order here is the section order on the page. */
+  sections: SourcePersonaSection[]
+}
+
+// ---------------------------------------------------------------------------
+// CV — a saved (Persona, Template) pairing. See docs/specs/06-persona-cv-split.md
+// ---------------------------------------------------------------------------
+
+/** `templateId` matches an id in `src/lib/cv-templates.ts` — not a real FK yet. */
+export type DbCv = DbTimestamps & {
+  id: string
+  userId: string
+  personaId: string
+  templateId: string
+  name: string
+  note: string | null
 }
 
 export type SourceCv = {
   id: string
   name: string
+  personaId: string
+  templateId: string
   note?: string
-  /** Order here is the section order on the page. */
-  sections: SourceCvSection[]
 }
 
 // ---------------------------------------------------------------------------
