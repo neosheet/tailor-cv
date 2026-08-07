@@ -55,7 +55,7 @@ export function TemplateCard({
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-          <Spec icon={PrinterIcon}>{template.pageSize}</Spec>
+          <Spec icon={PrinterIcon}>{template.definition.page.size}</Spec>
           <Spec icon={RulerIcon}>{template.density}</Spec>
           <Spec icon={FileCheck2Icon}>
             {template.atsSafe ? "Parser-safe" : "Human-first"}

@@ -40,7 +40,7 @@ export function TemplateViewDialog({
 
             <DialogBody className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>{template.pageSize}</span>
+                <span>{template.definition.page.size}</span>
                 <span>{template.density}</span>
                 <span>{template.atsSafe ? "Parser-safe" : "Human-first"}</span>
                 <span>Showing “{document.personaName}”</span>

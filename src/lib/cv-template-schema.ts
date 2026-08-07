@@ -1,14 +1,31 @@
 import { z } from "zod"
 
 /**
- * A JSON format for CV layouts — see docs/specs/05-cv-template-format.md.
- *
- * `TemplateDefinition` replaces a template's `.tsx` component: arrangement and
- * style only, no formatting logic, so it can be stored as `jsonb`, hand-edited,
- * or exported/imported as a plain file.
+ * CV template format v2 — see docs/specs/07-cv-template-pdf-format.md.
+ * Named `styles` registry with `extends` composition, `blocks` registry with
+ * sigil-based scope ($data/$prop/$item/$index), point-based units, and
+ * `page: PageConfig` inside the definition itself.
  */
 
 export type Style = Record<string, string | number>
+
+export type StyleDef = Style & { extends?: string[] }
+
+export type PageSize = "A4" | "LETTER" | "LEGAL"
+
+export type PageConfig = {
+  size: PageSize
+  orientation?: "portrait" | "landscape"
+  margin?: number
+  fontFamily?: string
+  fontSize?: number
+  lineHeight?: number
+  color?: string
+  header?: TemplateNode
+  footer?: TemplateNode
+  headerSpace?: number
+  footerSpace?: number
+}
 
 export type BoxTag =
   | "div"
@@ -22,84 +39,106 @@ export type BoxTag =
   | "h1"
   | "h2"
   | "h3"
+  | "a"
 
-/** A container element. */
-export type BoxNode = {
-  type: "box"
+/** An element node (tag, text, or bare children). */
+export type ElementNode = {
   tag?: BoxTag
+  id?: string
+  styles?: string | string[]
   style?: Style
+  attrs?: Record<string, string>
+  text?: string
   children?: TemplateNode[]
+  fixed?: boolean
+  break?: boolean
+  wrap?: boolean
 }
 
-/**
- * Text — either bound to a path or a literal string, never both. `href`, when
- * given, is itself a bind path resolved to a URL; if that resolves truthy the
- * node renders as `<a href>` around its text instead of plain text.
- */
-export type TextNode = {
-  type: "text"
-  style?: Style
-  href?: string
-} & ({ bind: string } | { literal: string })
-
-/** A fixed set of optional parts, joined by a literal separator, blanks dropped. */
-export type JoinNode = {
-  type: "join"
-  parts: TemplateNode[]
-  separator: string
+/** Block instance node. */
+export type BlockInstanceNode = {
+  block: string
+  id?: string
+  props?: Record<string, string>
+  styles?: string | string[]
   style?: Style
 }
 
-/** One child per array item. `as` names the item in the child's scope. */
+/** Repeat node with nested repeat config. */
 export type RepeatNode = {
-  type: "repeat"
-  bind: string
-  as: string
-  tag?: BoxTag
-  style?: Style
-  filter?: { field: string; op: "in" | "not-in"; value: string[] }
-  sort?: { field: string; priority: string[] }
-  /** Rendered between consecutive items — not before the first. */
-  separator?: TemplateNode
-  child: TemplateNode
+  repeat: {
+    id?: string
+    block: string
+    for: string
+    as?: Record<string, string>
+    filter?: { field: string; op: "in" | "not-in"; value: string[] }
+    sort?: { field: string; priority: string[] }
+    tag?: BoxTag
+    style?: Style
+    styles?: string | string[]
+    separator?: TemplateNode
+  }
 }
 
-/** Conditional. Defaults to truthy/falsy; `equals`/`in` compare a resolved string. */
+/** Conditional node. */
 export type IfNode = {
-  type: "if"
-  bind: string
+  if: string
+  id?: string
   equals?: string
   in?: string[]
   then: TemplateNode
   else?: TemplateNode
 }
 
-/** Instantiates a named entry from `blocks`, passing scope variables in by name. */
-export type RefNode = {
-  type: "ref"
-  block: string
-  with?: Record<string, string>
+/** Join node with nested join config. */
+export type JoinNode = {
+  join: {
+    id?: string
+    parts: TemplateNode[]
+    separator: string
+    style?: Style
+    styles?: string | string[]
+  }
+}
+
+/** Page number node. */
+export type PageNumberNode = {
+  pageNumber: true
+  id?: string
+  format?: string
+  style?: Style
+  styles?: string | string[]
 }
 
 export type TemplateNode =
-  | BoxNode
-  | TextNode
-  | JoinNode
+  | ElementNode
+  | BlockInstanceNode
   | RepeatNode
   | IfNode
-  | RefNode
+  | JoinNode
+  | PageNumberNode
+
+export type BlockDef = {
+  props?: string[]
+  node: TemplateNode
+}
+
+export type TemplateSettings = {
+  styles?: Record<string, Style>
+  nodes?: Record<string, { hidden?: boolean }>
+}
 
 export type TemplateDefinition = {
-  schemaVersion: 1
+  schemaVersion: 2
   id: string
   name: string
   description: string
-  pageSize: "A4" | "A4 / Letter"
   density: "Roomy" | "Balanced" | "Dense"
   atsSafe: boolean
   bestFor: string
-  /** Named, reusable node trees local to this definition. */
-  blocks: Record<string, TemplateNode>
+  page: PageConfig
+  styles: Record<string, StyleDef>
+  blocks: Record<string, BlockDef>
   root: TemplateNode
 }
 
@@ -111,6 +150,14 @@ const styleSchema: z.ZodType<Style> = z.record(
   z.string(),
   z.union([z.string(), z.number()])
 )
+
+const styleDefSchema: z.ZodType<StyleDef> = z
+  .record(z.string(), z.union([z.string(), z.number()]))
+  .and(
+    z.object({
+      extends: z.array(z.string()).optional(),
+    })
+  )
 
 const boxTagSchema = z.enum([
   "div",
@@ -124,112 +171,161 @@ const boxTagSchema = z.enum([
   "h1",
   "h2",
   "h3",
+  "a",
 ])
 
-// `z.union` rather than `z.discriminatedUnion`: `textNodeSchema`'s `.refine()`
-// (enforcing `bind`/`literal` exclusivity) drops the discriminant metadata a
-// discriminated union needs, so a plain union is what actually typechecks here.
-// Typed `ZodTypeAny` (not `ZodType<TemplateNode>`) only to break the
-// self-referential circularity — `.refine()`'s runtime-only XOR check can
-// never structurally match `TemplateNode`'s narrower hand-written union, so
-// validated input is cast to `TemplateDefinition` at `parseTemplateDefinition`
-// instead, where it actually matters.
+const pageConfigSchema = z.object({
+  size: z.enum(["A4", "LETTER", "LEGAL"]),
+  orientation: z.enum(["portrait", "landscape"]).optional(),
+  margin: z.number().optional(),
+  fontFamily: z.string().optional(),
+  fontSize: z.number().optional(),
+  lineHeight: z.number().optional(),
+  color: z.string().optional(),
+  header: z.lazy(() => templateNodeSchema).optional(),
+  footer: z.lazy(() => templateNodeSchema).optional(),
+  headerSpace: z.number().optional(),
+  footerSpace: z.number().optional(),
+})
+
 const templateNodeSchema: z.ZodTypeAny = z.lazy(() =>
   z.union([
-    boxNodeSchema,
-    textNodeSchema,
-    joinNodeSchema,
+    elementNodeSchema,
+    blockInstanceNodeSchema,
     repeatNodeSchema,
     ifNodeSchema,
-    refNodeSchema,
+    joinNodeSchema,
+    pageNumberNodeSchema,
   ])
 )
 
-const boxNodeSchema = z.object({
-  type: z.literal("box"),
-  tag: boxTagSchema.optional(),
-  style: styleSchema.optional(),
-  children: z.array(templateNodeSchema).optional(),
-})
-
-const textNodeSchema = z
+// `.strict()` on every node shape below: since none of these variants share a
+// `type` discriminant, `z.union` tries each schema in declared order and keeps
+// the first one that validates. Zod's default object mode silently *strips*
+// unrecognized keys rather than rejecting them, so a non-strict `elementNodeSchema`
+// (every field optional) would successfully — and wrongly — match an IfNode/
+// RepeatNode/etc. by stripping away `if`/`then`/`repeat`/... down to `{}`.
+// `.strict()` makes an unrecognized key a validation failure instead, so the
+// union correctly falls through to the schema that actually owns those keys.
+const elementNodeSchema = z
   .object({
-    type: z.literal("text"),
+    tag: boxTagSchema.optional(),
+    id: z.string().optional(),
+    styles: z.union([z.string(), z.array(z.string())]).optional(),
     style: styleSchema.optional(),
-    href: z.string().optional(),
-    bind: z.string().optional(),
-    literal: z.string().optional(),
+    attrs: z.record(z.string(), z.string()).optional(),
+    text: z.string().optional(),
+    children: z.array(templateNodeSchema).optional(),
+    fixed: z.boolean().optional(),
+    break: z.boolean().optional(),
+    wrap: z.boolean().optional(),
   })
-  .refine(
-    (node) => (node.bind !== undefined) !== (node.literal !== undefined),
-    {
-      message: "TextNode requires exactly one of `bind` or `literal`.",
-      path: ["bind"],
-    }
-  )
+  .strict()
 
-const joinNodeSchema = z.object({
-  type: z.literal("join"),
-  parts: z.array(templateNodeSchema),
-  separator: z.string(),
-  style: styleSchema.optional(),
-})
+const blockInstanceNodeSchema = z
+  .object({
+    block: z.string(),
+    id: z.string().optional(),
+    props: z.record(z.string(), z.string()).optional(),
+    styles: z.union([z.string(), z.array(z.string())]).optional(),
+    style: styleSchema.optional(),
+  })
+  .strict()
 
-const repeatNodeSchema = z.object({
-  type: z.literal("repeat"),
-  bind: z.string(),
-  as: z.string(),
-  tag: boxTagSchema.optional(),
-  style: styleSchema.optional(),
-  filter: z
-    .object({
-      field: z.string(),
-      op: z.enum(["in", "not-in"]),
-      value: z.array(z.string()),
-    })
-    .optional(),
-  sort: z
-    .object({
-      field: z.string(),
-      priority: z.array(z.string()),
-    })
-    .optional(),
-  separator: templateNodeSchema.optional(),
-  child: templateNodeSchema,
-})
+const repeatNodeSchema = z
+  .object({
+    repeat: z
+      .object({
+        id: z.string().optional(),
+        block: z.string(),
+        for: z.string(),
+        as: z.record(z.string(), z.string()).optional(),
+        filter: z
+          .object({
+            field: z.string(),
+            op: z.enum(["in", "not-in"]),
+            value: z.array(z.string()),
+          })
+          .optional(),
+        sort: z
+          .object({
+            field: z.string(),
+            priority: z.array(z.string()),
+          })
+          .optional(),
+        tag: boxTagSchema.optional(),
+        style: styleSchema.optional(),
+        styles: z.union([z.string(), z.array(z.string())]).optional(),
+        separator: templateNodeSchema.optional(),
+      })
+      .strict(),
+  })
+  .strict()
 
-const ifNodeSchema = z.object({
-  type: z.literal("if"),
-  bind: z.string(),
-  equals: z.string().optional(),
-  in: z.array(z.string()).optional(),
-  then: templateNodeSchema,
-  else: templateNodeSchema.optional(),
-})
+const ifNodeSchema = z
+  .object({
+    if: z.string(),
+    id: z.string().optional(),
+    equals: z.string().optional(),
+    in: z.array(z.string()).optional(),
+    then: templateNodeSchema,
+    else: templateNodeSchema.optional(),
+  })
+  .strict()
 
-const refNodeSchema = z.object({
-  type: z.literal("ref"),
-  block: z.string(),
-  with: z.record(z.string(), z.string()).optional(),
+const joinNodeSchema = z
+  .object({
+    join: z
+      .object({
+        id: z.string().optional(),
+        parts: z.array(templateNodeSchema),
+        separator: z.string(),
+        style: styleSchema.optional(),
+        styles: z.union([z.string(), z.array(z.string())]).optional(),
+      })
+      .strict(),
+  })
+  .strict()
+
+const pageNumberNodeSchema = z
+  .object({
+    pageNumber: z.literal(true),
+    id: z.string().optional(),
+    format: z.string().optional(),
+    style: styleSchema.optional(),
+    styles: z.union([z.string(), z.array(z.string())]).optional(),
+  })
+  .strict()
+
+const blockDefSchema = z.object({
+  props: z.array(z.string()).optional(),
+  node: templateNodeSchema,
 })
 
 export const templateDefinitionSchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   id: z.string(),
   name: z.string(),
   description: z.string(),
-  pageSize: z.enum(["A4", "A4 / Letter"]),
   density: z.enum(["Roomy", "Balanced", "Dense"]),
   atsSafe: z.boolean(),
   bestFor: z.string(),
-  blocks: z.record(z.string(), templateNodeSchema),
+  page: pageConfigSchema,
+  styles: z.record(z.string(), styleDefSchema),
+  blocks: z.record(z.string(), blockDefSchema),
   root: templateNodeSchema,
+})
+
+export const templateSettingsSchema = z.object({
+  styles: z.record(z.string(), styleSchema).optional(),
+  nodes: z.record(z.string(), z.object({ hidden: z.boolean().optional() }))
+    .optional(),
 })
 
 /**
  * Parses and validates a `TemplateDefinition` at the point it's authored (or,
  * later, read out of Supabase) — a typo fails loudly here rather than
- * rendering wrong or crashing deep inside `TemplateNodeRenderer`.
+ * rendering wrong or crashing deep inside the renderer.
  */
 export function parseTemplateDefinition(input: unknown): TemplateDefinition {
   const result = templateDefinitionSchema.safeParse(input)

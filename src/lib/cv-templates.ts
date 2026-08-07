@@ -18,8 +18,6 @@ export type CvTemplate = {
   description: string
   /** The JSON layout `TemplateNodeRenderer` interprets to render it. */
   definition: TemplateDefinition
-  /** Print page geometry the template is designed against. */
-  pageSize: "A4" | "A4 / Letter"
   /** Roughly how much content fits before spilling to a second page. */
   density: "Roomy" | "Balanced" | "Dense"
   /** Whether the layout survives automated resume parsers. */
@@ -35,7 +33,6 @@ export const cvTemplates: CvTemplate[] = [
     description:
       "A centred header over full-width sections. The safest choice when you don't know how the CV will be read.",
     definition: classicTemplateDefinition,
-    pageSize: "A4 / Letter",
     density: "Balanced",
     atsSafe: true,
     bestFor: "Most applications, and anything going through a job portal",

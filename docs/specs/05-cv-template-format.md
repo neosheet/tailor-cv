@@ -1,5 +1,11 @@
 # 05 — CV Template Format
 
+**Superseded by [07 — CV Template Format v2: JSON-UI structure + real PDF
+output](07-cv-template-pdf-format.md).** Kept as the design record for the six-node
+closed set, empty propagation, and name-based scope reasoning — most of which carries
+forward — but the concrete schema below (node shapes, inline-only styling, page chrome
+owned by the renderer) is no longer what's implemented.
+
 A JSON format for CV *layouts* — the four things `src/components/cv/templates/*.tsx`
 are today — so a template becomes data: storable in Supabase as `jsonb`, hand-editable
 field by field, diffable, exportable/importable as a plain `.json` file. No template
