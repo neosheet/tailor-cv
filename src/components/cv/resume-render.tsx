@@ -19,7 +19,9 @@ export function ResumeRender({
   templateId,
   scale = 1,
   className,
+  ref
 }: {
+  ref?: React.Ref<HTMLDivElement>
   document: ResumeDocument
   /** Always explicit: a CV stores no template, layout is the caller's choice. */
   templateId: string
@@ -29,21 +31,22 @@ export function ResumeRender({
   if (scale === 1) {
     return (
       <div className={className}>
-        <TemplateRender templateId={templateId} document={document} />
+        <TemplateRender ref={ref} templateId={templateId} document={document} />
       </div>
     )
   }
 
   return (
     <div
+
       className={cn(
         "h-[calc(1123px*var(--resume-scale))] w-[calc(794px*var(--resume-scale))] overflow-hidden",
         className
       )}
       style={{ "--resume-scale": scale } as React.CSSProperties}
     >
-      <div className="origin-top-left scale-[var(--resume-scale)]">
-        <TemplateRender templateId={templateId} document={document} />
+      <div className="origin-top-left scale-(--resume-scale)">
+        <TemplateRender ref={ref} templateId={templateId} document={document} />
       </div>
     </div>
   )

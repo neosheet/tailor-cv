@@ -3,6 +3,7 @@ import {
   parseTemplateDefinition,
   type TemplateDefinition,
 } from "@/lib/cv-template-schema"
+import { se } from "date-fns/locale"
 
 /**
  * Classic template for spec 07 format. Ported from the spec-05 version:
@@ -22,7 +23,7 @@ export const classicTemplateDefinition: TemplateDefinition =
 
     page: {
       size: "A4",
-      margin: 30, // 40px → 30pt (40 × 0.75)
+      margin: 40, // 40px → 30pt (40 × 0.75)
       fontFamily: "Helvetica",
       fontSize: 9.375, // 12.5px → 9.375pt (12.5 × 0.75)
       lineHeight: 1.4,
@@ -206,13 +207,15 @@ export const classicTemplateDefinition: TemplateDefinition =
         flexDirection: "column",
         gap: 18, // 24px → 18pt
       },
+
+      
+
     },
 
     blocks: { ...sharedBlocks },
 
     root: {
       tag: "div",
-      style: { paddingVertical: 36, paddingHorizontal: 42 }, // 48px 56px → 36pt 42pt
       children: [
         {
           tag: "header",
@@ -236,12 +239,16 @@ export const classicTemplateDefinition: TemplateDefinition =
                 block: "contactPart",
                 for: "$data.contactParts",
                 as: { part: "$item" },
-                tag: "p",
+                // Not "p": this container is laid out with flex/gap, which
+                // react-pdf only supports on View, not Text.
+                tag: "ul",
                 styles: "contactPartsContainer",
                 separator: {
-                  text: "·",
+                  tag: "span",
                   styles: "contactSeparator",
+                  children: [{ text: "\n" }],
                 },
+               
               },
             },
           ],

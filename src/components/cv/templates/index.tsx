@@ -19,15 +19,17 @@ import type { ResumeDocument } from "@/lib/persona"
 export function TemplateRender({
   templateId,
   document,
+    ref
 }: {
   templateId: string
   document: ResumeDocument
+    ref?: React.Ref<HTMLDivElement>
 }) {
   const template =
     cvTemplates.find((candidate) => candidate.id === templateId) ??
     cvTemplates[0]
 
   return (
-    <TemplateNodeRenderer definition={template.definition} context={document} />
+    <TemplateNodeRenderer ref={ref} definition={template.definition} context={document} />
   )
 }

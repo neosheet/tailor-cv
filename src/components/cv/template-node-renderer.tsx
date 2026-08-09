@@ -41,6 +41,18 @@ const UNITLESS = new Set([
 /** Scale factor: 96 DPI (CSS px) / 72 (points). */
 const K = 96 / 72
 
+/**
+ * react-pdf (yoga) style shorthands that plain CSS doesn't understand —
+ * expanded to real longhands so the DOM backend renders the same padding/
+ * margin as the PDF backend instead of silently dropping them.
+ */
+const SHORTHAND: Record<string, [keyof CSSProperties, keyof CSSProperties]> = {
+  paddingVertical: ["paddingTop", "paddingBottom"],
+  paddingHorizontal: ["paddingLeft", "paddingRight"],
+  marginVertical: ["marginTop", "marginBottom"],
+  marginHorizontal: ["marginLeft", "marginRight"],
+}
+
 /** Falsy for `if`, empty arrays, empty strings, etc. */
 function isEmpty(value: unknown): boolean {
   return (
@@ -60,17 +72,20 @@ function scaleStyle(style: Style | undefined): CSSProperties | undefined {
   if (!style) return undefined
 
   const result: CSSProperties = {}
-  for (const [key, value] of Object.entries(style)) {
-    if (typeof value === "string") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      result[key as keyof CSSProperties] = value as any
-    } else if (typeof value === "number") {
-      if (UNITLESS.has(key)) {
+  for (const [rawKey, value] of Object.entries(style)) {
+    const keys = SHORTHAND[rawKey] ?? [rawKey as keyof CSSProperties]
+    for (const key of keys) {
+      if (typeof value === "string") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        result[key as keyof CSSProperties] = value as any
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        result[key as keyof CSSProperties] = `${value * K}px` as any
+        result[key] = value as any
+      } else if (typeof value === "number") {
+        if (UNITLESS.has(rawKey)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          result[key] = value as any
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          result[key] = `${value * K}px` as any
+        }
       }
     }
   }
@@ -148,7 +163,7 @@ function renderElement(
     return null
   }
 
-  const tag = node.tag ?? "div"
+  const tag = node.tag
   const resolvedStyle = resolveStyleObject(
     node.styles,
     styles,
@@ -176,9 +191,11 @@ function renderElement(
       }
     }
 
-    if (tag === "div" && !cssStyle) {
+    if(!tag){
       return content
     }
+
+
     return createElement(tag, { style: cssStyle }, content)
   }
 
@@ -443,11 +460,13 @@ export function TemplateNodeRenderer({
   context,
   settings,
   className,
+  ref
 }: {
   definition: TemplateDefinition
   context: ResumeDocument
   settings?: Record<string, unknown>
   className?: string
+  ref?: React.Ref<HTMLDivElement>
 }) {
   const {
     page: {
@@ -469,9 +488,11 @@ export function TemplateNodeRenderer({
   const pageDim = pageSizeMap[size]
   const pageWidthPx = Math.round(pageDim.width * K)
   const pageHeightPx = Math.round(pageDim.height * K)
+  const pageMarginPx = Math.round((definition.page.margin ?? 0) * K)
 
   return (
     <div
+
       data-resume-page
       className={cn(
         "bg-white text-neutral-900",
@@ -481,21 +502,25 @@ export function TemplateNodeRenderer({
       style={{
         width: `${pageWidthPx}px`,
         minHeight: `${pageHeightPx}px`,
+        padding: `${pageMarginPx}px`
+      }}
+    >
+      <div ref={ref} style={{
         fontFamily,
         fontSize: `${fontSize * K}px`,
         lineHeight,
         color,
-      }}
-    >
-      {renderNode(
-        definition.root,
-        {},
-        context,
-        definition.blocks,
-        definition.styles,
-        settings,
-        new Set()
-      )}
+      }}>
+        {renderNode(
+          definition.root,
+          {},
+          context,
+          definition.blocks,
+          definition.styles,
+          settings,
+          new Set()
+        )}
+      </div>
     </div>
   )
 }

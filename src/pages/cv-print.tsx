@@ -1,9 +1,10 @@
 import { ArrowLeftIcon, DownloadIcon } from "lucide-react"
 import { Link, useParams } from "react-router"
 import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer"
-import { useMemo } from "react"
-
+import { useMemo, useRef } from "react"
+import { useReactToPrint } from "react-to-print";
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Empty,
   EmptyContent,
@@ -15,64 +16,57 @@ import {
 import {
   buildPdfDocument,
 } from "@/components/cv/template-pdf-renderer"
+import { ResumeRender } from "@/components/cv/resume-render"
 import { resolveCv } from "@/lib/cv"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { usePersonaStore } from "@/lib/persona-store"
 
 /**
- * Real PDF preview and download page for a saved CV.
- *
- * A saved CV is a fixed (Persona, Template) pairing, so unlike the Templates
- * preview, there's no layout picker here. The PDF viewer shows a live preview,
- * and the download button produces the actual `.pdf` file.
- *
- * Replaces the old `window.print()` approach from spec 05 — this is now a real
- * PDF generated via `@react-pdf/renderer`, with the DOM preview (in the gallery)
- * serving as a cheap approximation for reference only.
+ * CV detail page: the HTML tab is the DOM render (fast, live), the PDF tab is
+ * the real `@react-pdf/renderer` output. Same document, two backends — the
+ * DOM version is a cheap approximation, the PDF is the source of truth for
+ * what actually downloads.
  */
-export function CvPrintPage() {
-  const { cvId } = useParams()
-  const personaStore = usePersonaStore()
-  const inventoryStore = useInventoryStore()
-  const resolved = cvId
-    ? resolveCv(personaStore, inventoryStore, cvId)
-    : undefined
 
-  // Memoize the built PDF document so it doesn't rebuild on every render
-  // (must be called unconditionally per React hooks rules)
-  const pdfDocument = useMemo(
-    () => (resolved ? buildPdfDocument(resolved.template.definition, resolved.document) : null),
-    [resolved]
+
+function CvUnresolved() {
+  return (
+    <Empty className="min-h-72 flex-none border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <DownloadIcon />
+        </EmptyMedia>
+        <EmptyTitle>No such CV</EmptyTitle>
+        <EmptyDescription>
+          That CV doesn&apos;t exist, or it has been deleted.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button
+          variant="outline"
+          render={<Link to="/cvs" />}
+          nativeButton={false}
+        >
+          Back to CVs
+        </Button>
+      </EmptyContent>
+    </Empty>
   )
+}
 
-  if (!resolved) {
-    return (
-      <Empty className="min-h-72 flex-none border">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <DownloadIcon />
-          </EmptyMedia>
-          <EmptyTitle>No such CV</EmptyTitle>
-          <EmptyDescription>
-            That CV doesn&apos;t exist, or it has been deleted.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button
-            variant="outline"
-            render={<Link to="/cvs" />}
-            nativeButton={false}
-          >
-            Back to CVs
-          </Button>
-        </EmptyContent>
-      </Empty>
-    )
-  }
-
-  const { cv, document, template } = resolved
+function CvResolved({ cv, document, template }: { cv: any; document: any; template: any }) {
 
   const fileName = `${document.personaName} — ${template.name}.pdf`
+  const contentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFn = useReactToPrint({
+    contentRef,
+    pageStyle: `
+        @page {
+          margin: ${template.definition.page.margin ?? 0}pt;
+        }
+      `,
+    documentTitle: fileName, onAfterPrint: () => { console.log("Printed successfully!"); }
+  });
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -91,34 +85,39 @@ export function CvPrintPage() {
           <span className="text-sm text-muted-foreground">
             {template.name}
           </span>
-          <PDFDownloadLink
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            document={pdfDocument as any}
-            fileName={fileName}
-          >
-            {({ loading }) => (
-              <Button size="sm" disabled={loading}>
-                <DownloadIcon data-icon="inline-start" />
-                {loading ? "Preparing…" : "Download PDF"}
-              </Button>
-            )}
-          </PDFDownloadLink>
+
+          <Button onClick={reactToPrintFn}>Print</Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden rounded-md ring-1 ring-foreground/10">
-        <PDFViewer
-          showToolbar
-          style={{
-            width: "100%",
-            height: "100%",
-            border: 0,
-          }}
-        >
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {pdfDocument as any}
-        </PDFViewer>
+    <div className="bg-muted p-5 rounded-xl">
+        <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
+        <ResumeRender ref={contentRef} document={document} templateId={template.id} />
       </div>
     </div>
+    </div>
   )
+}
+
+
+export function CvPrintPage() {
+
+  const { cvId } = useParams()
+  const personaStore = usePersonaStore()
+  const inventoryStore = useInventoryStore()
+  const resolved = cvId
+    ? resolveCv(personaStore, inventoryStore, cvId)
+    : undefined
+
+  // Memoize the built PDF document so it doesn't rebuild on every render
+  // (must be called unconditionally per React hooks rules)
+
+
+  if (!resolved) {
+    return <CvUnresolved />
+  }
+
+
+  const { cv, document, template } = resolved
+  return <CvResolved cv={cv} document={document} template={template} />
 }

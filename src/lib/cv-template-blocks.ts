@@ -228,7 +228,7 @@ const section: BlockDef = {
 
 const contactPart: BlockDef = {
   props: ["part"],
-  node: { text: "$prop.part" },
+  node: { tag:"li", text: "$prop.part", styles: "entryContactPart" },
 }
 
 export const sharedBlocks: Record<string, BlockDef> = {

@@ -137,10 +137,7 @@
    respect them.
    --------------------------------------------------------------------------- */
 
-@page {
-  size: A4;
-  margin: 0;
-}
+
 
 @media print {
   /* Backgrounds are load-bearing here — the Sidebar template's rail is the
