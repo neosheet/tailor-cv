@@ -1,10 +1,8 @@
-import { ArrowLeftIcon, DownloadIcon } from "lucide-react"
+import { ArrowLeftIcon, DownloadIcon, FileDownIcon } from "lucide-react"
 import { Link, useParams } from "react-router"
-import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer"
-import { useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { useReactToPrint } from "react-to-print";
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Empty,
   EmptyContent,
@@ -13,19 +11,23 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import {
-  buildPdfDocument,
-} from "@/components/cv/template-pdf-renderer"
+import { useSidebar } from "@/components/ui/sidebar"
+import { PersonaFieldTree } from "@/components/cv/persona-field-tree"
 import { ResumeRender } from "@/components/cv/resume-render"
+import type { CvTemplate } from "@/lib/cv-templates"
 import { resolveCv } from "@/lib/cv"
+import { buildCvSnapshot } from "@/lib/cv-snapshot"
+import { downloadCvSnapshot } from "@/lib/cv-snapshot-download"
 import { useInventoryStore } from "@/lib/inventory-store"
+import type { ResumeDocument } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
+import type { DbCv } from "@/mocks/types"
 
 /**
- * CV detail page: the HTML tab is the DOM render (fast, live), the PDF tab is
- * the real `@react-pdf/renderer` output. Same document, two backends — the
- * DOM version is a cheap approximation, the PDF is the source of truth for
- * what actually downloads.
+ * CV detail page: a print preview (native `window.print()` via
+ * `react-to-print`, the DOM render) beside a sidebar of Persona print
+ * settings — field/section visibility and Section order. Both panels read
+ * and write the same Persona, so a toggle here re-renders the preview live.
  */
 
 
@@ -54,19 +56,28 @@ function CvUnresolved() {
   )
 }
 
-function CvResolved({ cv, document, template }: { cv: any; document: any; template: any }) {
-
+function CvResolved({
+  cv,
+  document,
+  template,
+}: {
+  cv: DbCv
+  document: ResumeDocument
+  template: CvTemplate
+}) {
   const fileName = `${document.personaName} — ${template.name}.pdf`
-  const contentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null)
+  // The Page tab's margin override, same precedence the DOM renderer uses.
+  const pageMargin = cv.templateSettings.page?.margin ?? template.definition.page.margin ?? 0
   const reactToPrintFn = useReactToPrint({
     contentRef,
     pageStyle: `
         @page {
-          margin: ${template.definition.page.margin ?? 0}pt;
+          margin: ${pageMargin}pt;
         }
       `,
-    documentTitle: fileName, onAfterPrint: () => { console.log("Printed successfully!"); }
-  });
+    documentTitle: fileName,
+  })
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -83,25 +94,43 @@ function CvResolved({ cv, document, template }: { cv: any; document: any; templa
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            {template.name}
+            {document.personaName} - {template.name}
           </span>
+
+          <Button
+            variant="outline"
+            onClick={() => downloadCvSnapshot(buildCvSnapshot(cv, document, template))}
+          >
+            <FileDownIcon data-icon="inline-start" />
+            Export
+          </Button>
 
           <Button onClick={reactToPrintFn}>Print</Button>
         </div>
       </div>
 
-    <div className="bg-muted p-5 rounded-xl">
-        <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
-        <ResumeRender ref={contentRef} document={document} templateId={template.id} />
+      <div className="flex flex-1 gap-4 overflow-hidden">
+        <aside className="w-80 shrink-0">
+          <PersonaFieldTree cv={cv} template={template} />
+        </aside>
+
+        <div className="flex-1 overflow-auto rounded-xl bg-muted p-5">
+          <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
+            <ResumeRender
+              ref={contentRef}
+              document={document}
+              templateId={template.id}
+              definition={template.definition}
+              settings={cv.templateSettings}
+            />
+          </div>
+        </div>
       </div>
-    </div>
     </div>
   )
 }
 
-
 export function CvPrintPage() {
-
   const { cvId } = useParams()
   const personaStore = usePersonaStore()
   const inventoryStore = useInventoryStore()
@@ -109,14 +138,18 @@ export function CvPrintPage() {
     ? resolveCv(personaStore, inventoryStore, cvId)
     : undefined
 
-  // Memoize the built PDF document so it doesn't rebuild on every render
-  // (must be called unconditionally per React hooks rules)
-
+  // Icon-only nav on this page — the Persona settings sidebar and the print
+  // preview need the room. Restored on the way out so every other page keeps
+  // the user's normal expanded nav.
+  const { setOpen } = useSidebar()
+  useEffect(() => {
+    setOpen(false)
+    return () => setOpen(true)
+  }, [setOpen])
 
   if (!resolved) {
     return <CvUnresolved />
   }
-
 
   const { cv, document, template } = resolved
   return <CvResolved cv={cv} document={document} template={template} />

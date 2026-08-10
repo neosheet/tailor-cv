@@ -2,6 +2,8 @@ import * as React from "react"
 import {
   CopyIcon,
   Ellipsis,
+  FileDownIcon,
+  FileUpIcon,
   PencilIcon,
   PlusIcon,
   StarIcon,
@@ -35,9 +37,14 @@ import {
   createCv,
   deleteCv,
   duplicateCv,
+  importCvSnapshot,
+  resolveCv,
   toggleCvFavorite,
   updateCv,
 } from "@/lib/cv"
+import { buildCvSnapshot, parseCvSnapshot } from "@/lib/cv-snapshot"
+import { downloadCvSnapshot } from "@/lib/cv-snapshot-download"
+import { useInventoryStore } from "@/lib/inventory-store"
 import { allPersonas, findPersona } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
 import type { DbCv } from "@/mocks/types"
@@ -45,12 +52,36 @@ import type { DbCv } from "@/mocks/types"
 /** Saved (Persona, Template) pairings — see docs/specs/06-persona-cv-split.md. */
 export function CvListPanel() {
   const store = usePersonaStore()
+  const inventoryStore = useInventoryStore()
   const [creating, setCreating] = React.useState(false)
   const [formDialog, setFormDialog] = React.useState<{
     mode: "edit" | "duplicate"
     cv: DbCv
   } | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<DbCv | null>(null)
+  const [importError, setImportError] = React.useState<string | null>(null)
+  const importInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleExport = (cv: DbCv) => {
+    const resolved = resolveCv(store, inventoryStore, cv.id)
+    if (!resolved) return
+    downloadCvSnapshot(buildCvSnapshot(resolved.cv, resolved.document, resolved.template))
+  }
+
+  const handleImportFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const snapshot = parseCvSnapshot(JSON.parse(text))
+      await importCvSnapshot(store, snapshot)
+      setImportError(null)
+    } catch (caught) {
+      setImportError(caught instanceof Error ? caught.message : String(caught))
+    }
+  }
 
   const rows = allCvs(store).map((cv) => ({
     cv,
@@ -69,11 +100,31 @@ export function CvListPanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
-          <PlusIcon data-icon="inline-start" />
-          New CV
-        </Button>
+      <div className="flex flex-col items-end gap-2">
+        <div className="flex justify-end gap-2">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={handleImportFileChange}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <FileUpIcon data-icon="inline-start" />
+            Import
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+            <PlusIcon data-icon="inline-start" />
+            New CV
+          </Button>
+        </div>
+        {importError ? (
+          <p className="text-sm text-destructive">{importError}</p>
+        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-xl border">
@@ -166,6 +217,10 @@ export function CvListPanel() {
                         >
                           <CopyIcon />
                           Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleExport(cv)}>
+                          <FileDownIcon />
+                          Export
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                       <DropdownMenuSeparator />

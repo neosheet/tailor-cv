@@ -1,7 +1,7 @@
 import type { InventoryStore } from "@/lib/inventory-store"
 import { buildResumeDocument, requireUserId, type PersonaData, type ResumeDocument } from "@/lib/persona"
 import { cvTemplates, type CvTemplate } from "@/lib/cv-templates"
-import { templateFromSnapshot } from "@/lib/cv-snapshot"
+import { templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
 import { mapCvRow, type PersonaStore } from "@/lib/persona-store"
 import { supabase } from "@/lib/supabase"
 import type { Json } from "@/lib/database.types"
@@ -199,6 +199,40 @@ export async function duplicateCv(
   store.setCvs((current) => [...current, duplicated])
 
   return duplicated
+}
+
+/**
+ * Imports a `CvSnapshotV1` (from an exported file) as a new, frozen CV — no
+ * Persona, no Template lookup, content is read-only. See
+ * docs/specs/09-cv-export-import.md's "Import" section.
+ */
+export async function importCvSnapshot(
+  store: PersonaStore,
+  snapshot: CvSnapshotV1
+): Promise<DbCv> {
+  const userId = requireUserId(store)
+
+  const { data, error } = await supabase
+    .from("cvs")
+    .insert({
+      user_id: userId,
+      name: snapshot.name,
+      note: snapshot.note,
+      tags: snapshot.tags,
+      persona_id: null,
+      template_id: snapshot.template.id,
+      template_settings: snapshot.templateSettings as unknown as Json,
+      snapshot: snapshot as unknown as Json,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const cv = mapCvRow(data)
+  store.setCvs((current) => [...current, cv])
+
+  return cv
 }
 
 /** Deletes a CV. Nothing else references a CV's id, so no other rows to clean up. */
