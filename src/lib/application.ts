@@ -63,6 +63,7 @@ export type ApplicationFormFields = {
   applyVia?: string | null
   cvId?: string | null
   note?: string | null
+  tags?: string[]
 }
 
 /**
@@ -88,6 +89,7 @@ export async function createApplication(
       apply_via: fields.applyVia ?? null,
       cv_id: fields.cvId ?? null,
       note: fields.note ?? null,
+      tags: fields.tags ?? [],
       status: "draft",
     })
     .select()
@@ -133,6 +135,7 @@ export async function updateApplication(
       ...(patch.applyVia !== undefined ? { apply_via: patch.applyVia } : {}),
       ...(patch.cvId !== undefined ? { cv_id: patch.cvId } : {}),
       ...(patch.note !== undefined ? { note: patch.note } : {}),
+      ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
     })
     .eq("id", applicationId)
     .select()

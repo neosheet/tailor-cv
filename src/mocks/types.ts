@@ -266,6 +266,7 @@ export type DbApplication = DbTimestamps & {
   status: ApplicationStatus
   cvSnapshot: CvSnapshotV1 | null
   note: string | null
+  tags: string[]
 }
 
 export type DbApplicationStatusHistory = {

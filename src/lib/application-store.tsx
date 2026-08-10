@@ -50,6 +50,7 @@ export function mapApplicationRow(row: Tables<"applications">): DbApplication {
     status: row.status,
     cvSnapshot: row.cv_snapshot ? parseCvSnapshot(row.cv_snapshot) : null,
     note: row.note,
+    tags: row.tags,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

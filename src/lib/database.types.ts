@@ -56,6 +56,7 @@ export type Database = {
           note: string | null
           source_url: string | null
           status: Database["public"]["Enums"]["application_status"]
+          tags: string[]
           title: string
           updated_at: string
           user_id: string
@@ -70,6 +71,7 @@ export type Database = {
           note?: string | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["application_status"]
+          tags?: string[]
           title: string
           updated_at?: string
           user_id: string
@@ -84,6 +86,7 @@ export type Database = {
           note?: string | null
           source_url?: string | null
           status?: Database["public"]["Enums"]["application_status"]
+          tags?: string[]
           title?: string
           updated_at?: string
           user_id?: string
