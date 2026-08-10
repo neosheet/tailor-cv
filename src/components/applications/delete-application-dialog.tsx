@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 /**
- * Deleting an application is a plain row delete — `application_status_history`
+ * Deleting an application is a plain row delete — `application_stages`
  * cascades via FK, and nothing else references an application's id. Direct
  * copy of `DeleteCvDialog`'s shape.
  */
@@ -32,7 +32,7 @@ export function DeleteApplicationDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this application?</AlertDialogTitle>
           <AlertDialogDescription>
-            This permanently removes the application and its status history.
+            This permanently removes the application and its stage timeline.
             This can't be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>

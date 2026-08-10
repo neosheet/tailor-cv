@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Ellipsis, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { format, parseISO } from "date-fns"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,10 +38,10 @@ import {
   updateApplication,
 } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
-import { APPLICATION_STATUSES, STATUS_LABEL } from "@/lib/application-status"
+import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
 import { allCvs, findCv } from "@/lib/cv"
 import { usePersonaStore } from "@/lib/persona-store"
-import type { ApplicationStatus, DbApplication } from "@/mocks/types"
+import type { GlobalApplicationStatus, DbApplication } from "@/mocks/types"
 
 const ALL_STATUSES = "all"
 
@@ -53,7 +54,7 @@ export function ApplicationListPanel() {
   const [editTarget, setEditTarget] = React.useState<DbApplication | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<DbApplication | null>(null)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = React.useState<ApplicationStatus | typeof ALL_STATUSES>(
+  const [statusFilter, setStatusFilter] = React.useState<GlobalApplicationStatus | typeof ALL_STATUSES>(
     ALL_STATUSES
   )
 
@@ -65,7 +66,7 @@ export function ApplicationListPanel() {
   const cvOptions = allCvs(personaStore).map((cv) => ({ value: cv.id, label: cv.name }))
 
   const rows = allApplications(store)
-    .filter((application) => statusFilter === ALL_STATUSES || application.status === statusFilter)
+    .filter((application) => statusFilter === ALL_STATUSES || application.globalStatus === statusFilter)
     .map((application) => ({
       application,
       cv: application.cvId ? findCv(personaStore, application.cvId) : undefined,
@@ -73,7 +74,7 @@ export function ApplicationListPanel() {
 
   const filterOptions = [
     { value: ALL_STATUSES, label: "All" },
-    ...APPLICATION_STATUSES.map((status) => ({ value: status, label: STATUS_LABEL[status] })),
+    ...GLOBAL_APPLICATION_STATUSES.map((status) => ({ value: status, label: GLOBAL_STATUS_LABEL[status] })),
   ]
 
   return (
@@ -82,7 +83,7 @@ export function ApplicationListPanel() {
         <Select
           items={filterOptions}
           value={statusFilter}
-          onValueChange={(next) => setStatusFilter(next as ApplicationStatus | typeof ALL_STATUSES)}
+          onValueChange={(next) => setStatusFilter(next as GlobalApplicationStatus | typeof ALL_STATUSES)}
         >
           <SelectTrigger className="w-44">
             <SelectValue />
@@ -109,6 +110,8 @@ export function ApplicationListPanel() {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Deadline</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>CV</TableHead>
@@ -128,8 +131,14 @@ export function ApplicationListPanel() {
                     {application.title}
                   </Button>
                 </TableCell>
+                <TableCell className="align-top whitespace-nowrap text-muted-foreground">
+                  {application.company ?? "—"}
+                </TableCell>
+                <TableCell className="align-top whitespace-nowrap text-muted-foreground">
+                  {application.deadline ? format(parseISO(application.deadline), "PP") : "—"}
+                </TableCell>
                 <TableCell className="align-top whitespace-nowrap">
-                  <Badge variant="secondary">{STATUS_LABEL[application.status]}</Badge>
+                  <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
                 </TableCell>
                 <TableCell className="align-top whitespace-nowrap text-muted-foreground">
                   {application.sourceUrl ?? "—"}
@@ -193,8 +202,15 @@ export function ApplicationListPanel() {
         title="Edit Application"
         confirmLabel="Save"
         initialTitle={editTarget?.title ?? ""}
+        initialCompany={editTarget?.company ?? ""}
+        initialPosition={editTarget?.position ?? ""}
+        initialLocation={editTarget?.location ?? ""}
+        initialJobType={editTarget?.jobType ?? null}
+        initialWorkType={editTarget?.workType ?? null}
+        initialDeadline={editTarget?.deadline ?? null}
         initialSourceUrl={editTarget?.sourceUrl ?? ""}
         initialVacancyDetail={editTarget?.vacancyDetail ?? ""}
+        initialCoverLetter={editTarget?.coverLetter ?? ""}
         initialApplyVia={editTarget?.applyVia ?? ""}
         initialCvId={editTarget?.cvId ?? null}
         initialNote={editTarget?.note ?? null}
