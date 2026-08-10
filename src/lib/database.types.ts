@@ -14,34 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
-      application_status_history: {
+      application_stages: {
         Row: {
           application_id: string
-          changed_at: string
+          category: string
+          completed_at: string | null
+          created_at: string
           id: string
-          note: string | null
-          status: Database["public"]["Enums"]["application_status"]
+          interviewer_names: string[]
+          name: string
+          notes: string | null
+          parent_stage_id: string | null
+          position: number
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["stage_progress_status"]
+          updated_at: string
         }
         Insert: {
           application_id: string
-          changed_at?: string
+          category?: string
+          completed_at?: string | null
+          created_at?: string
           id?: string
-          note?: string | null
-          status: Database["public"]["Enums"]["application_status"]
+          interviewer_names?: string[]
+          name: string
+          notes?: string | null
+          parent_stage_id?: string | null
+          position?: number
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["stage_progress_status"]
+          updated_at?: string
         }
         Update: {
           application_id?: string
-          changed_at?: string
+          category?: string
+          completed_at?: string | null
+          created_at?: string
           id?: string
-          note?: string | null
-          status?: Database["public"]["Enums"]["application_status"]
+          interviewer_names?: string[]
+          name?: string
+          notes?: string | null
+          parent_stage_id?: string | null
+          position?: number
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["stage_progress_status"]
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "application_status_history_application_id_fkey"
+            foreignKeyName: "application_stages_application_id_fkey"
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_stages_parent_stage_id_fkey"
+            columns: ["parent_stage_id"]
+            isOneToOne: false
+            referencedRelation: "application_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -49,50 +80,85 @@ export type Database = {
       applications: {
         Row: {
           apply_via: string | null
+          company: string | null
+          cover_letter: string | null
           created_at: string
+          current_stage_id: string | null
           cv_id: string | null
           cv_snapshot: Json | null
+          deadline: string | null
+          global_status: Database["public"]["Enums"]["global_application_status"]
           id: string
+          job_type: Database["public"]["Enums"]["application_job_type"] | null
+          location: string | null
           note: string | null
+          position: string | null
           source_url: string | null
-          status: Database["public"]["Enums"]["application_status"]
           tags: string[]
           title: string
           updated_at: string
           user_id: string
           vacancy_detail: string | null
+          work_type: Database["public"]["Enums"]["application_work_type"] | null
         }
         Insert: {
           apply_via?: string | null
+          company?: string | null
+          cover_letter?: string | null
           created_at?: string
+          current_stage_id?: string | null
           cv_id?: string | null
           cv_snapshot?: Json | null
+          deadline?: string | null
+          global_status?: Database["public"]["Enums"]["global_application_status"]
           id?: string
+          job_type?: Database["public"]["Enums"]["application_job_type"] | null
+          location?: string | null
           note?: string | null
+          position?: string | null
           source_url?: string | null
-          status?: Database["public"]["Enums"]["application_status"]
           tags?: string[]
           title: string
           updated_at?: string
           user_id: string
           vacancy_detail?: string | null
+          work_type?:
+            | Database["public"]["Enums"]["application_work_type"]
+            | null
         }
         Update: {
           apply_via?: string | null
+          company?: string | null
+          cover_letter?: string | null
           created_at?: string
+          current_stage_id?: string | null
           cv_id?: string | null
           cv_snapshot?: Json | null
+          deadline?: string | null
+          global_status?: Database["public"]["Enums"]["global_application_status"]
           id?: string
+          job_type?: Database["public"]["Enums"]["application_job_type"] | null
+          location?: string | null
           note?: string | null
+          position?: string | null
           source_url?: string | null
-          status?: Database["public"]["Enums"]["application_status"]
           tags?: string[]
           title?: string
           updated_at?: string
           user_id?: string
           vacancy_detail?: string | null
+          work_type?:
+            | Database["public"]["Enums"]["application_work_type"]
+            | null
         }
         Relationships: [
+          {
+            foreignKeyName: "applications_current_stage_id_fkey"
+            columns: ["current_stage_id"]
+            isOneToOne: false
+            referencedRelation: "application_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "applications_cv_id_fkey"
             columns: ["cv_id"]
@@ -525,6 +591,41 @@ export type Database = {
           },
         ]
       }
+      stage_templates: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tags: {
         Row: {
           created_at: string
@@ -565,14 +666,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      application_status:
+      application_job_type: "full_time" | "freelance" | "contract"
+      application_work_type: "remote" | "hybrid" | "on_site"
+      global_application_status:
         | "draft"
         | "applied"
-        | "interview_call"
-        | "approved"
+        | "in_progress"
+        | "offered"
         | "rejected"
-        | "archived"
-        | "withdraw"
+        | "withdrawn"
       item_kind:
         | "name"
         | "headline"
@@ -597,6 +699,16 @@ export type Database = {
         | "courses"
         | "keywords"
         | "roles"
+      stage_progress_status:
+        | "not_started"
+        | "invited"
+        | "scheduled"
+        | "submitted"
+        | "completed"
+        | "under_review"
+        | "passed"
+        | "failed"
+        | "skipped"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -724,14 +836,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      application_status: [
+      application_job_type: ["full_time", "freelance", "contract"],
+      application_work_type: ["remote", "hybrid", "on_site"],
+      global_application_status: [
         "draft",
         "applied",
-        "interview_call",
-        "approved",
+        "in_progress",
+        "offered",
         "rejected",
-        "archived",
-        "withdraw",
+        "withdrawn",
       ],
       item_kind: [
         "name",
@@ -758,6 +871,17 @@ export const Constants = {
         "courses",
         "keywords",
         "roles",
+      ],
+      stage_progress_status: [
+        "not_started",
+        "invited",
+        "scheduled",
+        "submitted",
+        "completed",
+        "under_review",
+        "passed",
+        "failed",
+        "skipped",
       ],
     },
   },
