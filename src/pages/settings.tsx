@@ -10,6 +10,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/layout/page-header"
 import { TagsPanel } from "@/components/settings/tags-panel"
+import { SkillCategoriesPanel } from "@/components/settings/skill-categories-panel"
+import { StageTemplatesPanel } from "@/components/settings/stage-templates-panel"
 import { sections } from "@/lib/navigation"
 
 /**
@@ -28,11 +30,21 @@ export function SettingsPage() {
       <Tabs defaultValue="tags" className="gap-4">
         <TabsList variant="line">
           <TabsTrigger value="tags">Tags</TabsTrigger>
+          <TabsTrigger value="skill-categories">Skill Categories</TabsTrigger>
+          <TabsTrigger value="stage-templates">Stage Templates</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tags">
           <TagsPanel />
+        </TabsContent>
+
+        <TabsContent value="skill-categories">
+          <SkillCategoriesPanel />
+        </TabsContent>
+
+        <TabsContent value="stage-templates">
+          <StageTemplatesPanel />
         </TabsContent>
 
         <TabsContent value="general">
