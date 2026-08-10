@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_status_history: {
+        Row: {
+          application_id: string
+          changed_at: string
+          id: string
+          note: string | null
+          status: Database["public"]["Enums"]["application_status"]
+        }
+        Insert: {
+          application_id: string
+          changed_at?: string
+          id?: string
+          note?: string | null
+          status: Database["public"]["Enums"]["application_status"]
+        }
+        Update: {
+          application_id?: string
+          changed_at?: string
+          id?: string
+          note?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_status_history_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      applications: {
+        Row: {
+          apply_via: string | null
+          created_at: string
+          cv_id: string | null
+          cv_snapshot: Json | null
+          id: string
+          note: string | null
+          source_url: string | null
+          status: Database["public"]["Enums"]["application_status"]
+          title: string
+          updated_at: string
+          user_id: string
+          vacancy_detail: string | null
+        }
+        Insert: {
+          apply_via?: string | null
+          created_at?: string
+          cv_id?: string | null
+          cv_snapshot?: Json | null
+          id?: string
+          note?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+          vacancy_detail?: string | null
+        }
+        Update: {
+          apply_via?: string | null
+          created_at?: string
+          cv_id?: string | null
+          cv_snapshot?: Json | null
+          id?: string
+          note?: string | null
+          source_url?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+          vacancy_detail?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_cv_id_fkey"
+            columns: ["cv_id"]
+            isOneToOne: false
+            referencedRelation: "cvs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cvs: {
         Row: {
           created_at: string
@@ -470,6 +562,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      application_status:
+        | "draft"
+        | "applied"
+        | "interview_call"
+        | "approved"
+        | "rejected"
+        | "archived"
+        | "withdraw"
       item_kind:
         | "name"
         | "headline"
@@ -621,6 +721,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      application_status: [
+        "draft",
+        "applied",
+        "interview_call",
+        "approved",
+        "rejected",
+        "archived",
+        "withdraw",
+      ],
       item_kind: [
         "name",
         "headline",

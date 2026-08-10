@@ -236,6 +236,47 @@ export type SourceCv = {
 }
 
 // ---------------------------------------------------------------------------
+// Applications — job tracker. See docs/specs/10-applications-tracking.md
+// ---------------------------------------------------------------------------
+
+export type ApplicationStatus =
+  | "draft"
+  | "applied"
+  | "interview_call"
+  | "approved"
+  | "rejected"
+  | "archived"
+  | "withdraw"
+
+/**
+ * `cvSnapshot` is set once, on the first transition away from `draft`, and
+ * never changes again on later status changes — "one honest record of what
+ * was actually sent." `cvId` stays as a link back to the source CV for
+ * display/navigation even after freezing; rendering prefers `cvSnapshot`
+ * once it's set. See docs/specs/10-applications-tracking.md's "The freeze".
+ */
+export type DbApplication = DbTimestamps & {
+  id: string
+  userId: string
+  title: string
+  sourceUrl: string | null
+  vacancyDetail: string | null
+  applyVia: string | null
+  cvId: string | null
+  status: ApplicationStatus
+  cvSnapshot: CvSnapshotV1 | null
+  note: string | null
+}
+
+export type DbApplicationStatusHistory = {
+  id: string
+  applicationId: string
+  status: ApplicationStatus
+  changedAt: string
+  note: string | null
+}
+
+// ---------------------------------------------------------------------------
 // Authoring shapes
 // ---------------------------------------------------------------------------
 
