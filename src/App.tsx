@@ -25,6 +25,7 @@ import { SkillsPage } from "@/pages/inventory/skills"
 import { VolunteerPage } from "@/pages/inventory/volunteer"
 import { WorkPage } from "@/pages/inventory/work"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
+import { ApplicationStoreProvider } from "@/lib/application-store"
 import { InventoryStoreProvider } from "@/lib/inventory-store"
 import { PersonaStoreProvider } from "@/lib/persona-store"
 
@@ -42,7 +43,9 @@ function RequireAuth() {
   return (
     <InventoryStoreProvider>
       <PersonaStoreProvider>
-        <AppLayout />
+        <ApplicationStoreProvider>
+          <AppLayout />
+        </ApplicationStoreProvider>
       </PersonaStoreProvider>
     </InventoryStoreProvider>
   )
