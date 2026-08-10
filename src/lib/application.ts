@@ -6,25 +6,25 @@ import type { CvTemplate } from "@/lib/cv-templates"
 import type { ResumeDocument } from "@/lib/resume-document"
 import {
   mapApplicationRow,
-  mapApplicationStatusHistoryRow,
   type ApplicationData,
   type ApplicationStore,
 } from "@/lib/application-store"
 import { supabase } from "@/lib/supabase"
 import type { Json } from "@/lib/database.types"
 import type {
-  ApplicationStatus,
+  ApplicationJobType,
+  ApplicationWorkType,
   DbApplication,
-  DbApplicationStatusHistory,
   DbCv,
+  GlobalApplicationStatus,
 } from "@/mocks/types"
 
 /**
  * The Applications layer — job tracker built on top of the CV snapshot
  * format. See docs/specs/10-applications-tracking.md. Selectors, the New/
- * Edit/Delete mutators, and `setApplicationStatus` — the freeze mutator that
- * writes a `CvSnapshotV1` to `applications.cv_snapshot` once, on the first
- * transition away from `draft`, and never touches it again afterward.
+ * Edit/Delete mutators, and `setGlobalApplicationStatus` — the freeze mutator
+ * that writes a `CvSnapshotV1` to `applications.cv_snapshot` once, on the
+ * first transition away from `draft`, and never touches it again afterward.
  */
 
 export function allApplications(data: ApplicationData): DbApplication[] {
@@ -36,20 +36,6 @@ export function findApplication(
   applicationId: string
 ): DbApplication | undefined {
   return data.applications.find((application) => application.id === applicationId)
-}
-
-/**
- * An application's status timeline, oldest first — mirrors natural
- * chronological reading. A "newest first" UI can `.reverse()` at render time
- * rather than baking direction into the selector.
- */
-export function applicationHistory(
-  data: ApplicationData,
-  applicationId: string
-): DbApplicationStatusHistory[] {
-  return data.applicationStatusHistory
-    .filter((entry) => entry.applicationId === applicationId)
-    .sort((a, b) => a.changedAt.localeCompare(b.changedAt))
 }
 
 /**
@@ -102,8 +88,15 @@ function requireUserId(store: ApplicationStore): string {
 
 export type ApplicationFormFields = {
   title: string
+  company?: string | null
+  position?: string | null
+  location?: string | null
+  jobType?: ApplicationJobType | null
+  workType?: ApplicationWorkType | null
+  deadline?: string | null
   sourceUrl?: string | null
   vacancyDetail?: string | null
+  coverLetter?: string | null
   applyVia?: string | null
   cvId?: string | null
   note?: string | null
@@ -111,11 +104,10 @@ export type ApplicationFormFields = {
 }
 
 /**
- * Creates a new application in `draft` and inserts its first status-history
- * row (also `draft`) right after, so the timeline always starts at a real
- * point rather than implying the application existed before it was tracked.
- * Two sequential awaited inserts — no DB transaction available via the JS
- * client here, matching this codebase's existing style.
+ * Creates a new application in `draft`. There's no longer a bootstrap
+ * history row to insert alongside it — the timeline is now `stages`, which
+ * correctly starts empty until the user adds the first one, rather than a
+ * flat status log that needed a real starting point.
  */
 export async function createApplication(
   store: ApplicationStore,
@@ -128,13 +120,20 @@ export async function createApplication(
     .insert({
       user_id: userId,
       title: fields.title,
+      company: fields.company ?? null,
+      position: fields.position ?? null,
+      location: fields.location ?? null,
+      job_type: fields.jobType ?? null,
+      work_type: fields.workType ?? null,
+      deadline: fields.deadline ?? null,
       source_url: fields.sourceUrl ?? null,
       vacancy_detail: fields.vacancyDetail ?? null,
+      cover_letter: fields.coverLetter ?? null,
       apply_via: fields.applyVia ?? null,
       cv_id: fields.cvId ?? null,
       note: fields.note ?? null,
       tags: fields.tags ?? [],
-      status: "draft",
+      global_status: "draft",
     })
     .select()
     .single()
@@ -143,21 +142,7 @@ export async function createApplication(
 
   const application = mapApplicationRow(data)
 
-  const { data: historyRow, error: historyError } = await supabase
-    .from("application_status_history")
-    .insert({
-      application_id: application.id,
-      status: "draft",
-    })
-    .select()
-    .single()
-
-  if (historyError) throw historyError
-
-  const history = mapApplicationStatusHistoryRow(historyRow)
-
   store.setApplications((current) => [...current, application])
-  store.setApplicationStatusHistory((current) => [...current, history])
 
   return application
 }
@@ -172,10 +157,17 @@ export async function updateApplication(
     .from("applications")
     .update({
       ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.company !== undefined ? { company: patch.company } : {}),
+      ...(patch.position !== undefined ? { position: patch.position } : {}),
+      ...(patch.location !== undefined ? { location: patch.location } : {}),
+      ...(patch.jobType !== undefined ? { job_type: patch.jobType } : {}),
+      ...(patch.workType !== undefined ? { work_type: patch.workType } : {}),
+      ...(patch.deadline !== undefined ? { deadline: patch.deadline } : {}),
       ...(patch.sourceUrl !== undefined ? { source_url: patch.sourceUrl } : {}),
       ...(patch.vacancyDetail !== undefined
         ? { vacancy_detail: patch.vacancyDetail }
         : {}),
+      ...(patch.coverLetter !== undefined ? { cover_letter: patch.coverLetter } : {}),
       ...(patch.applyVia !== undefined ? { apply_via: patch.applyVia } : {}),
       ...(patch.cvId !== undefined ? { cv_id: patch.cvId } : {}),
       ...(patch.note !== undefined ? { note: patch.note } : {}),
@@ -195,7 +187,7 @@ export async function updateApplication(
   return updated
 }
 
-/** Deletes an application. `application_status_history` cascades via FK. */
+/** Deletes an application. `application_stages` cascades via FK. */
 export async function deleteApplication(
   store: ApplicationStore,
   applicationId: string
@@ -206,8 +198,8 @@ export async function deleteApplication(
   store.setApplications((current) =>
     current.filter((application) => application.id !== applicationId)
   )
-  store.setApplicationStatusHistory((current) =>
-    current.filter((entry) => entry.applicationId !== applicationId)
+  store.setApplicationStages((current) =>
+    current.filter((stage) => stage.applicationId !== applicationId)
   )
 }
 
@@ -216,29 +208,33 @@ export async function deleteApplication(
 // ---------------------------------------------------------------------------
 
 /**
- * Moves an application to a new status, inserting one status-history row.
+ * Moves an application to a new `global_status`.
  *
  * The freeze: on the *first* transition away from `draft` (i.e.
- * `current.status === "draft" && next !== "draft"`), this resolves the
+ * `current.globalStatus === "draft" && next !== "draft"`), this resolves the
  * attached CV (live or already-frozen) via `resolveCv` and writes a fresh
  * `CvSnapshotV1` to `applications.cv_snapshot` — "one honest record of what
  * was actually sent." Every later status change — including bouncing back
  * through `draft` again — leaves `cv_snapshot` completely untouched: the
  * `cv_snapshot` key is simply omitted from the update payload whenever
- * `current.status !== "draft"`, so nothing ever overwrites the original
- * freeze. This never inserts a `cvs` row and never calls `importCvSnapshot`
- * — the frozen copy lives only in `applications.cv_snapshot`, a column on
- * the application itself; the original CV in the `cvs` table is untouched
- * and stays fully live/editable.
+ * `current.globalStatus !== "draft"`, so nothing ever overwrites the
+ * original freeze. This never inserts a `cvs` row and never calls
+ * `importCvSnapshot` — the frozen copy lives only in
+ * `applications.cv_snapshot`, a column on the application itself; the
+ * original CV in the `cvs` table is untouched and stays fully live/editable.
  */
-export async function setApplicationStatus(
+export async function setGlobalApplicationStatus(
   store: ApplicationStore,
   persona: PersonaData,
   inventory: InventoryStore,
   applicationId: string,
-  next: ApplicationStatus,
+  next: GlobalApplicationStatus,
   note?: string
 ): Promise<DbApplication> {
+  // Kept for call-site signature parity; there's no history table left to
+  // log it to, so it's intentionally a no-op.
+  void note
+
   const current = findApplication(store, applicationId)
   if (!current) {
     throw new Error(`No application "${applicationId}".`)
@@ -246,7 +242,7 @@ export async function setApplicationStatus(
 
   let snapshotPatch: { cv_snapshot: Json } | Record<string, never> = {}
 
-  if (current.status === "draft" && next !== "draft") {
+  if (current.globalStatus === "draft" && next !== "draft") {
     if (!current.cvId) {
       throw new Error("Cannot leave draft without an attached CV.")
     }
@@ -263,7 +259,7 @@ export async function setApplicationStatus(
   const { data, error } = await supabase
     .from("applications")
     .update({
-      status: next,
+      global_status: next,
       ...snapshotPatch,
     })
     .eq("id", applicationId)
@@ -274,26 +270,11 @@ export async function setApplicationStatus(
 
   const updated = mapApplicationRow(data)
 
-  const { data: historyRow, error: historyError } = await supabase
-    .from("application_status_history")
-    .insert({
-      application_id: applicationId,
-      status: next,
-      note: note ?? null,
-    })
-    .select()
-    .single()
-
-  if (historyError) throw historyError
-
-  const history = mapApplicationStatusHistoryRow(historyRow)
-
   store.setApplications((currentApplications) =>
     currentApplications.map((existing) =>
       existing.id === applicationId ? updated : existing
     )
   )
-  store.setApplicationStatusHistory((currentHistory) => [...currentHistory, history])
 
   return updated
 }

@@ -239,14 +239,62 @@ export type SourceCv = {
 // Applications — job tracker. See docs/specs/10-applications-tracking.md
 // ---------------------------------------------------------------------------
 
-export type ApplicationStatus =
+export type GlobalApplicationStatus =
   | "draft"
   | "applied"
-  | "interview_call"
-  | "approved"
+  | "in_progress"
+  | "offered"
   | "rejected"
-  | "archived"
-  | "withdraw"
+  | "withdrawn"
+
+export type StageProgressStatus =
+  | "not_started"
+  | "invited"
+  | "scheduled"
+  | "submitted"
+  | "completed"
+  | "under_review"
+  | "passed"
+  | "failed"
+  | "skipped"
+
+export type BuiltInStageCategory =
+  | "recruiter_screen"
+  | "technical_interview"
+  | "system_design"
+  | "behavioral"
+  | "take_home_assignment"
+  | "portfolio_review"
+  | "performance_audition"
+  | "onsite_loop"
+  | "executive_chat"
+  | "offer_negotiation"
+  | "custom"
+
+export type DbStageTemplate = DbTimestamps & {
+  id: string
+  userId: string
+  name: string
+  category: BuiltInStageCategory | string
+}
+
+export type DbApplicationStage = DbTimestamps & {
+  id: string
+  applicationId: string
+  parentStageId: string | null
+  name: string
+  category: BuiltInStageCategory | string
+  status: StageProgressStatus
+  position: number
+  scheduledAt: string | null
+  completedAt: string | null
+  notes: string | null
+  interviewerNames: string[]
+}
+
+export type ApplicationJobType = "full_time" | "freelance" | "contract"
+
+export type ApplicationWorkType = "remote" | "hybrid" | "on_site"
 
 /**
  * `cvSnapshot` is set once, on the first transition away from `draft`, and
@@ -259,22 +307,22 @@ export type DbApplication = DbTimestamps & {
   id: string
   userId: string
   title: string
+  company: string | null
+  position: string | null
+  location: string | null
+  jobType: ApplicationJobType | null
+  workType: ApplicationWorkType | null
+  deadline: string | null
   sourceUrl: string | null
   vacancyDetail: string | null
+  coverLetter: string | null
   applyVia: string | null
   cvId: string | null
-  status: ApplicationStatus
+  globalStatus: GlobalApplicationStatus
+  currentStageId: string | null
   cvSnapshot: CvSnapshotV1 | null
   note: string | null
   tags: string[]
-}
-
-export type DbApplicationStatusHistory = {
-  id: string
-  applicationId: string
-  status: ApplicationStatus
-  changedAt: string
-  note: string | null
 }
 
 // ---------------------------------------------------------------------------

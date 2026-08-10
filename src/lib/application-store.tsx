@@ -5,18 +5,19 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import type { Tables } from "@/lib/database.types"
 import { parseCvSnapshot } from "@/lib/cv-snapshot"
-import type { DbApplication, DbApplicationStatusHistory } from "@/mocks/types"
+import type { DbApplication, DbApplicationStage, DbStageTemplate } from "@/mocks/types"
 
 /**
- * Fetches `applications` and `application_status_history` for the signed-in
- * user once per session and holds them in React state. Mirrors
+ * Fetches `applications`, `application_stages`, and `stage_templates` for the
+ * signed-in user once per session and holds them in React state. Mirrors
  * `src/lib/persona-store.tsx` exactly — see that file for why the selectors
  * that read this store stay synchronous.
  */
 
 export type ApplicationData = {
   applications: DbApplication[]
-  applicationStatusHistory: DbApplicationStatusHistory[]
+  applicationStages: DbApplicationStage[]
+  stageTemplates: DbStageTemplate[]
 }
 
 export type ApplicationStore = ApplicationData & {
@@ -25,9 +26,8 @@ export type ApplicationStore = ApplicationData & {
   error: Error | null
   refetch: () => void
   setApplications: React.Dispatch<React.SetStateAction<DbApplication[]>>
-  setApplicationStatusHistory: React.Dispatch<
-    React.SetStateAction<DbApplicationStatusHistory[]>
-  >
+  setApplicationStages: React.Dispatch<React.SetStateAction<DbApplicationStage[]>>
+  setStageTemplates: React.Dispatch<React.SetStateAction<DbStageTemplate[]>>
 }
 
 const ApplicationStoreContext = React.createContext<ApplicationStore | null>(
@@ -43,11 +43,19 @@ export function mapApplicationRow(row: Tables<"applications">): DbApplication {
     id: row.id,
     userId: row.user_id,
     title: row.title,
+    company: row.company,
+    position: row.position,
+    location: row.location,
+    jobType: row.job_type,
+    workType: row.work_type,
+    deadline: row.deadline,
     sourceUrl: row.source_url,
     vacancyDetail: row.vacancy_detail,
+    coverLetter: row.cover_letter,
     applyVia: row.apply_via,
     cvId: row.cv_id,
-    status: row.status,
+    globalStatus: row.global_status,
+    currentStageId: row.current_stage_id,
     cvSnapshot: row.cv_snapshot ? parseCvSnapshot(row.cv_snapshot) : null,
     note: row.note,
     tags: row.tags,
@@ -56,29 +64,50 @@ export function mapApplicationRow(row: Tables<"applications">): DbApplication {
   }
 }
 
-export function mapApplicationStatusHistoryRow(
-  row: Tables<"application_status_history">
-): DbApplicationStatusHistory {
+export function mapApplicationStageRow(
+  row: Tables<"application_stages">
+): DbApplicationStage {
   return {
     id: row.id,
     applicationId: row.application_id,
+    parentStageId: row.parent_stage_id,
+    name: row.name,
+    category: row.category,
     status: row.status,
-    changedAt: row.changed_at,
-    note: row.note,
+    position: row.position,
+    scheduledAt: row.scheduled_at,
+    completedAt: row.completed_at,
+    notes: row.notes,
+    interviewerNames: row.interviewer_names,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
-async function fetchByApplicationIds(applicationIds: string[]) {
+export function mapStageTemplateRow(
+  row: Tables<"stage_templates">
+): DbStageTemplate {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    category: row.category,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+async function fetchStagesForApplications(applicationIds: string[]) {
   if (applicationIds.length === 0) {
-    return { data: [] as Tables<"application_status_history">[], error: null }
+    return { data: [] as Tables<"application_stages">[], error: null }
   }
 
   return supabase
-    .from("application_status_history")
+    .from("application_stages")
     .select("*")
     .in("application_id", applicationIds)
-    .order("changed_at") as unknown as Promise<{
-    data: Tables<"application_status_history">[] | null
+    .order("position") as unknown as Promise<{
+    data: Tables<"application_stages">[] | null
     error: unknown
   }>
 }
@@ -92,8 +121,12 @@ export function ApplicationStoreProvider({
   const userId = session?.user.id ?? null
 
   const [applications, setApplications] = React.useState<DbApplication[]>([])
-  const [applicationStatusHistory, setApplicationStatusHistory] =
-    React.useState<DbApplicationStatusHistory[]>([])
+  const [applicationStages, setApplicationStages] = React.useState<
+    DbApplicationStage[]
+  >([])
+  const [stageTemplates, setStageTemplates] = React.useState<DbStageTemplate[]>(
+    []
+  )
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
   const [version, setVersion] = React.useState(0)
@@ -122,15 +155,26 @@ export function ApplicationStoreProvider({
 
         const applicationIds = (applicationRows ?? []).map((row) => row.id)
 
-        const historyResult = await fetchByApplicationIds(applicationIds)
+        const [stagesResult, templatesResult] = await Promise.all([
+          fetchStagesForApplications(applicationIds),
+          supabase
+            .from("stage_templates")
+            .select("*")
+            .eq("user_id", userId as string)
+            .order("name"),
+        ])
 
-        if (historyResult.error) throw historyResult.error
+        if (stagesResult.error) throw stagesResult.error
+        if (templatesResult.error) throw templatesResult.error
 
         if (cancelled) return
 
         setApplications((applicationRows ?? []).map(mapApplicationRow))
-        setApplicationStatusHistory(
-          (historyResult.data ?? []).map(mapApplicationStatusHistoryRow)
+        setApplicationStages(
+          (stagesResult.data ?? []).map(mapApplicationStageRow)
+        )
+        setStageTemplates(
+          (templatesResult.data ?? []).map(mapStageTemplateRow)
         )
       } catch (caught) {
         if (!cancelled) {
@@ -155,15 +199,25 @@ export function ApplicationStoreProvider({
   const value = React.useMemo<ApplicationStore>(
     () => ({
       applications,
-      applicationStatusHistory,
+      applicationStages,
+      stageTemplates,
       userId,
       loading,
       error,
       refetch,
       setApplications,
-      setApplicationStatusHistory,
+      setApplicationStages,
+      setStageTemplates,
     }),
-    [applications, applicationStatusHistory, userId, loading, error, refetch]
+    [
+      applications,
+      applicationStages,
+      stageTemplates,
+      userId,
+      loading,
+      error,
+      refetch,
+    ]
   )
 
   return (
