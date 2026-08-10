@@ -1,7 +1,9 @@
 import type { InventoryStore } from "@/lib/inventory-store"
 import type { PersonaData } from "@/lib/persona-store"
 import { resolveCv } from "@/lib/cv"
-import { buildCvSnapshot } from "@/lib/cv-snapshot"
+import { buildCvSnapshot, templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
+import type { CvTemplate } from "@/lib/cv-templates"
+import type { ResumeDocument } from "@/lib/resume-document"
 import {
   mapApplicationRow,
   mapApplicationStatusHistoryRow,
@@ -10,7 +12,12 @@ import {
 } from "@/lib/application-store"
 import { supabase } from "@/lib/supabase"
 import type { Json } from "@/lib/database.types"
-import type { ApplicationStatus, DbApplication, DbApplicationStatusHistory } from "@/mocks/types"
+import type {
+  ApplicationStatus,
+  DbApplication,
+  DbApplicationStatusHistory,
+  DbCv,
+} from "@/mocks/types"
 
 /**
  * The Applications layer — job tracker built on top of the CV snapshot
@@ -43,6 +50,43 @@ export function applicationHistory(
   return data.applicationStatusHistory
     .filter((entry) => entry.applicationId === applicationId)
     .sort((a, b) => a.changedAt.localeCompare(b.changedAt))
+}
+
+/**
+ * Everything the `/applications/:id/cv` route needs to render the CV
+ * attached to one application. Prefers `cvSnapshot` (frozen, once status has
+ * left `draft`) over `cvId` (still live, while in `draft`) — see spec 10's
+ * "The freeze". The `kind` discriminant tells the caller how to re-export:
+ * a frozen CV's `snapshot` is already a complete `CvSnapshotV1` and can be
+ * downloaded as-is, while a live CV's document/template must still be run
+ * through `buildCvSnapshot`.
+ */
+export type ResolvedApplicationCv =
+  | { kind: "frozen"; snapshot: CvSnapshotV1; document: ResumeDocument; template: CvTemplate }
+  | { kind: "live"; cv: DbCv; document: ResumeDocument; template: CvTemplate }
+
+export function resolveApplicationCv(
+  application: DbApplication,
+  persona: PersonaData,
+  inventory: InventoryStore
+): ResolvedApplicationCv | undefined {
+  if (application.cvSnapshot) {
+    return {
+      kind: "frozen",
+      snapshot: application.cvSnapshot,
+      document: application.cvSnapshot.document,
+      template: templateFromSnapshot(application.cvSnapshot),
+    }
+  }
+
+  if (application.cvId) {
+    const resolved = resolveCv(persona, inventory, application.cvId)
+    if (resolved) {
+      return { kind: "live", cv: resolved.cv, document: resolved.document, template: resolved.template }
+    }
+  }
+
+  return undefined
 }
 
 function requireUserId(store: ApplicationStore): string {
