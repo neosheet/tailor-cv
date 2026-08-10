@@ -17,31 +17,46 @@ export type Database = {
       cvs: {
         Row: {
           created_at: string
+          favorite: boolean
           id: string
           name: string
           note: string | null
-          persona_id: string
-          template_id: string
+          persona_id: string | null
+          persona_settings: Json
+          snapshot: Json | null
+          tags: string[]
+          template_id: string | null
+          template_settings: Json
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          favorite?: boolean
           id?: string
           name: string
           note?: string | null
-          persona_id: string
-          template_id: string
+          persona_id?: string | null
+          persona_settings?: Json
+          snapshot?: Json | null
+          tags?: string[]
+          template_id?: string | null
+          template_settings?: Json
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          favorite?: boolean
           id?: string
           name?: string
           note?: string | null
-          persona_id?: string
-          template_id?: string
+          persona_id?: string | null
+          persona_settings?: Json
+          snapshot?: Json | null
+          tags?: string[]
+          template_id?: string | null
+          template_settings?: Json
           updated_at?: string
           user_id?: string
         }
@@ -64,6 +79,7 @@ export type Database = {
       }
       inventory_items: {
         Row: {
+          category_id: string | null
           created_at: string
           details: Json
           end_date: string | null
@@ -83,6 +99,7 @@ export type Database = {
           years_experience: number | null
         }
         Insert: {
+          category_id?: string | null
           created_at?: string
           details?: Json
           end_date?: string | null
@@ -102,6 +119,7 @@ export type Database = {
           years_experience?: number | null
         }
         Update: {
+          category_id?: string | null
           created_at?: string
           details?: Json
           end_date?: string | null
@@ -121,6 +139,13 @@ export type Database = {
           years_experience?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "skill_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_items_user_id_fkey"
             columns: ["user_id"]
@@ -369,6 +394,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      skill_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_categories_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {

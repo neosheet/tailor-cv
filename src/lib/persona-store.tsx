@@ -4,7 +4,15 @@ import * as React from "react"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import type { Tables } from "@/lib/database.types"
-import type { DbCv, DbPersonaItem, DbPersonaLine, DbPersonaSection } from "@/mocks/types"
+import type { TemplateSettings } from "@/lib/cv-template-schema"
+import { parseCvSnapshot } from "@/lib/cv-snapshot"
+import type {
+  CvPersonaSettings,
+  DbCv,
+  DbPersonaItem,
+  DbPersonaLine,
+  DbPersonaSection,
+} from "@/mocks/types"
 
 /**
  * Fetches `personas`, `persona_sections`, `persona_items`, `persona_lines`,
@@ -111,6 +119,11 @@ export function mapCvRow(row: Tables<"cvs">): DbCv {
     templateId: row.template_id,
     name: row.name,
     note: row.note,
+    tags: row.tags,
+    favorite: row.favorite,
+    templateSettings: (row.template_settings ?? {}) as unknown as TemplateSettings,
+    personaSettings: (row.persona_settings ?? {}) as unknown as CvPersonaSettings,
+    snapshot: row.snapshot ? parseCvSnapshot(row.snapshot) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

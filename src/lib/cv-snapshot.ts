@@ -6,7 +6,7 @@ import {
   type TemplateDefinition,
   type TemplateSettings,
 } from "@/lib/cv-template-schema"
-import type { ResumeDocument } from "@/lib/persona"
+import type { ResumeDocument } from "@/lib/resume-document"
 import type { CvTemplate } from "@/lib/cv-templates"
 import type { DbCv } from "@/mocks/types"
 

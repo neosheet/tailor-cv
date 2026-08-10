@@ -7,6 +7,9 @@
  * unreadable, so the data is authored nested and flattened by `flatten.ts`.
  */
 
+import type { TemplateSettings } from "../lib/cv-template-schema"
+import type { CvSnapshotV1 } from "../lib/cv-snapshot"
+
 export type ItemKind =
   // Basics pools. Every one behaves like a normal pool; the CV layer is what
   // limits the first five to a single selection each.
@@ -49,6 +52,33 @@ export type DbProfile = DbTimestamps & {
   id: string
 }
 
+/**
+ * Per-kind print settings: whether the whole kind is hidden from a rendered
+ * CV, which of its fields are hidden, and — independent of `persona_items`/
+ * `persona_lines` selection — which already-*selected* entries are hidden
+ * without being deselected. `items` is keyed by `inventory_items.id`; an id
+ * absent (or `false`) is visible. Non-destructive on purpose: unlike
+ * removing an entry from the Persona's selection (which cascades and loses
+ * any bullet curation on it), toggling this flag back off always restores
+ * exactly what was there before. Sparse — a kind/field/item absent from this
+ * map is visible.
+ *
+ * Lives on `cvs.persona_settings`, not `personas` (Batch 3,
+ * docs/user-request.md) — visibility is a per-CV presentation choice, not
+ * Persona content, so two CVs built from the same Persona can diverge.
+ */
+export type FieldVisibility = Partial<
+  Record<
+    ItemKind,
+    { hidden?: boolean; fields?: string[]; items?: Record<string, boolean> }
+  >
+>
+
+/** A CV's persona-content overrides — visibility today, room to grow. */
+export type CvPersonaSettings = {
+  fieldVisibility?: FieldVisibility
+}
+
 export type DbInventoryItem = DbTimestamps & {
   id: string
   userId: string
@@ -64,6 +94,8 @@ export type DbInventoryItem = DbTimestamps & {
   details: Record<string, unknown>
   /** Skills only. Null on every other kind. */
   yearsExperience: number | null
+  /** Skills only — FK to `skill_categories`. Null on every other kind, and skills may leave it unset. */
+  categoryId: string | null
   tags: string[]
   /** Private annotation. Never exported, never rendered on a CV. */
   note: string | null
@@ -169,14 +201,28 @@ export type SourcePersona = {
 // CV — a saved (Persona, Template) pairing. See docs/specs/06-persona-cv-split.md
 // ---------------------------------------------------------------------------
 
-/** `templateId` matches an id in `src/lib/cv-templates.ts` — not a real FK yet. */
+/**
+ * `templateId` matches an id in `src/lib/cv-templates.ts` — not a real FK yet.
+ * A row is either **live** (`personaId`/`templateId` set, `snapshot` null) or
+ * **frozen** (`personaId`/`templateId` null, `snapshot` set) — never neither,
+ * never both, enforced by a DB check constraint. See
+ * docs/specs/09-cv-export-import.md.
+ */
 export type DbCv = DbTimestamps & {
   id: string
   userId: string
-  personaId: string
-  templateId: string
+  personaId: string | null
+  templateId: string | null
   name: string
   note: string | null
+  tags: string[]
+  favorite: boolean
+  /** Per-CV style/page/node overrides — see `TemplateSettings`. */
+  templateSettings: TemplateSettings
+  /** Per-CV persona-content overrides (field visibility) — see `CvPersonaSettings`. */
+  personaSettings: CvPersonaSettings
+  /** Set only on a frozen (imported) CV — see `personaId`'s doc comment above. */
+  snapshot: CvSnapshotV1 | null
 }
 
 export type SourceCv = {
@@ -185,6 +231,8 @@ export type SourceCv = {
   personaId: string
   templateId: string
   note?: string
+  tags?: string[]
+  favorite?: boolean
 }
 
 // ---------------------------------------------------------------------------
