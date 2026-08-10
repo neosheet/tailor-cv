@@ -1,5 +1,6 @@
 import { TemplateRender } from "@/components/cv/templates"
 import { cn } from "@/lib/utils"
+import type { TemplateDefinition, TemplateSettings } from "@/lib/cv-template-schema"
 import type { ResumeDocument } from "@/lib/persona"
 
 /**
@@ -17,6 +18,8 @@ import type { ResumeDocument } from "@/lib/persona"
 export function ResumeRender({
   document,
   templateId,
+  definition,
+  settings,
   scale = 1,
   className,
   ref
@@ -25,13 +28,17 @@ export function ResumeRender({
   document: ResumeDocument
   /** Always explicit: a CV stores no template, layout is the caller's choice. */
   templateId: string
+  /** Renders this inlined definition directly, bypassing the `templateId` registry lookup — see `TemplateRender`. */
+  definition?: TemplateDefinition
+  /** Per-CV style overrides — see `cv-template-schema.ts`'s `TemplateSettings`. */
+  settings?: TemplateSettings
   scale?: number
   className?: string
 }) {
   if (scale === 1) {
     return (
       <div className={className}>
-        <TemplateRender ref={ref} templateId={templateId} document={document} />
+        <TemplateRender ref={ref} templateId={templateId} definition={definition} document={document} settings={settings} />
       </div>
     )
   }
@@ -46,7 +53,7 @@ export function ResumeRender({
       style={{ "--resume-scale": scale } as React.CSSProperties}
     >
       <div className="origin-top-left scale-(--resume-scale)">
-        <TemplateRender ref={ref} templateId={templateId} document={document} />
+        <TemplateRender ref={ref} templateId={templateId} definition={definition} document={document} settings={settings} />
       </div>
     </div>
   )

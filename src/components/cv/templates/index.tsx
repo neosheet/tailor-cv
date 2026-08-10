@@ -1,16 +1,22 @@
 import { TemplateNodeRenderer } from "@/components/cv/template-node-renderer"
 import { cvTemplates } from "@/lib/cv-templates"
+import type { TemplateDefinition, TemplateSettings } from "@/lib/cv-template-schema"
 import type { ResumeDocument } from "@/lib/persona"
 
 /**
- * Renders a CV under the template `templateId` names.
+ * Renders a CV under the template `templateId` names — or, when `definition`
+ * is passed, that inlined `TemplateDefinition` directly, bypassing the
+ * `cvTemplates` registry lookup entirely. A frozen/imported CV's inlined
+ * definition has no guarantee its `id` matches a registered template, so it
+ * must never fall through the unknown-id fallback below (that would silently
+ * render the wrong template).
  *
  * **Unknown ids fall back to the first template in `cvTemplates`** rather than a
- * hardcoded one. A CV stores no template (spec 03), so an id here comes from a
- * preview picker or, later, an application — and either can name a template a
- * build has since renamed or removed. The list always has at least one entry, so
- * the first is always a valid answer, and reordering the list moves the default
- * with it.
+ * hardcoded one — but only on the `templateId` path. A CV stores no template
+ * (spec 03), so an id here comes from a preview picker or, later, an
+ * application — and either can name a template a build has since renamed or
+ * removed. The list always has at least one entry, so the first is always a
+ * valid answer, and reordering the list moves the default with it.
  *
  * Rendering via `TemplateNodeRenderer` off the entry's `definition` keeps
  * `cvTemplates` the single source of truth: no switch to fall out of sync, and
@@ -18,18 +24,28 @@ import type { ResumeDocument } from "@/lib/persona"
  */
 export function TemplateRender({
   templateId,
+  definition,
   document,
+  settings,
     ref
 }: {
   templateId: string
+  /** Renders this definition directly when set, skipping the registry lookup. */
+  definition?: TemplateDefinition
   document: ResumeDocument
+  settings?: TemplateSettings
     ref?: React.Ref<HTMLDivElement>
 }) {
-  const template =
-    cvTemplates.find((candidate) => candidate.id === templateId) ??
-    cvTemplates[0]
+  const resolvedDefinition =
+    definition ??
+    (cvTemplates.find((candidate) => candidate.id === templateId) ?? cvTemplates[0]).definition
 
   return (
-    <TemplateNodeRenderer ref={ref} definition={template.definition} context={document} />
+    <TemplateNodeRenderer
+      ref={ref}
+      definition={resolvedDefinition}
+      context={document}
+      settings={settings}
+    />
   )
 }
