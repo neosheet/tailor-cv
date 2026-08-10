@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResumeRender } from "@/components/cv/resume-render"
+import { TimelineTab } from "@/components/applications/timeline-tab"
 import { VacancyDetailContent } from "@/components/applications/vacancy-detail-content"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
 import { JOB_TYPE_LABEL } from "@/lib/application-job-type"
@@ -346,9 +347,7 @@ export function ApplicationDetailView({
           </TabsContent>
 
           <TabsContent value="timeline" className="pt-4">
-            <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-              Timeline coming soon.
-            </div>
+            <TimelineTab application={application} />
           </TabsContent>
         </Tabs>
       </div>
