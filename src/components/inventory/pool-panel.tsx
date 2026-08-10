@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
+import { AddToPersonaDialog } from "@/components/inventory/add-to-persona-dialog"
 import { ItemDialog } from "@/components/inventory/item-dialog"
 import { PoolTable, type PoolColumn } from "@/components/inventory/pool-table"
 import { TagFilter } from "@/components/inventory/tag-filter"
@@ -159,6 +160,7 @@ export function PoolPanel({
   } | null>(null)
   const [deleteTarget, setDeleteTarget] =
     React.useState<DbInventoryItem | null>(null)
+  const [addToPersonaOpen, setAddToPersonaOpen] = React.useState(false)
 
   // Both filters outlive the page: leaving for a CV and coming back to find the
   // pool reset is the kind of small loss that makes people stop filtering.
@@ -208,6 +210,15 @@ export function PoolPanel({
     () => [...new Set(visible.flatMap((row) => row.tags))].sort(),
     [visible]
   )
+
+  // Selection order matters for the "latest selected wins" pick-one rule —
+  // `selected` is a `Set`, which iterates in insertion order.
+  const selectedItems = React.useMemo(() => {
+    const rowsById = new Map(rows.map((row) => [row.id, row]))
+    return [...selected]
+      .map((id) => rowsById.get(id))
+      .filter((row): row is DbInventoryItem => row !== undefined)
+  }, [selected, rows])
 
   // Select-all applies to what's on screen, so it never quietly selects rows
   // the current search has hidden.
@@ -266,6 +277,7 @@ export function PoolPanel({
           <BulkActions
             count={selected.size}
             onClear={() => updateSelected(new Set())}
+            onAddToPersona={() => setAddToPersonaOpen(true)}
           />
         ) : null}
         <PoolTable
@@ -285,6 +297,14 @@ export function PoolPanel({
           selectAllHidden={mode === "pick" && selectionMode === "single"}
         />
       </div>
+
+      <AddToPersonaDialog
+        kind={kind}
+        items={selectedItems}
+        open={addToPersonaOpen}
+        onClose={() => setAddToPersonaOpen(false)}
+        onAdded={() => updateSelected(new Set())}
+      />
 
       {formKind ? (
         <ItemDialog
@@ -339,16 +359,15 @@ export function PoolPanel({
   )
 }
 
-/**
- * Shown only once rows are selected. The three actions carry no handlers yet —
- * this is the bar's shape, not its behaviour.
- */
+/** Shown only once rows are selected. Tags/Delete carry no handlers yet. */
 function BulkActions({
   count,
   onClear,
+  onAddToPersona,
 }: {
   count: number
   onClear: () => void
+  onAddToPersona: () => void
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b bg-muted/50 px-3 py-2">
@@ -366,9 +385,9 @@ function BulkActions({
           <TagsIcon data-icon="inline-start" />
           Tags
         </Button>
-        <Button variant="outline" size="sm" disabled>
+        <Button variant="outline" size="sm" onClick={onAddToPersona}>
           <FilePlus2Icon data-icon="inline-start" />
-          Add to CV
+          Add to Persona
         </Button>
         <Button variant="destructive" size="sm" disabled>
           <Trash2Icon data-icon="inline-start" />

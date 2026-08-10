@@ -19,37 +19,71 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@/components/ui/item"
-import { allPersonas, personasUsingItem } from "@/lib/persona"
+import { useInventoryStore } from "@/lib/inventory-store"
+import {
+  allPersonas,
+  itemIdsForKind,
+  PICK_ONE_KINDS,
+  setPersonaSectionItems,
+} from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
-import type { DbInventoryItem } from "@/mocks"
+import type { DbInventoryItem, ItemKind } from "@/mocks"
 
 /**
- * Pick which Personas an entry should be added to. Multi-select.
+ * Batch "Add to Persona": pick which Personas a set of Inventory rows (all
+ * the same `kind`, e.g. a batch of selected Skills) should be added to.
+ * Multi-select Personas.
  *
- * Personas that already include the entry are shown checked and disabled —
- * the question is which Personas to *add* it to, and offering to add it
- * somewhere it already exists is a way to produce a confusing no-op.
+ * For `PICK_ONE_KINDS` (Basics single-value kinds like Headline), a Persona
+ * can hold at most one entry — only the last-selected of `items` (the order
+ * rows were checked in, upstream) is ever a candidate. For every other kind,
+ * a target Persona that already has some of the batch keeps those and only
+ * gains the ones it's missing — never a duplicate, never a removal.
  */
 export function AddToPersonaDialog({
-  item,
+  kind,
+  items,
   open,
   onClose,
+  onAdded,
 }: {
-  item: DbInventoryItem
+  kind: ItemKind
+  items: DbInventoryItem[]
   open: boolean
   onClose: () => void
+  /** Fired once, after a successful Confirm — lets the caller clear its own selection. */
+  onAdded?: () => void
 }) {
-  const store = usePersonaStore()
-  const personas = allPersonas(store)
+  const personaStore = usePersonaStore()
+  const inventoryStore = useInventoryStore()
+  const personas = allPersonas(personaStore)
+  const pickOne = PICK_ONE_KINDS.includes(kind)
+
+  const candidateIds = React.useMemo(
+    () => (pickOne ? items.slice(-1).map((item) => item.id) : items.map((item) => item.id)),
+    [items, pickOne]
+  )
+
   const alreadyIn = React.useMemo(
     () =>
       new Set(
-        personasUsingItem(store, item.id).map((usage) => usage.persona.id)
+        personas
+          .filter((persona) => {
+            const previous = itemIdsForKind(
+              personaStore,
+              inventoryStore,
+              persona.id,
+              kind
+            )
+            return candidateIds.every((id) => previous.includes(id))
+          })
+          .map((persona) => persona.id)
       ),
-    [store, item.id]
+    [personas, personaStore, inventoryStore, kind, candidateIds]
   )
 
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set())
+  const [saving, setSaving] = React.useState(false)
 
   function toggle(personaId: string, checked: boolean) {
     setSelected((current) => {
@@ -63,12 +97,51 @@ export function AddToPersonaDialog({
     })
   }
 
+  function reset() {
+    setSelected(new Set())
+    setSaving(false)
+  }
+
+  async function handleConfirm() {
+    setSaving(true)
+    try {
+      for (const personaId of selected) {
+        const previous = itemIdsForKind(
+          personaStore,
+          inventoryStore,
+          personaId,
+          kind
+        )
+        const toAdd = candidateIds.filter((id) => !previous.includes(id))
+        if (toAdd.length === 0) continue
+
+        const nextIds = pickOne ? toAdd : [...previous, ...toAdd]
+        await setPersonaSectionItems(
+          personaStore,
+          inventoryStore,
+          personaId,
+          kind,
+          nextIds,
+          previous
+        )
+      }
+      reset()
+      onAdded?.()
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const itemLabel =
+    items.length === 1 ? `“${items[0].title}”` : `${items.length} entries`
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         if (!next) {
-          setSelected(new Set())
+          reset()
           onClose()
         }
       }}
@@ -77,7 +150,10 @@ export function AddToPersonaDialog({
         <DialogHeader>
           <DialogTitle>Add to Persona</DialogTitle>
           <DialogDescription>
-            Choose which Personas should include “{item.title}”.
+            Choose which Personas should include {itemLabel}
+            {pickOne && items.length > 1
+              ? " — only the last one you selected will be added."
+              : "."}
           </DialogDescription>
         </DialogHeader>
 
@@ -111,17 +187,25 @@ export function AddToPersonaDialog({
 
         <DialogFooter className="items-center gap-2 sm:justify-between">
           <span className="text-xs text-muted-foreground">
-            {selected.size === 0
-              ? "Nothing selected"
-              : `${selected.size} selected`}
+            {selected.size === 0 ? "Nothing selected" : `${selected.size} selected`}
           </span>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              disabled={saving}
+            >
               Cancel
             </Button>
-            <Button size="sm" disabled>
-              Add to {selected.size || "…"} Persona
-              {selected.size === 1 ? "" : "s"}
+            <Button
+              size="sm"
+              disabled={selected.size === 0 || saving}
+              onClick={handleConfirm}
+            >
+              {saving
+                ? "Adding…"
+                : `Add to ${selected.size || "…"} Persona${selected.size === 1 ? "" : "s"}`}
             </Button>
           </div>
         </DialogFooter>

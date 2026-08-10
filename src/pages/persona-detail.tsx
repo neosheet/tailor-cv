@@ -50,56 +50,27 @@ import { DeletePersonaDialog } from "@/components/persona/delete-persona-dialog"
 import { PersonaFormDialog } from "@/components/persona/persona-form-dialog"
 import { cvTemplates } from "@/lib/cv-templates"
 import { allCvs } from "@/lib/cv"
-import { useInventoryStore, type InventoryStore } from "@/lib/inventory-store"
+import { useInventoryStore } from "@/lib/inventory-store"
 import {
   buildResumeDocument,
   deletePersona,
   duplicatePersona,
   findPersona,
+  itemIdsForKind,
   PICK_ONE_KINDS,
-  SECTION_HEADING,
   SECTION_KINDS,
   setPersonaSectionItems,
+  titleFor,
   togglePersonaFavorite,
   updatePersona,
   type ResumeEntry,
   type ResumeSection,
 } from "@/lib/persona"
-import { usePersonaStore, type PersonaStore } from "@/lib/persona-store"
+import { usePersonaStore } from "@/lib/persona-store"
 import type { ItemKind } from "@/mocks/types"
 
 /** Left column of the two-column layout — the entries with the most content. */
 const PRIMARY_KINDS: ItemKind[] = ["work", "project", "volunteer", "award"]
-
-const BASICS_LABEL: Partial<Record<ItemKind, string>> = {
-  name: "Name",
-  headline: "Headline",
-  summary: "Summary",
-  contact: "Contact",
-  location: "Location",
-  social: "Social",
-}
-
-function titleFor(kind: ItemKind): string {
-  return BASICS_LABEL[kind] ?? SECTION_HEADING[kind] ?? kind
-}
-
-/** This Persona's currently-selected item ids for one kind, cross-referenced
- * against Inventory since `persona_items` itself carries no `kind` column. */
-function itemIdsForKind(
-  persona: PersonaStore,
-  inventory: InventoryStore,
-  personaId: string,
-  kind: ItemKind
-): string[] {
-  const itemsById = new Map(inventory.items.map((item) => [item.id, item]))
-
-  return persona.personaItems
-    .filter((row) => row.personaId === personaId)
-    .sort((a, b) => a.position - b.position)
-    .map((row) => row.itemId)
-    .filter((itemId) => itemsById.get(itemId)?.kind === kind)
-}
 
 /**
  * One Persona — content only, no layout (that's what pairing it with a

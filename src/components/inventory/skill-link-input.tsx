@@ -14,6 +14,7 @@ import {
   useComboboxAnchor,
 } from "@/components/ui/combobox"
 import { Field } from "@/components/ui/field"
+import { ItemDialog } from "@/components/inventory/item-dialog"
 import { itemsOfKind } from "@/lib/inventory"
 import { useInventoryStore } from "@/lib/inventory-store"
 
@@ -21,18 +22,17 @@ import { useInventoryStore } from "@/lib/inventory-store"
 const MAX_SUGGESTIONS = 5
 
 /**
- * Skill-link picker for a Volunteer/Project entry's "skills used" field.
+ * Skill-link picker for a Work/Volunteer/Project entry's "skills used" field.
  *
  * Same `Combobox` + `ComboboxChips` interaction as `TagInput`, but the
  * suggestion pool is every real row in the Skills pool (`itemsOfKind(store,
  * "skill")`) rather than the tag registry — `value` holds skill *ids*, not
  * names, since this links to actual rows, not a flat string registry.
  *
- * Unlike `TagInput`, there is no "create new" affordance: a skill link can
- * only point at an existing Skills-pool row. If nothing matches what's typed,
- * Enter does nothing — the user has to go create the skill in the Skills pool
- * first, same detour tags require via Settings, but with no in-place shortcut
- * at all here.
+ * Unlike `TagInput`, a skill link can't just register a name — it points at a
+ * real row with its own fields. So instead of creating in place, Enter with
+ * no match opens the full Skill `ItemDialog` (prefilled with what was typed
+ * as the title); saving it there links the new skill here automatically.
  */
 export function SkillLinkInput({
   value,
@@ -48,6 +48,7 @@ export function SkillLinkInput({
   const store = useInventoryStore()
   const anchor = useComboboxAnchor()
   const [input, setInput] = React.useState("")
+  const [createTitle, setCreateTitle] = React.useState<string | null>(null)
 
   const skills = itemsOfKind(store, "skill")
 
@@ -72,6 +73,21 @@ export function SkillLinkInput({
       .map((skill) => skill.id)
       .slice(0, MAX_SUGGESTIONS)
   }, [skills, value, input, excludeItemId])
+
+  // Enter with no matching suggestion opens the Skill dialog prefilled with
+  // what was typed — the combobox itself only acts on a highlighted item,
+  // and there isn't one when the list is empty.
+  function openCreateFromInput(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter" || suggestions.length > 0) {
+      return
+    }
+
+    if (!input.trim()) {
+      return
+    }
+
+    setCreateTitle(input.trim())
+  }
 
   return (
     <Field>
@@ -106,6 +122,7 @@ export function SkillLinkInput({
                   id={id}
                   placeholder={skillIds.length === 0 ? "Link a skill…" : ""}
                   aria-label="Skills used"
+                  onKeyDown={openCreateFromInput}
                 />
               </React.Fragment>
             )}
@@ -115,8 +132,8 @@ export function SkillLinkInput({
         <ComboboxContent anchor={anchor}>
           <ComboboxEmpty>
             {skills.length === 0
-              ? "No skills in the Skills pool yet — add one there first."
-              : "No skill starts with that."}
+              ? "No skills in the Skills pool yet — press Enter to add one."
+              : "No skill starts with that — press Enter to add it."}
           </ComboboxEmpty>
           <ComboboxList>
             {(skillId: string) => (
@@ -127,6 +144,19 @@ export function SkillLinkInput({
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
+
+      <ItemDialog
+        kind="skill"
+        mode="add"
+        initialTitle={createTitle ?? undefined}
+        open={createTitle !== null}
+        onOpenChange={(next) => !next && setCreateTitle(null)}
+        onSaved={(skill) => {
+          onValueChange([...value, skill.id])
+          setInput("")
+          setCreateTitle(null)
+        }}
+      />
     </Field>
   )
 }

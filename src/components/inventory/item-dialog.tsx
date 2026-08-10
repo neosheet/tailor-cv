@@ -63,6 +63,14 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NoteInput } from "@/components/inventory/note-input"
 import { TagInput } from "@/components/inventory/tag-input"
@@ -213,6 +221,7 @@ const KIND_FIELDS: Record<ItemKind, FieldConfig[]> = {
   certificate: [
     { key: "title", label: "Certificate name", icon: BadgeCheckIcon },
     { key: "subtitle", label: "Issuer", icon: BuildingIcon },
+    { key: "url", label: "Credential URL", icon: LinkIcon },
     { key: "startDate", label: "Issued", kind: "date", icon: CalendarIcon },
   ],
   publication: [
@@ -268,6 +277,8 @@ type FormState = Record<FieldKey, string> & {
   note: string | null
   lines: Partial<Record<LineKind, LineDraft[]>>
   skillIds: string[]
+  /** Skills only. */
+  categoryId: string | null
 }
 
 const EMPTY_STATE: FormState = {
@@ -294,6 +305,7 @@ const EMPTY_STATE: FormState = {
   note: null,
   lines: {},
   skillIds: [],
+  categoryId: null,
 }
 
 /** The flat fields only — `lines`/`skillIds` need store access, seeded separately. */
@@ -326,8 +338,12 @@ function stateFromItem(
     location: asString(details.location),
     tags: item.tags,
     note: item.note,
+    categoryId: item.categoryId,
   }
 }
+
+/** Sentinel for the Category select's "no category" option — `Select` needs a string value, `categoryId` is `string | null`. */
+const NO_CATEGORY = "none"
 
 /** "" normalizes to `null` — the flat fields mirror nullable db columns. */
 function normalize(value: string): string | null {
@@ -336,7 +352,7 @@ function normalize(value: string): string | null {
 }
 
 /** Maps the flat form state back onto `ItemInput`, `details` included. */
-function buildInput(fields: FieldConfig[], state: FormState): ItemInput {
+function buildInput(fields: FieldConfig[], state: FormState, kind: ItemKind): ItemInput {
   const has = (key: FieldKey) => fields.some((field) => field.key === key)
 
   const details: Record<string, unknown> = {}
@@ -374,6 +390,7 @@ function buildInput(fields: FieldConfig[], state: FormState): ItemInput {
         ? null
         : Number(state.yearsExperience)
       : undefined,
+    categoryId: kind === "skill" ? state.categoryId : undefined,
   }
 }
 
@@ -384,13 +401,16 @@ export function ItemDialog({
   open,
   onOpenChange,
   onSaved,
+  initialTitle,
 }: {
   kind: ItemKind
   mode: "add" | "edit"
   item?: DbInventoryItem
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSaved: () => void
+  onSaved: (item: DbInventoryItem) => void
+  /** "add" mode only — seeds the Title field, e.g. from a create-on-the-fly shortcut. */
+  initialTitle?: string
 }) {
   // Lifted above `ItemForm` because closing can be triggered from outside
   // it too — Escape, an overlay click, the dialog's own X button — and every
@@ -421,6 +441,7 @@ export function ItemDialog({
             kind={kind}
             mode={mode}
             item={item}
+            initialTitle={initialTitle}
             onDirtyChange={setDirty}
             onRequestClose={requestClose}
             onSaved={onSaved}
@@ -459,6 +480,7 @@ function ItemForm({
   kind,
   mode,
   item,
+  initialTitle,
   onDirtyChange,
   onRequestClose,
   onSaved,
@@ -466,14 +488,19 @@ function ItemForm({
   kind: ItemKind
   mode: "add" | "edit"
   item?: DbInventoryItem
+  initialTitle?: string
   onDirtyChange: (dirty: boolean) => void
   onRequestClose: () => void
-  onSaved: () => void
+  onSaved: (item: DbInventoryItem) => void
 }) {
   const store = useInventoryStore()
   const [initialState] = React.useState<FormState>(() => {
     const flat: Omit<FormState, "lines" | "skillIds"> =
-      mode === "edit" && item ? stateFromItem(item) : EMPTY_STATE
+      mode === "edit" && item
+        ? stateFromItem(item)
+        : initialTitle
+          ? { ...EMPTY_STATE, title: initialTitle }
+          : EMPTY_STATE
 
     const lines: Partial<Record<LineKind, LineDraft[]>> = {}
     if (mode === "edit" && item) {
@@ -505,6 +532,13 @@ function ItemForm({
     (KIND_LINE_KINDS[kind] ?? []).includes(listKind)
   )
   const showSkillLink = SKILL_LINK_KINDS.includes(kind)
+  const categoryOptions = [
+    { value: NO_CATEGORY, label: "No category" },
+    ...store.skillCategories.map((category) => ({
+      value: category.id,
+      label: category.name,
+    })),
+  ]
 
   const titleInvalid = state.title.trim() === ""
 
@@ -617,7 +651,7 @@ function ItemForm({
       return
     }
 
-    const input = buildInput(fields, state)
+    const input = buildInput(fields, state, kind)
     const savedItem =
       mode === "edit" && item
         ? await updateItem(store, item.id, input)
@@ -669,7 +703,7 @@ function ItemForm({
       await replaceItemSkills(store, savedItem.id, state.skillIds)
     }
 
-    onSaved()
+    onSaved(savedItem)
   }
 
   // Work entries carry two long, bullet-heavy lists — splitting them into
@@ -707,6 +741,35 @@ function ItemForm({
           return renderField(field)
         })}
       </FieldGroup>
+
+      {kind === "skill" ? (
+        <Field>
+          <FieldLabel htmlFor="item-category">Category</FieldLabel>
+          <Select
+            items={categoryOptions}
+            value={state.categoryId ?? NO_CATEGORY}
+            onValueChange={(next) =>
+              setState((prev) => ({
+                ...prev,
+                categoryId: next === NO_CATEGORY ? null : (next as string),
+              }))
+            }
+          >
+            <SelectTrigger id="item-category" className="w-full">
+              <SelectValue placeholder="Select a category…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {categoryOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+      ) : null}
 
       {useTabbedLines ? null : lineKinds.map(renderLineEditor)}
 

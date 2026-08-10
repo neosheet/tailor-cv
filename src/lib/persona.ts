@@ -1,5 +1,5 @@
 import { allLinesOf, contactDetails, formatLocation, linesOf, skillsOf } from "@/lib/inventory"
-import type { InventoryData } from "@/lib/inventory-store"
+import type { InventoryData, InventoryStore } from "@/lib/inventory-store"
 import {
   mapPersonaRow,
   type DbPersona,
@@ -7,9 +7,10 @@ import {
   type PersonaStore,
 } from "@/lib/persona-store"
 import { supabase } from "@/lib/supabase"
-import type { DbInventoryItem, ItemKind, LineKind } from "@/mocks/types"
+import type { DbInventoryItem, FieldVisibility, ItemKind, LineKind } from "@/mocks/types"
 
 export type { DbPersona, PersonaData, PersonaStore } from "@/lib/persona-store"
+export type { FieldVisibility, CvPersonaSettings } from "@/mocks/types"
 
 /**
  * The Supabase-backed replacement for `src/mocks/persona.ts` and
@@ -56,6 +57,23 @@ export function findPersona(
   personaId: string
 ): DbPersona | undefined {
   return data.personas.find((persona) => persona.id === personaId)
+}
+
+/** One Persona's currently-selected item ids for one kind, cross-referenced
+ * against Inventory since `persona_items` itself carries no `kind` column. */
+export function itemIdsForKind(
+  persona: PersonaStore,
+  inventory: InventoryStore,
+  personaId: string,
+  kind: ItemKind
+): string[] {
+  const itemsById = new Map(inventory.items.map((item) => [item.id, item]))
+
+  return persona.personaItems
+    .filter((row) => row.personaId === personaId)
+    .sort((a, b) => a.position - b.position)
+    .map((row) => row.itemId)
+    .filter((itemId) => itemsById.get(itemId)?.kind === kind)
 }
 
 export type ItemUsage = {
@@ -129,12 +147,26 @@ export type ResumeEntry = {
   dateRangeText: string | null
   /** The entry's "keywords" line group items, if any — the skill entry's inline keyword suffix. */
   keywords: string[]
+  /** `summary` (if present) plus every `lineGroups` item flattened into one list — Classic renders these as one shared `<ul>` instead of a separate description paragraph and one `<ul>` per group. */
+  bulletItems: string[]
+  /**
+   * `"{location} ({workplaceType}, {employmentType})"` — Work entries only in
+   * practice. Default values (`"on-site"`, `"full-time"`) are dropped as
+   * implied/redundant; present-but-default `location` still shows. `null`
+   * when there's nothing to show at all.
+   */
+  metaLine: string | null
 }
+
+/** One `skill_categories` row's entries, pre-grouped for Classic's "Category: skill, skill, ..." line. */
+export type ResumeSkillGroup = { category: string; skills: string[] }
 
 export type ResumeSection = {
   kind: ItemKind
   heading: string
   entries: ResumeEntry[]
+  /** Skill sections only — entries regrouped by category, category-`position` order, uncategorized last under "Other". */
+  skillGroups?: ResumeSkillGroup[]
 }
 
 export type ResumeDocument = {
@@ -160,11 +192,26 @@ export type ResumeDocument = {
 const HEADER_KINDS: ItemKind[] = [
   "name",
   "headline",
-  "summary",
   "contact",
   "location",
   "social",
+  "summary"
 ]
+
+/** Labels for the Basics kinds — the header block, not a section. */
+export const BASICS_LABEL: Partial<Record<ItemKind, string>> = {
+  name: "Name",
+  headline: "Headline",
+  summary: "Summary",
+  contact: "Contact",
+  location: "Location",
+  social: "Social",
+}
+
+/** A kind's display title, Basics or Section alike. */
+export function titleFor(kind: ItemKind): string {
+  return BASICS_LABEL[kind] ?? SECTION_HEADING[kind] ?? kind
+}
 
 export const SECTION_HEADING: Partial<Record<ItemKind, string>> = {
   work: "Experience",
@@ -180,7 +227,183 @@ export const SECTION_HEADING: Partial<Record<ItemKind, string>> = {
   reference: "References",
 }
 
-const LINE_ORDER: LineKind[] = [
+/**
+ * The toggleable fields for each kind, in the order the settings tree shows
+ * them — a leaf's `key` is either a `ResumeEntry` property name, a
+ * `LineKind` (a line group), or an `entry.details` key. Kinds absent here
+ * take at most one field of real content, so the tree shows them as a single
+ * togglable row with no children instead of a redundant one-item folder.
+ *
+ * Restricted to fields the Classic template actually renders — see
+ * `cv-template-defs/classic.ts`'s `entryBlock`/`sectionHeading` — so every
+ * toggle here visibly does something.
+ */
+export const FIELD_REGISTRY: Partial<Record<ItemKind, { key: string; label: string }[]>> = {
+  contact: [
+    { key: "email", label: "Email" },
+    { key: "phone", label: "Phone" },
+    { key: "website", label: "Website" },
+  ],
+  work: [
+    { key: "title", label: "Company name" },
+    { key: "subtitle", label: "Position" },
+    { key: "url", label: "Website" },
+    { key: "summary", label: "Description" },
+    { key: "dates", label: "Dates" },
+    { key: "location", label: "Location" },
+    { key: "workplaceType", label: "Workplace type" },
+    { key: "employmentType", label: "Employment type" },
+    { key: "responsibilities", label: "Responsibilities" },
+    { key: "highlights", label: "Highlights" },
+    { key: "skills", label: "Skills used" },
+  ],
+  volunteer: [
+    { key: "title", label: "Organisation" },
+    { key: "subtitle", label: "Position" },
+    { key: "summary", label: "Description" },
+    { key: "dates", label: "Dates" },
+    { key: "responsibilities", label: "Responsibilities" },
+    { key: "highlights", label: "Highlights" },
+    { key: "skills", label: "Skills used" },
+  ],
+  education: [
+    { key: "title", label: "Institution" },
+    { key: "subtitle", label: "Area" },
+    { key: "studyType", label: "Study type" },
+    { key: "score", label: "Score" },
+    { key: "dates", label: "Dates" },
+    { key: "courses", label: "Courses" },
+  ],
+  project: [
+    { key: "title", label: "Project name" },
+    { key: "summary", label: "Description" },
+    { key: "dates", label: "Dates" },
+    { key: "highlights", label: "Highlights" },
+    { key: "keywords", label: "Keywords" },
+    { key: "roles", label: "Roles" },
+    { key: "skills", label: "Skills used" },
+  ],
+  award: [
+    { key: "title", label: "Award title" },
+    { key: "subtitle", label: "Awarder" },
+    { key: "summary", label: "Summary" },
+    { key: "dates", label: "Date" },
+  ],
+  certificate: [
+    { key: "title", label: "Certificate name" },
+    { key: "subtitle", label: "Issuer" },
+    { key: "url", label: "Credential URL" },
+    { key: "dates", label: "Date" },
+  ],
+  publication: [
+    { key: "title", label: "Publication title" },
+    { key: "subtitle", label: "Publisher" },
+    { key: "summary", label: "Summary" },
+    { key: "dates", label: "Date" },
+  ],
+  reference: [
+    { key: "title", label: "Name" },
+    { key: "subtitle", label: "Role" },
+    { key: "summary", label: "Reference text" },
+  ],
+  skill: [
+    { key: "title", label: "Skill name" },
+    { key: "subtitle", label: "Level" },
+    { key: "keywords", label: "Keywords" },
+  ],
+  language: [
+    { key: "title", label: "Language" },
+    { key: "subtitle", label: "Fluency" },
+  ],
+}
+
+export function isKindHidden(fieldVisibility: FieldVisibility, kind: ItemKind): boolean {
+  return fieldVisibility[kind]?.hidden === true
+}
+
+export function hiddenFieldsOf(
+  fieldVisibility: FieldVisibility,
+  kind: ItemKind
+): Set<string> {
+  return new Set(fieldVisibility[kind]?.fields ?? [])
+}
+
+/**
+ * Whether one already-*selected* entry is hidden — independent of
+ * `persona_items` membership. See `FieldVisibility.items`'s doc comment for
+ * why this is a separate, non-destructive flag rather than deselecting.
+ */
+export function isItemHidden(
+  fieldVisibility: FieldVisibility,
+  kind: ItemKind,
+  itemId: string
+): boolean {
+  return fieldVisibility[kind]?.items?.[itemId] === true
+}
+
+/** This Persona's picked entries for one kind, in selection order. */
+export function selectedEntriesOf(
+  persona: PersonaData,
+  inventory: InventoryData,
+  personaId: string,
+  kind: ItemKind
+): DbInventoryItem[] {
+  const byId = new Map(inventory.items.map((item) => [item.id, item]))
+
+  return persona.personaItems
+    .filter((row) => row.personaId === personaId)
+    .sort((a, b) => a.position - b.position)
+    .flatMap((row) => {
+      const item = byId.get(row.itemId)
+      return item && item.kind === kind ? [item] : []
+    })
+}
+
+/**
+ * The line ids one entry currently takes — "which of this entry's
+ * responsibilities/highlights/etc. show", independent of the field/item
+ * hides above. Defaults to every line the entry has (set when the entry was
+ * added to the Persona — see `setPersonaSectionItems`), until curated via
+ * `setLineSelected`.
+ */
+export function selectedLineIdsOf(
+  persona: PersonaData,
+  personaId: string,
+  itemId: string
+): Set<string> {
+  return new Set(
+    persona.personaLines
+      .filter((row) => row.personaId === personaId && row.itemId === itemId)
+      .map((row) => row.lineId)
+  )
+}
+
+/**
+ * The Section kinds in current display order — rows sorted by their stored
+ * `position`, any kind with no row yet (never reordered, or currently empty)
+ * falling back to `SECTION_KINDS`' canonical order at the end. Drives both
+ * the settings tree's reorder buttons and, once a Persona picks entries into
+ * a kind, `buildResumeDocument`'s own `persona_sections.position` sort.
+ */
+export function orderedSectionKinds(
+  data: PersonaData,
+  personaId: string
+): ItemKind[] {
+  const positionByKind = new Map(
+    data.personaSections
+      .filter((row) => row.personaId === personaId)
+      .map((row) => [row.kind, row.position])
+  )
+
+  return [...SECTION_KINDS].sort((a, b) => {
+    const posA = positionByKind.get(a) ?? SECTION_KINDS.indexOf(a)
+    const posB = positionByKind.get(b) ?? SECTION_KINDS.indexOf(b)
+    return posA - posB
+  })
+}
+
+/** Fixed display order for an entry's line groups — every dialog and template uses it. */
+export const LINE_ORDER: LineKind[] = [
   "responsibilities",
   "highlights",
   "courses",
@@ -237,52 +460,87 @@ function formatEntryDates(
  * Resolves one Persona into the flat, ordered shape a template renders.
  *
  * Sections arrive ordered, entries filtered to what the Persona selected,
- * lines narrowed to the chosen bullets.
+ * lines narrowed to the chosen bullets. `fieldVisibility` is the *rendering
+ * CV's* visibility choices (Batch 3, docs/user-request.md) — visibility is
+ * no longer Persona content, so it's passed in rather than read off the
+ * Persona. Callers with no CV context (the Persona's own read-only page, the
+ * Templates gallery preview) simply omit it and get the full, untailored
+ * Persona.
  */
 export function buildResumeDocument(
   persona: PersonaData,
-  inventory: InventoryData,
-  personaId: string
+  inventory: InventoryStore,
+  personaId: string,
+  fieldVisibility: FieldVisibility = {}
 ): ResumeDocument {
   const found = findPersona(persona, personaId)
   if (!found) {
     throw new Error(`No Persona "${personaId}".`)
   }
 
-  const byId = new Map(inventory.items.map((item) => [item.id, item]))
-
+  // Selected entries, minus any individually hidden via the Data tab — kept
+  // separate from `field_visibility[kind].hidden`/`.fields`, which act on
+  // the kind as a whole rather than one entry.
   const selectedIn = (kind: ItemKind): DbInventoryItem[] =>
-    persona.personaItems
-      .filter((row) => row.personaId === personaId)
-      .sort((a, b) => a.position - b.position)
-      .flatMap((row) => {
-        const item = byId.get(row.itemId)
-        return item && item.kind === kind ? [item] : []
-      })
+    selectedEntriesOf(persona, inventory, personaId, kind).filter(
+      (item) => !isItemHidden(fieldVisibility, kind, item.id)
+    )
 
   const firstIn = (kind: ItemKind) => selectedIn(kind)[0]
 
-  const nameItem = firstIn("name")
-  const contactItem = firstIn("contact")
-  const locationItem = firstIn("location")
-  const contact = contactItem ? contactDetails(contactItem) : null
+  const contactFields = hiddenFieldsOf(fieldVisibility, "contact")
+
+  const nameItem = !isKindHidden(fieldVisibility, "name") ? firstIn("name") : undefined
+  const contactItem = !isKindHidden(fieldVisibility, "contact")
+    ? firstIn("contact")
+    : undefined
+  const locationItem = !isKindHidden(fieldVisibility, "location")
+    ? firstIn("location")
+    : undefined
+  const rawContact = contactItem ? contactDetails(contactItem) : null
+  const contact = rawContact && {
+    ...rawContact,
+    email: contactFields.has("email") ? null : rawContact.email,
+    phone: contactFields.has("phone") ? null : rawContact.phone,
+    url: contactFields.has("website") ? null : rawContact.url,
+  }
   const location = locationItem ? formatLocation(locationItem) : null
-  const socials = selectedIn("social").map((item) => ({
-    network: item.title,
-    username: item.subtitle,
-    url: item.url,
-  }))
+  const socials = !isKindHidden(fieldVisibility, "social")
+    ? selectedIn("social").map((item) => ({
+        network: item.title,
+        username: item.subtitle,
+        url: item.url,
+      }))
+    : []
 
   const sections = persona.personaSections
-    .filter((row) => row.personaId === personaId && !HEADER_KINDS.includes(row.kind))
+    .filter(
+      (row) =>
+        row.personaId === personaId &&
+        !HEADER_KINDS.includes(row.kind) &&
+        !isKindHidden(fieldVisibility, row.kind)
+    )
     .sort((a, b) => a.position - b.position)
-    .map((row) => ({
-      kind: row.kind,
-      heading: SECTION_HEADING[row.kind] ?? row.kind,
-      entries: selectedIn(row.kind).map((item) =>
-        toEntry(persona, inventory, personaId, item, row.kind)
-      ),
-    }))
+    .map((row) => {
+      const items = selectedIn(row.kind)
+      return {
+        kind: row.kind,
+        heading: SECTION_HEADING[row.kind] ?? row.kind,
+        entries: items.map((item) =>
+          toEntry(
+            persona,
+            inventory,
+            personaId,
+            item,
+            row.kind,
+            hiddenFieldsOf(fieldVisibility, row.kind)
+          )
+        ),
+        ...(row.kind === "skill"
+          ? { skillGroups: buildSkillGroups(inventory, items) }
+          : {}),
+      }
+    })
     // A section whose every entry was deleted still has a row; printing a bare
     // heading would be worse than omitting it. See spec 03.
     .filter((section) => section.entries.length > 0)
@@ -291,8 +549,12 @@ export function buildResumeDocument(
     personaId: found.id,
     personaName: found.name,
     name: nameItem?.title ?? "",
-    headline: firstIn("headline")?.title ?? null,
-    summary: firstIn("summary")?.summary ?? null,
+    headline: !isKindHidden(fieldVisibility, "headline")
+      ? (firstIn("headline")?.title ?? null)
+      : null,
+    summary: !isKindHidden(fieldVisibility, "summary")
+      ? (firstIn("summary")?.summary ?? null)
+      : null,
     contact,
     location,
     socials,
@@ -309,20 +571,54 @@ export function buildResumeDocument(
   }
 }
 
+/** Groups already-visibility-filtered skill items by `categoryId`, category-`position` order, uncategorized items collected last under "Other". */
+function buildSkillGroups(
+  inventory: InventoryStore,
+  items: DbInventoryItem[]
+): ResumeSkillGroup[] {
+  const byCategory = new Map<string | null, DbInventoryItem[]>()
+  for (const item of items) {
+    const key = item.categoryId
+    const existing = byCategory.get(key)
+    if (existing) {
+      existing.push(item)
+    } else {
+      byCategory.set(key, [item])
+    }
+  }
+
+  const categories = [...inventory.skillCategories].sort(
+    (a, b) => a.position - b.position
+  )
+  const groups: ResumeSkillGroup[] = []
+  for (const category of categories) {
+    const catItems = byCategory.get(category.id)
+    if (catItems?.length) {
+      groups.push({ category: category.name, skills: catItems.map((i) => i.title) })
+    }
+  }
+  const uncategorized = byCategory.get(null)
+  if (uncategorized?.length) {
+    groups.push({ category: "Other", skills: uncategorized.map((i) => i.title) })
+  }
+  return groups
+}
+
 function toEntry(
   persona: PersonaData,
   inventory: InventoryData,
   personaId: string,
   item: DbInventoryItem,
-  kind: ItemKind
+  kind: ItemKind,
+  hiddenFields: Set<string>
 ): ResumeEntry {
-  const chosen = new Set(
-    persona.personaLines
-      .filter((row) => row.personaId === personaId && row.itemId === item.id)
-      .map((row) => row.lineId)
-  )
+  const chosen = selectedLineIdsOf(persona, personaId, item.id)
 
   const lineGroups = LINE_ORDER.flatMap((lineKind) => {
+    if (hiddenFields.has(lineKind)) {
+      return []
+    }
+
     const items = linesOf(inventory, item.id, lineKind)
       .filter((line) => chosen.has(line.id))
       .map((line) => line.content)
@@ -330,28 +626,79 @@ function toEntry(
     return items.length > 0 ? [{ kind: lineKind, items }] : []
   })
 
+  const details = Object.fromEntries(
+    Object.entries(item.details).filter(([key]) => !hiddenFields.has(key))
+  )
+
+  const summary = hiddenFields.has("summary") ? null : item.summary
+  const metaLine = buildMetaLine(details)
+
   return {
     id: item.id,
-    title: item.title,
-    subtitle: item.subtitle,
-    summary: item.summary,
-    url: item.url,
+    title: hiddenFields.has("title") ? "" : item.title,
+    subtitle: hiddenFields.has("subtitle") ? null : item.subtitle,
+    summary,
+    url: hiddenFields.has("url") ? null : item.url,
     startDate: item.startDate,
     endDate: item.endDate,
-    details: item.details,
+    details,
     lineGroups,
-    skills: skillsOf(inventory, item.id).map((skill) => skill.title),
+    skills: hiddenFields.has("skills")
+      ? []
+      : skillsOf(inventory, item.id).map((skill) => skill.title),
     kind,
-    dateRangeText: formatEntryDates(item.startDate, item.endDate, kind),
+    dateRangeText: hiddenFields.has("dates")
+      ? null
+      : formatEntryDates(item.startDate, item.endDate, kind),
     keywords: lineGroups.find((g) => g.kind === "keywords")?.items ?? [],
+    // The description leads the merged bullet list Classic renders — see
+    // Batch 4, docs/user-request.md.
+    bulletItems: [
+      ...(summary ? [summary] : []),
+      ...lineGroups.flatMap((g) => g.items),
+    ],
+    metaLine,
   }
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+/**
+ * `"{location} ({workplaceType}, {employmentType})"` — drops `"on-site"`/
+ * `"full-time"` as the implied default (an ATS-review fix, Batch 4 follow-up,
+ * docs/user-request.md): stating them adds clutter without adding
+ * information, but a genuine deviation (`"remote"`, `"contract"`, ...) is
+ * worth printing.
+ */
+function buildMetaLine(details: Record<string, unknown>): string | null {
+  const location = typeof details.location === "string" ? details.location : null
+  const workplaceType =
+    typeof details.workplaceType === "string" &&
+    details.workplaceType.toLowerCase() !== "on-site"
+      ? capitalize(details.workplaceType)
+      : null
+  const employmentType =
+    typeof details.employmentType === "string" &&
+    details.employmentType.toLowerCase() !== "full-time"
+      ? capitalize(details.employmentType)
+      : null
+
+  const tags = [workplaceType, employmentType].filter(
+    (tag): tag is string => tag !== null
+  )
+  const parts = [location, tags.length > 0 ? `(${tags.join(", ")})` : null].filter(
+    (part): part is string => part !== null
+  )
+  return parts.length > 0 ? parts.join(" ") : null
 }
 
 // ---------------------------------------------------------------------------
 // Mutators
 // ---------------------------------------------------------------------------
 
-function requireUserId(store: PersonaStore): string {
+export function requireUserId(store: PersonaStore): string {
   if (!store.userId) {
     throw new Error("No signed-in user.")
   }
@@ -635,6 +982,74 @@ export async function setPersonaSectionItems(
       if (error) throw error
     }
   }
+
+  store.refetch()
+}
+
+/**
+ * Includes or drops one bullet — a Work entry's responsibility, an
+ * Education entry's course, a Skill's keyword — from what the Persona
+ * takes from that entry. Unlike `setItemHidden`, this writes straight to
+ * `persona_lines`: dropping a bullet here is the same "not selected" state
+ * as when the entry was first added and the bullet wasn't picked, and
+ * re-including it later doesn't lose anything — the bullet's content lives
+ * in `inventory_lines`, untouched either way.
+ */
+export async function setLineSelected(
+  store: PersonaStore,
+  personaId: string,
+  itemId: string,
+  lineId: string,
+  selected: boolean
+): Promise<void> {
+  if (!selected) {
+    const { error } = await supabase
+      .from("persona_lines")
+      .delete()
+      .eq("persona_id", personaId)
+      .eq("line_id", lineId)
+
+    if (error) throw error
+  } else {
+    const position = store.personaLines.filter(
+      (row) => row.personaId === personaId && row.itemId === itemId
+    ).length
+
+    const { error } = await supabase.from("persona_lines").insert({
+      persona_id: personaId,
+      item_id: itemId,
+      line_id: lineId,
+      position,
+    })
+
+    if (error) throw error
+  }
+
+  store.refetch()
+}
+
+/**
+ * Reorders the Section kinds (Work, Education, ...) — the order entries
+ * print in. Writes every `SECTION_KINDS` position in one upsert rather than
+ * patching just the two swapped kinds, so every kind has an explicit
+ * `persona_sections` row afterward — including ones with no items yet —
+ * and the settings tree's reorder buttons stay simple index swaps.
+ */
+export async function reorderPersonaSections(
+  store: PersonaStore,
+  personaId: string,
+  orderedKinds: ItemKind[]
+): Promise<void> {
+  const { error } = await supabase.from("persona_sections").upsert(
+    orderedKinds.map((kind, position) => ({
+      persona_id: personaId,
+      kind,
+      position,
+    })),
+    { onConflict: "persona_id,kind" }
+  )
+
+  if (error) throw error
 
   store.refetch()
 }
