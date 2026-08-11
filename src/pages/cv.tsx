@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { CvListPanel } from "@/components/cv/cv-list-panel"
 import { TemplatesPanel } from "@/components/cv/templates-panel"
 import { sections } from "@/lib/navigation"
+import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 
 /**
  * CV List is first and the default — it's the thing you're most likely to
@@ -10,12 +11,13 @@ import { sections } from "@/lib/navigation"
  */
 export function CvPage() {
   const page = sections.cvs
+  const [tab, setTab] = useTabSearchParam("tab", "list")
 
   return (
     <>
       <PageHeader title={page.title} description={page.description} />
 
-      <Tabs defaultValue="list" className="gap-4">
+      <Tabs value={tab} onValueChange={setTab} className="gap-4">
         <TabsList variant="line">
           <TabsTrigger value="list">CV List</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>

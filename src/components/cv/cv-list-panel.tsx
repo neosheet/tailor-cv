@@ -47,18 +47,14 @@ import { downloadCvSnapshot } from "@/lib/cv-snapshot-download"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { allPersonas, findPersona } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import type { DbCv } from "@/mocks/types"
 
 /** Saved (Persona, Template) pairings — see docs/specs/06-persona-cv-split.md. */
 export function CvListPanel() {
   const store = usePersonaStore()
   const inventoryStore = useInventoryStore()
-  const [creating, setCreating] = React.useState(false)
-  const [formDialog, setFormDialog] = React.useState<{
-    mode: "edit" | "duplicate"
-    cv: DbCv
-  } | null>(null)
-  const [deleteTarget, setDeleteTarget] = React.useState<DbCv | null>(null)
+  const { dialog, get, open, close } = useDialogSearchParams()
   const [importError, setImportError] = React.useState<string | null>(null)
   const importInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -89,6 +85,18 @@ export function CvListPanel() {
     template: cvTemplates.find((candidate) => candidate.id === cv.templateId),
   }))
 
+  const formDialog =
+    dialog === "edit" || dialog === "duplicate"
+      ? (() => {
+          const cv = rows.find((row) => row.cv.id === get("id"))?.cv
+          return cv ? { mode: dialog, cv } : null
+        })()
+      : null
+  const deleteTarget =
+    dialog === "delete"
+      ? (rows.find((row) => row.cv.id === get("id"))?.cv ?? null)
+      : null
+
   const personaOptions = allPersonas(store).map((persona) => ({
     value: persona.id,
     label: persona.name,
@@ -117,7 +125,7 @@ export function CvListPanel() {
             <FileUpIcon data-icon="inline-start" />
             Import
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+          <Button variant="outline" size="sm" onClick={() => open("new")}>
             <PlusIcon data-icon="inline-start" />
             New CV
           </Button>
@@ -201,7 +209,7 @@ export function CvListPanel() {
                     <DropdownMenuContent align="end" className="min-w-44">
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => setFormDialog({ mode: "edit", cv })}
+                          onClick={() => open("edit", { id: cv.id })}
                         >
                           <PencilIcon />
                           Edit
@@ -213,7 +221,7 @@ export function CvListPanel() {
                           {cv.favorite ? "Remove from favourites" : "Favorite"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => setFormDialog({ mode: "duplicate", cv })}
+                          onClick={() => open("duplicate", { id: cv.id })}
                         >
                           <CopyIcon />
                           Duplicate
@@ -227,7 +235,7 @@ export function CvListPanel() {
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() => setDeleteTarget(cv)}
+                          onClick={() => open("delete", { id: cv.id })}
                         >
                           <Trash2Icon />
                           Delete
@@ -243,8 +251,8 @@ export function CvListPanel() {
       </div>
 
       <CvFormDialog
-        open={creating}
-        onOpenChange={setCreating}
+        open={dialog === "new"}
+        onOpenChange={(next) => !next && close()}
         title="New CV"
         confirmLabel="Create"
         personaOptions={personaOptions}
@@ -256,7 +264,7 @@ export function CvListPanel() {
 
       <CvFormDialog
         open={formDialog !== null}
-        onOpenChange={(next) => !next && setFormDialog(null)}
+        onOpenChange={(next) => !next && close(["id"])}
         title={formDialog?.mode === "edit" ? "Edit CV" : "Duplicate CV"}
         confirmLabel={formDialog?.mode === "edit" ? "Save" : "Duplicate"}
         initialName={
@@ -287,11 +295,11 @@ export function CvListPanel() {
 
       <DeleteCvDialog
         cv={deleteTarget}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => close(["id"])}
         onConfirm={async () => {
           if (!deleteTarget) return
           await deleteCv(store, deleteTarget.id)
-          setDeleteTarget(null)
+          close(["id"])
         }}
       />
     </div>

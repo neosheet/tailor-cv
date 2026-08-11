@@ -4,10 +4,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { TemplateCard } from "@/components/cv/template-card"
 import { PreviewSelect } from "@/components/cv/preview-select"
 import { TemplateViewDialog } from "@/components/cv/template-view-dialog"
-import { cvTemplates, type CvTemplate } from "@/lib/cv-templates"
+import { cvTemplates } from "@/lib/cv-templates"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { allPersonas, buildResumeDocument } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 
 /**
  * Ad hoc, unsaved preview — pick any Persona, pick any Template, look at it.
@@ -16,7 +17,11 @@ import { usePersonaStore } from "@/lib/persona-store"
  */
 export function TemplatesPanel() {
   // One dialog for the gallery rather than one per card.
-  const [viewing, setViewing] = React.useState<CvTemplate | null>(null)
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const viewing =
+    dialog === "view-template"
+      ? (cvTemplates.find((template) => template.id === get("id")) ?? null)
+      : null
 
   const inventoryStore = useInventoryStore()
   const personaStore = usePersonaStore()
@@ -57,7 +62,7 @@ export function TemplatesPanel() {
             key={template.id}
             template={template}
             document={document}
-            onView={() => setViewing(template)}
+            onView={() => open("view-template", { id: template.id })}
           />
         ))}
       </div>
@@ -65,7 +70,7 @@ export function TemplatesPanel() {
       <TemplateViewDialog
         template={viewing}
         document={document}
-        onClose={() => setViewing(null)}
+        onClose={() => close(["id"])}
       />
     </div>
   )
