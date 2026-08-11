@@ -1,6 +1,7 @@
 import * as React from "react"
 import {
   FilePlus2Icon,
+  FolderInputIcon,
   PlusIcon,
   TagsIcon,
   Trash2Icon,
@@ -20,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { AddToPersonaDialog } from "@/components/inventory/add-to-persona-dialog"
+import { BulkCategoryDialog } from "@/components/inventory/bulk-category-dialog"
 import { BulkTagsDialog } from "@/components/inventory/bulk-tags-dialog"
 import { ItemDialog } from "@/components/inventory/item-dialog"
 import { PoolTable, type PoolColumn } from "@/components/inventory/pool-table"
@@ -182,6 +184,7 @@ export function PoolPanel({
       : null
   const addToPersonaOpen = dialog === "add-to-persona"
   const bulkTagsOpen = dialog === "bulk-tags"
+  const bulkCategoryOpen = dialog === "bulk-category"
   const bulkDeleteOpen = dialog === "bulk-delete"
 
   // Both filters outlive the page: leaving for a CV and coming back to find the
@@ -301,6 +304,9 @@ export function PoolPanel({
             onClear={() => updateSelected(new Set())}
             onAddToPersona={() => open("add-to-persona")}
             onAddTags={() => open("bulk-tags")}
+            onAddToCategory={
+              kind === "skill" ? () => open("bulk-category") : undefined
+            }
             onBulkDelete={() => open("bulk-delete")}
           />
         ) : null}
@@ -340,6 +346,18 @@ export function PoolPanel({
           updateSelected(new Set())
         }}
       />
+
+      {kind === "skill" ? (
+        <BulkCategoryDialog
+          items={selectedItems}
+          open={bulkCategoryOpen}
+          onClose={() => close()}
+          onApplied={() => {
+            onDataChanged?.()
+            updateSelected(new Set())
+          }}
+        />
+      ) : null}
 
       {formKind ? (
         <ItemDialog
@@ -434,12 +452,15 @@ function BulkActions({
   onClear,
   onAddToPersona,
   onAddTags,
+  onAddToCategory,
   onBulkDelete,
 }: {
   count: number
   onClear: () => void
   onAddToPersona: () => void
   onAddTags: () => void
+  /** Omitted on pools with no `categoryId` field — hides the Category button. */
+  onAddToCategory?: () => void
   onBulkDelete: () => void
 }) {
   return (
@@ -458,6 +479,12 @@ function BulkActions({
           <TagsIcon data-icon="inline-start" />
           Tags
         </Button>
+        {onAddToCategory ? (
+          <Button variant="outline" size="sm" onClick={onAddToCategory}>
+            <FolderInputIcon data-icon="inline-start" />
+            Category
+          </Button>
+        ) : null}
         <Button variant="outline" size="sm" onClick={onAddToPersona}>
           <FilePlus2Icon data-icon="inline-start" />
           Add to Persona
