@@ -1,16 +1,15 @@
-import * as React from "react"
 import { useSearchParams } from "react-router"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApplicationDetailSheet } from "@/components/applications/application-detail-sheet"
 import { ApplicationFormDialog } from "@/components/applications/application-form-dialog"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { allApplications, findApplication, updateApplication } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
 import { allCvs } from "@/lib/cv"
 import { usePersonaStore } from "@/lib/persona-store"
-import type { DbApplication } from "@/mocks/types"
 
 /**
  * View-only pipeline board: one column per `GlobalApplicationStatus` (always
@@ -25,7 +24,9 @@ export function ApplicationKanbanPanel() {
 
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedId = searchParams.get("applicationId")
-  const [editTarget, setEditTarget] = React.useState<DbApplication | null>(null)
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const editTargetId = get("id")
+  const editTarget = dialog === "edit" && editTargetId ? findApplication(store, editTargetId) ?? null : null
 
   // Re-derived from the store on every render (rather than held in state
   // directly), same reasoning as `ApplicationListPanel`.
@@ -87,7 +88,7 @@ export function ApplicationKanbanPanel() {
 
       <ApplicationFormDialog
         open={editTarget !== null}
-        onOpenChange={(next) => !next && setEditTarget(null)}
+        onOpenChange={(next) => !next && close(["id"])}
         title="Edit Application"
         confirmLabel="Save"
         initialTitle={editTarget?.title ?? ""}
@@ -120,7 +121,7 @@ export function ApplicationKanbanPanel() {
             return next
           })
         }
-        onEdit={(application) => setEditTarget(application)}
+        onEdit={(application) => open("edit", { id: application.id })}
       />
     </div>
   )

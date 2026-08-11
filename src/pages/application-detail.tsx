@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, PencilIcon, SendIcon } from "lucide-react"
 import { Link, useParams } from "react-router"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import {
 import { useSidebar } from "@/components/ui/sidebar"
 import { ApplicationDetailView } from "@/components/applications/application-detail-view"
 import { ApplicationFormDialog } from "@/components/applications/application-form-dialog"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { findApplication, updateApplication } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
 import { GLOBAL_STATUS_LABEL } from "@/lib/application-status"
@@ -57,7 +58,8 @@ function ApplicationUnresolved() {
 function ApplicationResolved({ application }: { application: DbApplication }) {
   const store = useApplicationStore()
   const personaStore = usePersonaStore()
-  const [editing, setEditing] = useState(false)
+  const { dialog, open, close } = useDialogSearchParams()
+  const editing = dialog === "edit"
 
   const cvOptions = allCvs(personaStore).map((cv) => ({ value: cv.id, label: cv.name }))
 
@@ -79,17 +81,17 @@ function ApplicationResolved({ application }: { application: DbApplication }) {
           <h1 className="text-xl font-semibold">{application.title}</h1>
           <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+        <Button variant="outline" size="sm" onClick={() => open("edit")}>
           <PencilIcon data-icon="inline-start" />
           Edit
         </Button>
       </div>
 
-      <ApplicationDetailView application={application} onEdit={() => setEditing(true)} variant="page" />
+      <ApplicationDetailView application={application} onEdit={() => open("edit")} variant="page" />
 
       <ApplicationFormDialog
         open={editing}
-        onOpenChange={setEditing}
+        onOpenChange={(next) => !next && close()}
         title="Edit Application"
         confirmLabel="Save"
         initialTitle={application.title}

@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResumeRender } from "@/components/cv/resume-render"
 import { TimelineTab } from "@/components/applications/timeline-tab"
 import { VacancyDetailContent } from "@/components/applications/vacancy-detail-content"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
 import { JOB_TYPE_LABEL } from "@/lib/application-job-type"
@@ -235,7 +236,11 @@ export function ApplicationDetailView({
   const personaStore = usePersonaStore()
   const inventoryStore = useInventoryStore()
 
-  const [pendingStatus, setPendingStatus] = React.useState<GlobalApplicationStatus | null>(null)
+  const freezeDialog = useDialogSearchParams()
+  const pendingStatus =
+    freezeDialog.dialog === "freeze-cv"
+      ? (freezeDialog.get("status") as GlobalApplicationStatus | null)
+      : null
   const [freezing, setFreezing] = React.useState(false)
   // Distinct from the page-level `tab` param (List/Kanban/Archive on
   // `/applications`) so the Sheet's nested tabs don't collide with it.
@@ -250,7 +255,7 @@ export function ApplicationDetailView({
     // Mirrors `setGlobalApplicationStatus`'s own once-only freeze condition
     // exactly — only this specific transition shows the confirmation.
     if (application.globalStatus === "draft" && next !== "draft") {
-      setPendingStatus(next)
+      freezeDialog.open("freeze-cv", { status: next })
       return
     }
 
@@ -258,7 +263,8 @@ export function ApplicationDetailView({
   }
 
   async function confirmFreeze() {
-    if (!pendingStatus) return
+    const status = freezeDialog.get("status") as GlobalApplicationStatus | null
+    if (!status) return
 
     setFreezing(true)
     try {
@@ -267,9 +273,9 @@ export function ApplicationDetailView({
         personaStore,
         inventoryStore,
         application.id,
-        pendingStatus
+        status
       )
-      setPendingStatus(null)
+      freezeDialog.close(["status"])
     } finally {
       setFreezing(false)
     }
@@ -370,7 +376,7 @@ export function ApplicationDetailView({
 
       <AlertDialog
         open={pendingStatus !== null}
-        onOpenChange={(next) => !next && setPendingStatus(null)}
+        onOpenChange={(next) => !next && freezeDialog.close(["status"])}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -381,7 +387,7 @@ export function ApplicationDetailView({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingStatus(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => freezeDialog.close(["status"])}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={freezing} onClick={confirmFreeze}>
               {freezing ? "Freezing…" : "Confirm"}
             </AlertDialogAction>

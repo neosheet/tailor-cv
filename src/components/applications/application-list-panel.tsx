@@ -41,6 +41,7 @@ import { ApplicationDetailSheet } from "@/components/applications/application-de
 import { ApplicationFormDialog } from "@/components/applications/application-form-dialog"
 import { ArchiveApplicationDialog } from "@/components/applications/archive-application-dialog"
 import { DeleteApplicationDialog } from "@/components/applications/delete-application-dialog"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { useSessionState } from "@/hooks/use-session-state"
 import { stripHtml } from "@/lib/quill-html"
 import {
@@ -97,12 +98,13 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
   const store = useApplicationStore()
   const personaStore = usePersonaStore()
 
-  const [creating, setCreating] = React.useState(false)
-  const [editTarget, setEditTarget] = React.useState<DbApplication | null>(null)
-  const [archiveTarget, setArchiveTarget] = React.useState<DbApplication | null>(null)
-  const [deleteTarget, setDeleteTarget] = React.useState<DbApplication | null>(null)
+  const { dialog, get, open, close } = useDialogSearchParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedId = searchParams.get("applicationId")
+  const dialogTargetId = get("id")
+  const editTarget = dialog === "edit" && dialogTargetId ? findApplication(store, dialogTargetId) ?? null : null
+  const archiveTarget = dialog === "archive" && dialogTargetId ? findApplication(store, dialogTargetId) ?? null : null
+  const deleteTarget = dialog === "delete" && dialogTargetId ? findApplication(store, dialogTargetId) ?? null : null
   const [statusFilter, setStatusFilter] = React.useState<GlobalApplicationStatus | typeof ALL_STATUSES>(
     ALL_STATUSES
   )
@@ -173,7 +175,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
         </div>
 
         {archived ? null : (
-          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+          <Button variant="outline" size="sm" onClick={() => open("new")}>
             <PlusIcon data-icon="inline-start" />
             New Application
           </Button>
@@ -252,7 +254,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-44">
                         <DropdownMenuGroup>
-                          <DropdownMenuItem onClick={() => setEditTarget(application)}>
+                          <DropdownMenuItem onClick={() => open("edit", { id: application.id })}>
                             <PencilIcon />
                             Edit
                           </DropdownMenuItem>
@@ -268,14 +270,14 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 variant="destructive"
-                                onClick={() => setDeleteTarget(application)}
+                                onClick={() => open("delete", { id: application.id })}
                               >
                                 <Trash2Icon />
                                 Delete
                               </DropdownMenuItem>
                             </>
                           ) : (
-                            <DropdownMenuItem onClick={() => setArchiveTarget(application)}>
+                            <DropdownMenuItem onClick={() => open("archive", { id: application.id })}>
                               <ArchiveIcon />
                               Archive
                             </DropdownMenuItem>
@@ -292,8 +294,8 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
       </div>
 
       <ApplicationFormDialog
-        open={creating}
-        onOpenChange={setCreating}
+        open={dialog === "new"}
+        onOpenChange={(next) => !next && close()}
         title="New Application"
         confirmLabel="Create"
         cvOptions={cvOptions}
@@ -304,7 +306,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
 
       <ApplicationFormDialog
         open={editTarget !== null}
-        onOpenChange={(next) => !next && setEditTarget(null)}
+        onOpenChange={(next) => !next && close(["id"])}
         title="Edit Application"
         confirmLabel="Save"
         initialTitle={editTarget?.title ?? ""}
@@ -337,26 +339,26 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
             return next
           })
         }
-        onEdit={(application) => setEditTarget(application)}
+        onEdit={(application) => open("edit", { id: application.id })}
       />
 
       <ArchiveApplicationDialog
         application={archiveTarget}
-        onCancel={() => setArchiveTarget(null)}
+        onCancel={() => close(["id"])}
         onConfirm={async () => {
           if (!archiveTarget) return
           await archiveApplication(store, archiveTarget.id)
-          setArchiveTarget(null)
+          close(["id"])
         }}
       />
 
       <DeleteApplicationDialog
         application={deleteTarget}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => close(["id"])}
         onConfirm={async () => {
           if (!deleteTarget) return
           await deleteApplication(store, deleteTarget.id)
-          setDeleteTarget(null)
+          close(["id"])
         }}
       />
     </div>

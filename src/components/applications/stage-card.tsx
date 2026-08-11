@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { StageFormDialog } from "@/components/applications/stage-form-dialog"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { deleteStage, setCurrentStage } from "@/lib/application-stage"
 import type { StageNode } from "@/lib/application-stage"
 import { useApplicationStore } from "@/lib/application-store"
@@ -76,15 +77,16 @@ function StageMetaRows({ stage }: { stage: DbApplicationStage }) {
  */
 function SubStageRow({ stage }: { stage: DbApplicationStage }) {
   const store = useApplicationStore()
-  const [editing, setEditing] = React.useState(false)
-  const [deleting, setDeleting] = React.useState(false)
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const editing = dialog === "edit-substage" && get("stageId") === stage.id
+  const deleting = dialog === "delete-stage" && get("stageId") === stage.id
   const [busy, setBusy] = React.useState(false)
 
   async function confirmDelete() {
     setBusy(true)
     try {
       await deleteStage(store, stage.id)
-      setDeleting(false)
+      close(["stageId"])
     } finally {
       setBusy(false)
     }
@@ -110,11 +112,14 @@ function SubStageRow({ stage }: { stage: DbApplicationStage }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
           <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => setEditing(true)}>
+            <DropdownMenuItem onClick={() => open("edit-substage", { stageId: stage.id })}>
               <PencilIcon />
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => open("delete-stage", { stageId: stage.id })}
+            >
               <Trash2Icon />
               Delete
             </DropdownMenuItem>
@@ -122,9 +127,15 @@ function SubStageRow({ stage }: { stage: DbApplicationStage }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <StageFormDialog mode="edit" stage={stage} open={editing} onOpenChange={setEditing} onSaved={() => {}} />
+      <StageFormDialog
+        mode="edit"
+        stage={stage}
+        open={editing}
+        onOpenChange={(next) => !next && close(["stageId"])}
+        onSaved={() => {}}
+      />
 
-      <AlertDialog open={deleting} onOpenChange={(next) => !busy && setDeleting(next)}>
+      <AlertDialog open={deleting} onOpenChange={(next) => !busy && !next && close(["stageId"])}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &ldquo;{stage.name}&rdquo;?</AlertDialogTitle>
@@ -133,7 +144,7 @@ function SubStageRow({ stage }: { stage: DbApplicationStage }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleting(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => close(["stageId"])}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={busy} onClick={confirmDelete}>
               {busy ? "Deleting…" : "Delete"}
             </AlertDialogAction>
@@ -153,9 +164,10 @@ function SubStageRow({ stage }: { stage: DbApplicationStage }) {
  */
 export function StageCard({ stage, application }: { stage: StageNode; application: DbApplication }) {
   const store = useApplicationStore()
-  const [editing, setEditing] = React.useState(false)
-  const [addingSubStage, setAddingSubStage] = React.useState(false)
-  const [deleting, setDeleting] = React.useState(false)
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const editing = dialog === "edit-stage" && get("stageId") === stage.id
+  const addingSubStage = dialog === "add-substage" && get("stageId") === stage.id
+  const deleting = dialog === "delete-stage" && get("stageId") === stage.id
   const [busy, setBusy] = React.useState(false)
 
   const isCurrent = application.currentStageId === stage.id
@@ -164,7 +176,7 @@ export function StageCard({ stage, application }: { stage: StageNode; applicatio
     setBusy(true)
     try {
       await deleteStage(store, stage.id)
-      setDeleting(false)
+      close(["stageId"])
     } finally {
       setBusy(false)
     }
@@ -193,7 +205,7 @@ export function StageCard({ stage, application }: { stage: StageNode; applicatio
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-48">
               <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => setEditing(true)}>
+                <DropdownMenuItem onClick={() => open("edit-stage", { stageId: stage.id })}>
                   <PencilIcon />
                   Edit
                 </DropdownMenuItem>
@@ -207,11 +219,14 @@ export function StageCard({ stage, application }: { stage: StageNode; applicatio
                     Mark as current
                   </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuItem onClick={() => setAddingSubStage(true)}>
+                <DropdownMenuItem onClick={() => open("add-substage", { stageId: stage.id })}>
                   <PlusIcon />
                   Add sub-stage
                 </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => open("delete-stage", { stageId: stage.id })}
+                >
                   <Trash2Icon />
                   Delete
                 </DropdownMenuItem>
@@ -233,17 +248,23 @@ export function StageCard({ stage, application }: { stage: StageNode; applicatio
         ) : null}
       </CardContent>
 
-      <StageFormDialog mode="edit" stage={stage} open={editing} onOpenChange={setEditing} onSaved={() => {}} />
+      <StageFormDialog
+        mode="edit"
+        stage={stage}
+        open={editing}
+        onOpenChange={(next) => !next && close(["stageId"])}
+        onSaved={() => {}}
+      />
       <StageFormDialog
         mode="add"
         application={application}
         parentStageId={stage.id}
         open={addingSubStage}
-        onOpenChange={setAddingSubStage}
+        onOpenChange={(next) => !next && close(["stageId"])}
         onSaved={() => {}}
       />
 
-      <AlertDialog open={deleting} onOpenChange={(next) => !busy && setDeleting(next)}>
+      <AlertDialog open={deleting} onOpenChange={(next) => !busy && !next && close(["stageId"])}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &ldquo;{stage.name}&rdquo;?</AlertDialogTitle>
@@ -253,7 +274,7 @@ export function StageCard({ stage, application }: { stage: StageNode; applicatio
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleting(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => close(["stageId"])}>Cancel</AlertDialogCancel>
             <AlertDialogAction disabled={busy} onClick={confirmDelete}>
               {busy ? "Deleting…" : "Delete"}
             </AlertDialogAction>

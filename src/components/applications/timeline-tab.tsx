@@ -1,10 +1,10 @@
-import * as React from "react"
 import { HistoryIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { StageCard } from "@/components/applications/stage-card"
 import { StageFormDialog } from "@/components/applications/stage-form-dialog"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { stagesForApplication } from "@/lib/application-stage"
 import { useApplicationStore } from "@/lib/application-store"
 import type { DbApplication } from "@/mocks/types"
@@ -23,14 +23,15 @@ import type { DbApplication } from "@/mocks/types"
  */
 export function TimelineTab({ application }: { application: DbApplication }) {
   const store = useApplicationStore()
-  const [adding, setAdding] = React.useState(false)
+  const { dialog, open, close } = useDialogSearchParams()
+  const adding = dialog === "add-stage"
 
   const stages = stagesForApplication(store, application.id)
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+        <Button variant="outline" size="sm" onClick={() => open("add-stage")}>
           <PlusIcon data-icon="inline-start" />
           Add stage
         </Button>
@@ -71,7 +72,7 @@ export function TimelineTab({ application }: { application: DbApplication }) {
         application={application}
         parentStageId={null}
         open={adding}
-        onOpenChange={setAdding}
+        onOpenChange={(next) => !next && close()}
         onSaved={() => {}}
       />
     </div>
