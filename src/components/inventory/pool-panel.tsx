@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { SearchInput } from "@/components/search-input"
 import { AddToPersonaDialog } from "@/components/inventory/add-to-persona-dialog"
+import { BulkTagsDialog } from "@/components/inventory/bulk-tags-dialog"
 import { ItemDialog } from "@/components/inventory/item-dialog"
 import { PoolTable, type PoolColumn } from "@/components/inventory/pool-table"
 import { TagFilter } from "@/components/inventory/tag-filter"
@@ -171,6 +172,8 @@ export function PoolPanel({
       ? (rows.find((row) => row.id === get("id")) ?? null)
       : null
   const addToPersonaOpen = dialog === "add-to-persona"
+  const bulkTagsOpen = dialog === "bulk-tags"
+  const bulkDeleteOpen = dialog === "bulk-delete"
 
   // Both filters outlive the page: leaving for a CV and coming back to find the
   // pool reset is the kind of small loss that makes people stop filtering.
@@ -288,6 +291,8 @@ export function PoolPanel({
             count={selected.size}
             onClear={() => updateSelected(new Set())}
             onAddToPersona={() => open("add-to-persona")}
+            onAddTags={() => open("bulk-tags")}
+            onBulkDelete={() => open("bulk-delete")}
           />
         ) : null}
         <PoolTable
@@ -314,6 +319,16 @@ export function PoolPanel({
         open={addToPersonaOpen}
         onClose={() => close()}
         onAdded={() => updateSelected(new Set())}
+      />
+
+      <BulkTagsDialog
+        items={selectedItems}
+        open={bulkTagsOpen}
+        onClose={() => close()}
+        onApplied={() => {
+          onDataChanged?.()
+          updateSelected(new Set())
+        }}
       />
 
       {formKind ? (
@@ -365,19 +380,57 @@ export function PoolPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(next) => !next && close()}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selected.size} entries?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes{" "}
+              {selected.size === 1 ? "this entry" : "these entries"} from the
+              pool. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => close()}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={async () => {
+                await Promise.all(
+                  selectedItems.map((item) => deleteItem(store, item.id))
+                )
+                updateSelected(new Set())
+                onDataChanged?.()
+                close()
+              }}
+            >
+              Delete {selected.size} {selected.size === 1 ? "entry" : "entries"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
 
-/** Shown only once rows are selected. Tags/Delete carry no handlers yet. */
+/** Shown only once rows are selected. */
 function BulkActions({
   count,
   onClear,
   onAddToPersona,
+  onAddTags,
+  onBulkDelete,
 }: {
   count: number
   onClear: () => void
   onAddToPersona: () => void
+  onAddTags: () => void
+  onBulkDelete: () => void
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b bg-muted/50 px-3 py-2">
@@ -391,7 +444,7 @@ function BulkActions({
         <XIcon />
       </Button>
       <div className="ml-auto flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" disabled>
+        <Button variant="outline" size="sm" onClick={onAddTags}>
           <TagsIcon data-icon="inline-start" />
           Tags
         </Button>
@@ -399,7 +452,7 @@ function BulkActions({
           <FilePlus2Icon data-icon="inline-start" />
           Add to Persona
         </Button>
-        <Button variant="destructive" size="sm" disabled>
+        <Button variant="destructive" size="sm" onClick={onBulkDelete}>
           <Trash2Icon data-icon="inline-start" />
           Delete
         </Button>
