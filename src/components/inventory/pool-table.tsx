@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { useInventoryStore } from "@/lib/inventory-store"
 import type { InventoryStore } from "@/lib/inventory-store"
 import type { DbInventoryItem } from "@/lib/inventory"
@@ -99,34 +100,31 @@ export function PoolTable({
   // Checkbox + configured columns + favourite + actions.
   const columnCount = columns.length + 3
 
-  // One dialog for the whole table rather than one per row.
-  const [detail, setDetail] = React.useState<{
-    item: DbInventoryItem
-    focusUsage: boolean
-  } | null>(null)
+  // One dialog for the whole table rather than one per row. `focusUsage`
+  // stays local (a one-time scroll trigger, not open/close state — the same
+  // "scroll position" carve-out the spec gives Kanban) while which item is
+  // open goes through the URL like every other dialog.
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const [focusUsage, setFocusUsage] = React.useState(false)
+  const detailItem =
+    dialog === "view"
+      ? (rows.find((row) => row.id === get("id")) ?? null)
+      : null
+
+  function openItemDetail(item: DbInventoryItem, usage: boolean) {
+    setFocusUsage(usage)
+    open("view", { id: item.id })
+  }
 
   const actionsFor = (item: DbInventoryItem): PoolCellActions => ({
-    openDetail: () => setDetail({ item, focusUsage: false }),
-    openUsage: () => setDetail({ item, focusUsage: true }),
+    openDetail: () => openItemDetail(item, false),
+    openUsage: () => openItemDetail(item, true),
   })
 
-  // Closes the detail dialog before handing off to the edit form, so the two
-  // never stack when Edit is triggered from inside the detail view.
-  const handleEditRow = onEditRow
-    ? (item: DbInventoryItem) => {
-        setDetail(null)
-        onEditRow(item)
-      }
-    : undefined
-
-  // Same close-before-handoff pattern as `handleEditRow`, so Delete triggered
-  // from inside the detail view doesn't leave it open behind the confirm dialog.
-  const handleRequestDelete = onRequestDelete
-    ? (item: DbInventoryItem) => {
-        setDetail(null)
-        onRequestDelete(item)
-      }
-    : undefined
+  // Editing/deleting from inside the detail view hands off to `onEditRow`/
+  // `onRequestDelete`, which set `dialog` to "edit"/"delete" — a single query
+  // param, so that overwrite alone replaces "view" with no separate close
+  // needed (and no risk of the two ever stacking).
 
   return (
     <>
@@ -191,7 +189,7 @@ export function PoolTable({
                     <Button
                       variant="link"
                       className="h-auto justify-start p-0 font-medium"
-                      onClick={() => setDetail({ item, focusUsage: false })}
+                      onClick={() => openItemDetail(item, false)}
                     >
                       {column.cell(item, actionsFor(item), store, personaStore)}
                     </Button>
@@ -210,7 +208,7 @@ export function PoolTable({
                 <RowActions
                   item={item}
                   label={item.title}
-                  onViewDetail={() => setDetail({ item, focusUsage: false })}
+                  onViewDetail={() => openItemDetail(item, false)}
                   onEditRow={onEditRow}
                   onRequestDelete={onRequestDelete}
                 />
@@ -220,11 +218,11 @@ export function PoolTable({
         </TableBody>
       </Table>
       <ItemDetailDialog
-        item={detail?.item ?? null}
-        focusUsage={detail?.focusUsage ?? false}
-        onClose={() => setDetail(null)}
-        onEditRow={handleEditRow}
-        onRequestDelete={handleRequestDelete}
+        item={detailItem}
+        focusUsage={focusUsage}
+        onClose={() => close(["id"])}
+        onEditRow={onEditRow}
+        onRequestDelete={onRequestDelete}
       />
     </>
   )

@@ -5,6 +5,7 @@ import { PoolPanel } from "@/components/inventory/pool-panel"
 import { itemsOfKind, type BasicsKind } from "@/lib/inventory"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { inventoryPages } from "@/lib/navigation"
+import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 
 const POOLS: {
   kind: BasicsKind
@@ -50,6 +51,7 @@ const POOLS: {
 
 export function BasicsPage() {
   const store = useInventoryStore()
+  const [tab, setTab] = useTabSearchParam("tab", "name")
 
   return (
     <>
@@ -58,7 +60,7 @@ export function BasicsPage() {
         description={inventoryPages.basics.description}
       />
 
-      <Tabs defaultValue="name" className="gap-4">
+      <Tabs value={tab} onValueChange={setTab} className="gap-4">
         <TabsList variant="line">
           {POOLS.map((pool) => (
             <TabsTrigger key={pool.kind} value={pool.kind}>

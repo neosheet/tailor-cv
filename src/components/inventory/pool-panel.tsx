@@ -23,6 +23,7 @@ import { AddToPersonaDialog } from "@/components/inventory/add-to-persona-dialog
 import { ItemDialog } from "@/components/inventory/item-dialog"
 import { PoolTable, type PoolColumn } from "@/components/inventory/pool-table"
 import { TagFilter } from "@/components/inventory/tag-filter"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { useSessionState } from "@/hooks/use-session-state"
 import {
   byFavouriteThenPosition,
@@ -154,13 +155,22 @@ export function PoolPanel({
     }
   }
 
-  const [dialog, setDialog] = React.useState<{
-    mode: "add" | "edit"
-    item?: DbInventoryItem
-  } | null>(null)
-  const [deleteTarget, setDeleteTarget] =
-    React.useState<DbInventoryItem | null>(null)
-  const [addToPersonaOpen, setAddToPersonaOpen] = React.useState(false)
+  // `AddToPersonaDialog` targets the panel's own multi-select (`selected`,
+  // already local state below), not a single record id — so it only needs a
+  // boolean-style dialog kind, with the row ids it acts on staying local
+  // rather than crammed into the URL.
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const dialogMode: "add" | "edit" = dialog === "edit" ? "edit" : "add"
+  const dialogOpen = dialog === "new" || dialog === "edit"
+  const dialogItem =
+    dialog === "edit"
+      ? rows.find((row) => row.id === get("id"))
+      : undefined
+  const deleteTarget =
+    dialog === "delete"
+      ? (rows.find((row) => row.id === get("id")) ?? null)
+      : null
+  const addToPersonaOpen = dialog === "add-to-persona"
 
   // Both filters outlive the page: leaving for a CV and coming back to find the
   // pool reset is the kind of small loss that makes people stop filtering.
@@ -265,7 +275,7 @@ export function PoolPanel({
           variant="default"
           size="icon-sm"
           disabled={!formKind}
-          onClick={() => formKind && setDialog({ mode: "add" })}
+          onClick={() => formKind && open("new")}
           aria-label={`Add ${label.toLowerCase()}`}
         >
           <PlusIcon />
@@ -277,7 +287,7 @@ export function PoolPanel({
           <BulkActions
             count={selected.size}
             onClear={() => updateSelected(new Set())}
-            onAddToPersona={() => setAddToPersonaOpen(true)}
+            onAddToPersona={() => open("add-to-persona")}
           />
         ) : null}
         <PoolTable
@@ -289,10 +299,10 @@ export function PoolPanel({
           onToggleFavourite={onToggleFavourite}
           emptyMessage={emptyMessage(query, tagFilter)}
           onEditRow={
-            formKind ? (item) => setDialog({ mode: "edit", item }) : undefined
+            formKind ? (item) => open("edit", { id: item.id }) : undefined
           }
           onRequestDelete={
-            formKind ? (item) => setDeleteTarget(item) : undefined
+            formKind ? (item) => open("delete", { id: item.id }) : undefined
           }
           selectAllHidden={mode === "pick" && selectionMode === "single"}
         />
@@ -302,27 +312,27 @@ export function PoolPanel({
         kind={kind}
         items={selectedItems}
         open={addToPersonaOpen}
-        onClose={() => setAddToPersonaOpen(false)}
+        onClose={() => close()}
         onAdded={() => updateSelected(new Set())}
       />
 
       {formKind ? (
         <ItemDialog
           kind={formKind}
-          mode={dialog?.mode ?? "add"}
-          item={dialog?.item}
-          open={dialog !== null}
-          onOpenChange={(next) => !next && setDialog(null)}
+          mode={dialogMode}
+          item={dialogItem}
+          open={dialogOpen}
+          onOpenChange={(next) => !next && close(["id"])}
           onSaved={() => {
             onDataChanged?.()
-            setDialog(null)
+            close(["id"])
           }}
         />
       ) : null}
 
       <AlertDialog
         open={deleteTarget !== null}
-        onOpenChange={(next) => !next && setDeleteTarget(null)}
+        onOpenChange={(next) => !next && close(["id"])}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -333,7 +343,7 @@ export function PoolPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteTarget(null)}>
+            <AlertDialogCancel onClick={() => close(["id"])}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -347,7 +357,7 @@ export function PoolPanel({
                   updateSelected(next)
                 }
                 onDataChanged?.()
-                setDeleteTarget(null)
+                close(["id"])
               }}
             >
               Delete
