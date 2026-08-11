@@ -1,4 +1,5 @@
 import {
+  CATEGORY_COLUMN,
   DATE_RANGE,
   detailColumn,
   linesColumn,
@@ -102,6 +103,7 @@ export const POOL_COLUMNS: Record<ItemKind, PoolColumn[]> = {
   ],
   skill: [
     textColumn("Skill", (item) => item.title),
+    CATEGORY_COLUMN,
     textColumn("Level", (item) => item.subtitle),
     textColumn("Years", (item) =>
       item.yearsExperience === null ? null : String(item.yearsExperience)

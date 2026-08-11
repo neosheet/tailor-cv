@@ -185,6 +185,17 @@ export function textColumn(
   return { header, cell: (item) => <ValueCell value={read(item)} /> }
 }
 
+/** Skills only — resolves `categoryId` against the registry, like `item-dialog.tsx`'s select. */
+export const CATEGORY_COLUMN: PoolColumn = {
+  header: "Category",
+  cell: (item, _actions, store) => {
+    const category = store.skillCategories.find(
+      (candidate) => candidate.id === item.categoryId
+    )
+    return <ValueCell value={category?.name ?? null} />
+  },
+}
+
 /** Reads one key out of the `details` jsonb, which is untyped by design. */
 export function detailColumn(header: string, key: string): PoolColumn {
   return {

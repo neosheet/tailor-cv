@@ -23,6 +23,10 @@ import { SearchInput } from "@/components/search-input"
 import { AddToPersonaDialog } from "@/components/inventory/add-to-persona-dialog"
 import { BulkCategoryDialog } from "@/components/inventory/bulk-category-dialog"
 import { BulkTagsDialog } from "@/components/inventory/bulk-tags-dialog"
+import {
+  CategoryFilter,
+  UNCATEGORIZED,
+} from "@/components/inventory/category-filter"
 import { ItemDialog } from "@/components/inventory/item-dialog"
 import { PoolTable, type PoolColumn } from "@/components/inventory/pool-table"
 import { TagFilter } from "@/components/inventory/tag-filter"
@@ -68,15 +72,25 @@ function searchableText(item: DbInventoryItem): string {
  * Why the table is empty, naming whichever filters are responsible — an empty
  * pool and a filter that matched nothing look identical otherwise.
  */
-function emptyMessage(query: string, tags: string[]): string {
-  const tagList = tags.map((tag) => `“${tag}”`).join(" and ")
+function emptyMessage(
+  query: string,
+  tags: string[],
+  /** Pre-formatted clause for the active category filter, e.g. `in “Frontend”`. */
+  categoryClause: string | null
+): string {
+  const clauses = [
+    tags.length > 0
+      ? `carry ${tags.map((tag) => `“${tag}”`).join(" and ")}`
+      : null,
+    categoryClause,
+  ].filter((clause): clause is string => clause !== null)
 
-  if (query && tags.length > 0) {
-    return `No entries match “${query}” and carry ${tagList}.`
+  if (query && clauses.length > 0) {
+    return `No entries match “${query}” and ${clauses.join(" and ")}.`
   }
 
-  if (tags.length > 0) {
-    return `No entries carry ${tagList}.`
+  if (clauses.length > 0) {
+    return `No entries ${clauses.join(" and ")}.`
   }
 
   if (query) {
@@ -194,6 +208,11 @@ export function PoolPanel({
     `pool:${kind}:tags`,
     []
   )
+  // Skills only — `null` means unfiltered.
+  const [categoryFilter, setCategoryFilter] = useSessionState<string | null>(
+    `pool:${kind}:category`,
+    null
+  )
 
   // `toggleFavorite` mutates the row in place, so the objects are already
   // correct — what goes stale is the *order*. Bumping this re-runs the sort.
@@ -225,9 +244,14 @@ export function PoolPanel({
     return ordered
       .filter((row) => !needle || searchableText(row).includes(needle))
       .filter((row) => tagFilter.every((tag) => row.tags.includes(tag)))
+      .filter((row) => {
+        if (kind !== "skill" || categoryFilter === null) return true
+        if (categoryFilter === UNCATEGORIZED) return row.categoryId === null
+        return row.categoryId === categoryFilter
+      })
     // favouriteVersion is the signal that an in-place mutation happened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, query, tagFilter, favouriteVersion, mode, pinnedIds])
+  }, [rows, query, tagFilter, categoryFilter, favouriteVersion, mode, pinnedIds, kind])
 
   // Offered tags come from the rows that survive the current filters, so every
   // suggestion narrows the list instead of emptying it.
@@ -235,6 +259,17 @@ export function PoolPanel({
     () => [...new Set(visible.flatMap((row) => row.tags))].sort(),
     [visible]
   )
+
+  const categoryFilterClause =
+    kind === "skill" && categoryFilter !== null
+      ? categoryFilter === UNCATEGORIZED
+        ? "are uncategorized"
+        : `are in “${
+            store.skillCategories.find(
+              (category) => category.id === categoryFilter
+            )?.name ?? ""
+          }”`
+      : null
 
   // Selection order matters for the "latest selected wins" pick-one rule —
   // `selected` is a `Set`, which iterates in insertion order.
@@ -284,6 +319,13 @@ export function PoolPanel({
             onChange={setTagFilter}
             available={availableTags}
           />
+          {kind === "skill" ? (
+            <CategoryFilter
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              categories={store.skillCategories}
+            />
+          ) : null}
         </div>
 
         <Button
@@ -317,7 +359,7 @@ export function PoolPanel({
           onToggleRow={toggleRow}
           onToggleAll={toggleAll}
           onToggleFavourite={onToggleFavourite}
-          emptyMessage={emptyMessage(query, tagFilter)}
+          emptyMessage={emptyMessage(query, tagFilter, categoryFilterClause)}
           onEditRow={
             formKind ? (item) => open("edit", { id: item.id }) : undefined
           }
