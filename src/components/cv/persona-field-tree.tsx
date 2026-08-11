@@ -28,6 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LINE_HEADING } from "@/components/inventory/columns"
+import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 import {
   resetCvNodeOverride,
   resetCvPageProperty,
@@ -989,14 +990,12 @@ export type PersonaFieldTreeProps = {
  */
 export function PersonaFieldTree({ cv, template }: PersonaFieldTreeProps) {
   const isFrozen = cv.personaId === null
+  const [tab, setTab] = useTabSearchParam("tab", isFrozen ? "style" : "visibility")
 
   return (
     <Card className="flex h-full flex-col gap-0 overflow-hidden py-0">
       <CardContent className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-0">
-        <Tabs
-          defaultValue={isFrozen ? "style" : "visibility"}
-          className="min-h-0 flex-1 gap-0"
-        >
+        <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-0">
           <TabsList variant="line" className="mx-2 mt-2 w-fit self-start">
             {isFrozen ? null : (
               <>
