@@ -78,6 +78,7 @@ export function PoolTable({
   onEditRow,
   onRequestDelete,
   selectAllHidden = false,
+  dialogParamPrefix,
 }: {
   columns: PoolColumn[]
   rows: DbInventoryItem[]
@@ -92,6 +93,8 @@ export function PoolTable({
   onRequestDelete?: (item: DbInventoryItem) => void
   /** Hides the header "select all" checkbox — single-select picker mode. */
   selectAllHidden?: boolean
+  /** See `PoolPanel`'s prop of the same name — forwarded straight through. */
+  dialogParamPrefix?: string
 }) {
   const store = useInventoryStore()
   const personaStore = usePersonaStore()
@@ -104,7 +107,7 @@ export function PoolTable({
   // stays local (a one-time scroll trigger, not open/close state — the same
   // "scroll position" carve-out the spec gives Kanban) while which item is
   // open goes through the URL like every other dialog.
-  const { dialog, get, open, close } = useDialogSearchParams()
+  const { dialog, get, open, close } = useDialogSearchParams(dialogParamPrefix)
   const [focusUsage, setFocusUsage] = React.useState(false)
   const detailItem =
     dialog === "view"

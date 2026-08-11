@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { PoolPanel } from "@/components/inventory/pool-panel"
+import { PoolTableSkeleton } from "@/components/inventory/pool-table-skeleton"
 import { usePoolData } from "@/components/inventory/use-pool-data"
 import type { ItemKind } from "@/lib/inventory"
 
@@ -86,7 +87,7 @@ export function PoolPickerDialog({
 
         <DialogBody className="flex flex-col gap-3 pt-1">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <PoolTableSkeleton />
           ) : error ? (
             <p className="text-sm text-destructive">
               Couldn't load entries: {error.message}
@@ -103,6 +104,7 @@ export function PoolPickerDialog({
               selected={selected}
               onSelectedChange={setSelected}
               pinnedIds={pinnedIds}
+              dialogParamPrefix="picker"
             />
           )}
         </DialogBody>

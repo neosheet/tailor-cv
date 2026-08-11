@@ -103,6 +103,7 @@ export function PoolPanel({
   selected: controlledSelected,
   onSelectedChange,
   pinnedIds,
+  dialogParamPrefix,
 }: {
   /** Keys the persisted search and tag filter, so each pool keeps its own. */
   kind: ItemKind
@@ -141,6 +142,14 @@ export function PoolPanel({
    * top the next time the picker opens, after a successful confirm.
    */
   pinnedIds?: ReadonlySet<string>
+  /**
+   * Namespaces this panel's own dialog/id URL params (`dialog`/`id` become
+   * `{prefix}Dialog`/`{prefix}Id`) — required whenever the panel is mounted
+   * inside another popup that also manages a `dialog=` param (e.g. the
+   * Persona page's Pool Picker), so the panel's Add/Edit/Delete dialogs don't
+   * clobber the outer popup's own open/close state.
+   */
+  dialogParamPrefix?: string
 }) {
   const store = useInventoryStore()
   const [internalSelected, setInternalSelected] = React.useState<
@@ -160,7 +169,7 @@ export function PoolPanel({
   // already local state below), not a single record id — so it only needs a
   // boolean-style dialog kind, with the row ids it acts on staying local
   // rather than crammed into the URL.
-  const { dialog, get, open, close } = useDialogSearchParams()
+  const { dialog, get, open, close } = useDialogSearchParams(dialogParamPrefix)
   const dialogMode: "add" | "edit" = dialog === "edit" ? "edit" : "add"
   const dialogOpen = dialog === "new" || dialog === "edit"
   const dialogItem =
@@ -310,6 +319,7 @@ export function PoolPanel({
             formKind ? (item) => open("delete", { id: item.id }) : undefined
           }
           selectAllHidden={mode === "pick" && selectionMode === "single"}
+          dialogParamPrefix={dialogParamPrefix}
         />
       </div>
 
