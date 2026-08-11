@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResumeRender } from "@/components/cv/resume-render"
 import { TimelineTab } from "@/components/applications/timeline-tab"
 import { VacancyDetailContent } from "@/components/applications/vacancy-detail-content"
+import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
 import { JOB_TYPE_LABEL } from "@/lib/application-job-type"
 import { WORK_TYPE_LABEL } from "@/lib/application-work-type"
@@ -99,11 +100,12 @@ function NoteAndTagsFields({ application }: { application: DbApplication }) {
 
 function StatusSelectField({
   application,
-  statusGated,
+  gateReason,
   onStatusChange,
 }: {
   application: DbApplication
-  statusGated: boolean
+  /** Why leaving `draft` is blocked right now — `null` when it isn't. */
+  gateReason: "missing-cv" | "loading" | null
   onStatusChange: (next: GlobalApplicationStatus) => void
 }) {
   return (
@@ -120,15 +122,18 @@ function StatusSelectField({
         <SelectContent>
           <SelectGroup>
             {GLOBAL_APPLICATION_STATUSES.map((status) => (
-              <SelectItem key={status} value={status} disabled={statusGated && status !== "draft"}>
+              <SelectItem key={status} value={status} disabled={gateReason !== null && status !== "draft"}>
                 {GLOBAL_STATUS_LABEL[status]}
               </SelectItem>
             ))}
           </SelectGroup>
         </SelectContent>
       </Select>
-      {statusGated ? (
+      {gateReason === "missing-cv" ? (
         <p className="text-xs text-muted-foreground">Attach a CV before changing status.</p>
+      ) : null}
+      {gateReason === "loading" ? (
+        <p className="text-xs text-muted-foreground">Loading your CVs — status change will be available shortly.</p>
       ) : null}
     </Field>
   )
@@ -144,13 +149,13 @@ function StatusSelectField({
 function JobDetailTab({
   application,
   cv,
-  statusGated,
+  gateReason,
   onStatusChange,
   variant,
 }: {
   application: DbApplication
   cv: DbCv | undefined
-  statusGated: boolean
+  gateReason: "missing-cv" | "loading" | null
   onStatusChange: (next: GlobalApplicationStatus) => void
   variant: "sheet" | "page"
 }) {
@@ -176,7 +181,7 @@ function JobDetailTab({
           </dl>
           <StatusSelectField
             application={application}
-            statusGated={statusGated}
+            gateReason={gateReason}
             onStatusChange={onStatusChange}
           />
         </div>
@@ -201,7 +206,7 @@ function JobDetailTab({
       </dl>
       <StatusSelectField
         application={application}
-        statusGated={statusGated}
+        gateReason={gateReason}
         onStatusChange={onStatusChange}
       />
     </div>
@@ -232,6 +237,9 @@ export function ApplicationDetailView({
 
   const [pendingStatus, setPendingStatus] = React.useState<GlobalApplicationStatus | null>(null)
   const [freezing, setFreezing] = React.useState(false)
+  // Distinct from the page-level `tab` param (List/Kanban/Archive on
+  // `/applications`) so the Sheet's nested tabs don't collide with it.
+  const [detailTab, setDetailTab] = useTabSearchParam("detailTab", "job-detail")
 
   const cv = application.cvId ? findCv(personaStore, application.cvId) : undefined
   const resolvedCv = resolveApplicationCv(application, personaStore, inventoryStore)
@@ -267,7 +275,15 @@ export function ApplicationDetailView({
     }
   }
 
-  const statusGated = application.globalStatus === "draft" && !application.cvId
+  const storesLoading = personaStore.loading || inventoryStore.loading
+  const gateReason: "missing-cv" | "loading" | null =
+    application.globalStatus !== "draft"
+      ? null
+      : !application.cvId
+        ? "missing-cv"
+        : storesLoading
+          ? "loading"
+          : null
 
   return (
     <>
@@ -282,7 +298,7 @@ export function ApplicationDetailView({
           </div>
         ) : null}
 
-        <Tabs defaultValue="job-detail">
+        <Tabs value={detailTab} onValueChange={setDetailTab}>
           <TabsList variant="line" className="w-fit">
             <TabsTrigger value="job-detail">Job Detail</TabsTrigger>
             <TabsTrigger value="cv-preview">CV Preview</TabsTrigger>
@@ -293,7 +309,7 @@ export function ApplicationDetailView({
             <JobDetailTab
               application={application}
               cv={cv}
-              statusGated={statusGated}
+              gateReason={gateReason}
               onStatusChange={handleStatusChange}
               variant={variant}
             />

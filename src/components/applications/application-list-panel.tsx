@@ -1,5 +1,13 @@
 import * as React from "react"
-import { Ellipsis, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  Ellipsis,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react"
+import { useSearchParams } from "react-router"
 import { format, parseISO } from "date-fns"
 
 import { Badge } from "@/components/ui/badge"
@@ -27,14 +35,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { SearchInput } from "@/components/search-input"
+import { TagFilter } from "@/components/inventory/tag-filter"
 import { ApplicationDetailSheet } from "@/components/applications/application-detail-sheet"
 import { ApplicationFormDialog } from "@/components/applications/application-form-dialog"
+import { ArchiveApplicationDialog } from "@/components/applications/archive-application-dialog"
 import { DeleteApplicationDialog } from "@/components/applications/delete-application-dialog"
+import { useSessionState } from "@/hooks/use-session-state"
+import { stripHtml } from "@/lib/quill-html"
 import {
   allApplications,
+  archiveApplication,
   createApplication,
   deleteApplication,
   findApplication,
+  restoreApplication,
   updateApplication,
 } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
@@ -45,17 +60,59 @@ import type { GlobalApplicationStatus, DbApplication } from "@/mocks/types"
 
 const ALL_STATUSES = "all"
 
-/** Table + status filter + New Application — mirrors `CvListPanel`'s shape. */
-export function ApplicationListPanel() {
+/**
+ * Everything search should match, flattened to one lowercase string. Mirrors
+ * `searchableText` in `pool-panel.tsx`.
+ */
+function applicationSearchableText(application: DbApplication): string {
+  return [application.title, stripHtml(application.vacancyDetail ?? "")]
+    .join(" ")
+    .toLowerCase()
+}
+
+/**
+ * Why the table is empty, naming whichever filters are responsible. Mirrors
+ * `emptyMessage` in `pool-panel.tsx`, with an archive-specific base message.
+ */
+function emptyMessage(archived: boolean, query: string, tags: string[]): string {
+  const tagList = tags.map((tag) => `“${tag}”`).join(" and ")
+
+  if (query && tags.length > 0) {
+    return `No applications match “${query}” and carry ${tagList}.`
+  }
+
+  if (tags.length > 0) {
+    return `No applications carry ${tagList}.`
+  }
+
+  if (query) {
+    return `No applications match “${query}”.`
+  }
+
+  return archived ? "No archived applications." : "No applications yet."
+}
+
+/** Table + status/search/tag filter + New Application — mirrors `CvListPanel`'s shape. */
+export function ApplicationListPanel({ archived = false }: { archived?: boolean }) {
   const store = useApplicationStore()
   const personaStore = usePersonaStore()
 
   const [creating, setCreating] = React.useState(false)
   const [editTarget, setEditTarget] = React.useState<DbApplication | null>(null)
+  const [archiveTarget, setArchiveTarget] = React.useState<DbApplication | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<DbApplication | null>(null)
-  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedId = searchParams.get("applicationId")
   const [statusFilter, setStatusFilter] = React.useState<GlobalApplicationStatus | typeof ALL_STATUSES>(
     ALL_STATUSES
+  )
+
+  // Keyed per tab so List and Archive filters don't collide, and outlive the
+  // page the same way Inventory's pool filters do.
+  const [query, setQuery] = useSessionState(`applications:${archived ? "archive" : "list"}:search`, "")
+  const [tagFilter, setTagFilter] = useSessionState<string[]>(
+    `applications:${archived ? "archive" : "list"}:tags`,
+    []
   )
 
   // Re-derived from the store on every render (rather than held in state
@@ -65,12 +122,24 @@ export function ApplicationListPanel() {
 
   const cvOptions = allCvs(personaStore).map((cv) => ({ value: cv.id, label: cv.name }))
 
+  const needle = query.trim().toLowerCase()
+
   const rows = allApplications(store)
+    .filter((application) => (archived ? application.archivedAt !== null : application.archivedAt === null))
     .filter((application) => statusFilter === ALL_STATUSES || application.globalStatus === statusFilter)
+    .filter((application) => !needle || applicationSearchableText(application).includes(needle))
+    .filter((application) => tagFilter.every((tag) => application.tags.includes(tag)))
     .map((application) => ({
       application,
       cv: application.cvId ? findCv(personaStore, application.cvId) : undefined,
     }))
+
+  // Offered tags come from the rows that survive the current filters, so every
+  // suggestion narrows the list instead of emptying it.
+  const availableTags = React.useMemo(
+    () => [...new Set(rows.flatMap((row) => row.application.tags))].sort(),
+    [rows]
+  )
 
   const filterOptions = [
     { value: ALL_STATUSES, label: "All" },
@@ -79,30 +148,36 @@ export function ApplicationListPanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <Select
-          items={filterOptions}
-          value={statusFilter}
-          onValueChange={(next) => setStatusFilter(next as GlobalApplicationStatus | typeof ALL_STATUSES)}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {filterOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <SearchInput value={query} onChange={setQuery} label="applications" />
+          <TagFilter value={tagFilter} onChange={setTagFilter} available={availableTags} />
+          <Select
+            items={filterOptions}
+            value={statusFilter}
+            onValueChange={(next) => setStatusFilter(next as GlobalApplicationStatus | typeof ALL_STATUSES)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {filterOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
 
-        <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
-          <PlusIcon data-icon="inline-start" />
-          New Application
-        </Button>
+        {archived ? null : (
+          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+            <PlusIcon data-icon="inline-start" />
+            New Application
+          </Button>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border">
@@ -120,67 +195,98 @@ export function ApplicationListPanel() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map(({ application, cv }) => (
-              <TableRow key={application.id}>
-                <TableCell className="align-top font-medium whitespace-nowrap">
-                  <Button
-                    variant="link"
-                    className="h-auto justify-start p-0 font-medium"
-                    onClick={() => setSelectedId(application.id)}
-                  >
-                    {application.title}
-                  </Button>
-                </TableCell>
-                <TableCell className="align-top whitespace-nowrap text-muted-foreground">
-                  {application.company ?? "—"}
-                </TableCell>
-                <TableCell className="align-top whitespace-nowrap text-muted-foreground">
-                  {application.deadline ? format(parseISO(application.deadline), "PP") : "—"}
-                </TableCell>
-                <TableCell className="align-top whitespace-nowrap">
-                  <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
-                </TableCell>
-                <TableCell className="align-top whitespace-nowrap text-muted-foreground">
-                  {application.sourceUrl ?? "—"}
-                </TableCell>
-                <TableCell className="align-top whitespace-nowrap">
-                  {cv?.name ?? "—"}
-                </TableCell>
-                <TableCell className="align-top whitespace-nowrap text-muted-foreground">
-                  {new Date(application.updatedAt).toLocaleString()}
-                </TableCell>
-                <TableCell className="align-top">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Actions for ${application.title}`}
-                        />
-                      }
-                    >
-                      <Ellipsis />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-44">
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem onClick={() => setEditTarget(application)}>
-                          <PencilIcon />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => setDeleteTarget(application)}
-                        >
-                          <Trash2Icon />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  {emptyMessage(archived, query, tagFilter)}
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              rows.map(({ application, cv }) => (
+                <TableRow key={application.id}>
+                  <TableCell className="align-top font-medium whitespace-nowrap">
+                    <Button
+                      variant="link"
+                      className="h-auto justify-start p-0 font-medium"
+                      onClick={() =>
+                        setSearchParams((prev) => {
+                          const next = new URLSearchParams(prev)
+                          next.set("applicationId", application.id)
+                          return next
+                        })
+                      }
+                    >
+                      {application.title}
+                    </Button>
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap text-muted-foreground">
+                    {application.company ?? "—"}
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap text-muted-foreground">
+                    {application.deadline ? format(parseISO(application.deadline), "PP") : "—"}
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap">
+                    <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap text-muted-foreground">
+                    {application.sourceUrl ?? "—"}
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap">
+                    {cv?.name ?? "—"}
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap text-muted-foreground">
+                    {new Date(application.updatedAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Actions for ${application.title}`}
+                          />
+                        }
+                      >
+                        <Ellipsis />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-44">
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem onClick={() => setEditTarget(application)}>
+                            <PencilIcon />
+                            Edit
+                          </DropdownMenuItem>
+                          {archived ? (
+                            <>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  await restoreApplication(store, application.id)
+                                }}
+                              >
+                                <ArchiveRestoreIcon />
+                                Restore
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => setDeleteTarget(application)}
+                              >
+                                <Trash2Icon />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <DropdownMenuItem onClick={() => setArchiveTarget(application)}>
+                              <ArchiveIcon />
+                              Archive
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -224,8 +330,24 @@ export function ApplicationListPanel() {
 
       <ApplicationDetailSheet
         application={selectedApplication}
-        onClose={() => setSelectedId(null)}
+        onClose={() =>
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete("applicationId")
+            return next
+          })
+        }
         onEdit={(application) => setEditTarget(application)}
+      />
+
+      <ArchiveApplicationDialog
+        application={archiveTarget}
+        onCancel={() => setArchiveTarget(null)}
+        onConfirm={async () => {
+          if (!archiveTarget) return
+          await archiveApplication(store, archiveTarget.id)
+          setArchiveTarget(null)
+        }}
       />
 
       <DeleteApplicationDialog
