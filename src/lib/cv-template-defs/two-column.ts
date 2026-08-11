@@ -5,14 +5,15 @@ import {
 } from "@/lib/cv-template-schema"
 
 /**
- * Classic template for spec 07 format. Ported from the spec-05 version:
- * centred header over full-width sections, the safe default.
- * Pixel values converted to points (× 0.75).
+ * Two Column template for spec 07 format. Same centred header as Classic,
+ * then a two-column body: Experience gets the wide main column, every other
+ * section (education, skills, projects, etc.) stacks in a narrower side
+ * column. Pixel values converted to points (× 0.75), matching Classic.
  *
  * Fully self-contained (Batch 3, docs/user-request.md) — every block this
  * template uses is defined locally below, no shared `cv-template-blocks.ts`
- * import. A handful of nodes carry a stable `id` so a CV's Block Settings tab
- * can target that exact spot in the tree (see `TemplateSettings.nodes`).
+ * import (a near-duplicate of Classic's own local blocks; kept independent
+ * per-template on purpose rather than re-sharing, per the request).
  */
 
 const sectionHeading: BlockDef = {
@@ -21,6 +22,20 @@ const sectionHeading: BlockDef = {
     tag: "h2",
     styles: "sectionHeading",
     children: [{ text: "$prop.section.heading" }],
+  },
+}
+
+const bulletList: BlockDef = {
+  props: ["group"],
+  node: {
+    repeat: {
+      block: "bulletItem",
+      for: "$prop.group.items",
+      as: { item: "$item" },
+      tag: "ul",
+      styles: "bulletListContainer",
+      separator: undefined,
+    },
   },
 }
 
@@ -36,58 +51,17 @@ const bulletItem: BlockDef = {
   },
 }
 
-/** Filler for merge-mode repeats below — `block` is required by the schema even though merge resolves `merge.text` directly and never instantiates it. */
 const entryKeyword: BlockDef = {
   props: ["k"],
   node: { text: "$prop.k" },
 }
 
-/** One category's "Category: skill, skill, skill" line. */
-const skillCategoryLine: BlockDef = {
-  props: ["group"],
-  node: {
-    tag: "li",
-    styles: "bulletItem",
-    children: [
-      { text: "•", styles: "bulletMarker" },
-      {
-        tag: "span",
-        children: [
-          { text: "$prop.group.category: ", styles: "entryTitle" },
-          {
-            repeat: {
-              block: "entryKeyword",
-              for: "$prop.group.skills",
-              tag: "span",
-              merge: { text: "$item", separator: ", " },
-            },
-          },
-        ],
-      },
-    ],
-  },
-}
-
-/** The Skills section's whole body — one `skillCategoryLine` per category, one shared `<ul>`. */
-const skillCategoryList: BlockDef = {
-  props: ["section"],
-  node: {
-    repeat: {
-      block: "skillCategoryLine",
-      for: "$prop.section.skillGroups",
-      as: { group: "$item" },
-      tag: "ul",
-      styles: "bulletListContainer",
-    },
-  },
-}
-
-/** Branches on `entry.kind` — skill entries never reach this block (routed to `skillCategoryList` instead). */
+/** Branches on `entry.kind`. */
 const entryBlock: BlockDef = {
   props: ["entry"],
   node: {
     if: "$prop.entry.kind",
-    in: ["language", "interest"],
+    equals: "skill",
     then: {
       tag: "div",
       styles: "entrySkillBlock",
@@ -99,8 +73,27 @@ const entryBlock: BlockDef = {
             tag: "span",
             styles: "entrySubtitleMuted",
             children: [
-              { text: ", " },
+              { text: " · " },
               { text: "$prop.entry.subtitle" },
+            ],
+          },
+        },
+        {
+          if: "$prop.entry.keywords",
+          then: {
+            tag: "span",
+            styles: "entryKeywordsMuted",
+            children: [
+              { text: " — " },
+              {
+                repeat: {
+                  block: "entryKeyword",
+                  for: "$prop.entry.keywords",
+                  as: { k: "$item" },
+                  tag: "span",
+                  separator: { text: ", ", id: "keywordSeparator" },
+                },
+              },
             ],
           },
         },
@@ -108,67 +101,21 @@ const entryBlock: BlockDef = {
     },
     else: {
       if: "$prop.entry.kind",
-      in: ["work", "volunteer"],
+      in: ["language", "interest"],
       then: {
-        // ATS-review fix (Batch 4 follow-up, docs/user-request.md): job title
-        // leads (not the company), dates get their own line rather than
-        // sharing one with the heading, the company name carries the
-        // hyperlink instead of a bare URL line, and location/workplace type
-        // sit inline instead of behind a "·" separator.
         tag: "div",
-        styles: "entryRegularBlock",
+        styles: "entrySkillBlock",
         children: [
+          { text: "$prop.entry.title", styles: "entryTitle" },
           {
-            tag: "h3",
-            styles: "entryTitle",
-            children: [
-              {
-                if: "$prop.entry.subtitle",
-                then: {
-                  tag: "span",
-                  children: [
-                    { text: "$prop.entry.subtitle" },
-                    { text: " | " },
-                  ],
-                },
-              },
-              {
-                if: "$prop.entry.url",
-                then: {
-                  tag: "a",
-                  styles: "entryLink",
-                  attrs: { href: "$prop.entry.url" },
-                  text: "$prop.entry.title",
-                },
-                else: { text: "$prop.entry.title" },
-              },
-              {
-                if: "$prop.entry.metaLine",
-                then: {
-                  tag: "span",
-                  styles: "entryMetaLine",
-                  children: [
-                    { text: " — " },
-                    { text: "$prop.entry.metaLine" },
-                  ],
-                },
-              },
-            ],
-          },
-          {
-            tag: "p",
-            styles: "entryDate",
-            children: [{ text: "$prop.entry.dateRangeText" }],
-          },
-          {
-            // Description leads the same shared `<ul>` as responsibilities/
-            // highlights/etc. — `entry.bulletItems` already puts it first.
-            repeat: {
-              block: "bulletItem",
-              for: "$prop.entry.bulletItems",
-              as: { item: "$item" },
-              tag: "ul",
-              styles: "bulletListContainer",
+            if: "$prop.entry.subtitle",
+            then: {
+              tag: "span",
+              styles: "entrySubtitleMuted",
+              children: [
+                { text: " · " },
+                { text: "$prop.entry.subtitle" },
+              ],
             },
           },
         ],
@@ -184,18 +131,7 @@ const entryBlock: BlockDef = {
               {
                 tag: "h3",
                 styles: "entryTitle",
-                children: [
-                  {
-                    if: "$prop.entry.url",
-                    then: {
-                      tag: "a",
-                      styles: "entryLink",
-                      attrs: { href: "$prop.entry.url" },
-                      text: "$prop.entry.title",
-                    },
-                    else: { text: "$prop.entry.title" },
-                  },
-                ],
+                children: [{ text: "$prop.entry.title" }],
               },
               {
                 text: "$prop.entry.dateRangeText",
@@ -213,7 +149,7 @@ const entryBlock: BlockDef = {
                     { text: "$prop.entry.subtitle" },
                     { text: "$prop.entry.details.studyType" },
                   ],
-                  separator: ", ",
+                  separator: " · ",
                 },
               },
               {
@@ -231,12 +167,24 @@ const entryBlock: BlockDef = {
             ],
           },
           {
+            if: "$prop.entry.url",
+            then: {
+              tag: "p",
+              styles: "entryUrlLine",
+              children: [{ text: "$prop.entry.url" }],
+            },
+          },
+          {
+            tag: "p",
+            styles: "entrySummary",
+            children: [{ text: "$prop.entry.summary" }],
+          },
+          {
             repeat: {
-              block: "bulletItem",
-              for: "$prop.entry.bulletItems",
-              as: { item: "$item" },
-              tag: "ul",
-              styles: "bulletListContainer",
+              block: "bulletList",
+              for: "$prop.entry.lineGroups",
+              as: { group: "$item" },
+              styles: "entryLineGroupsContainer",
             },
           },
         ],
@@ -245,7 +193,7 @@ const entryBlock: BlockDef = {
   },
 }
 
-/** Skills render as one grouped bullet list; language/interest entries sit tighter together than every other kind. */
+/** Skill/language/interest entries sit tighter together than every other kind. */
 const section: BlockDef = {
   props: ["section"],
   node: {
@@ -259,33 +207,25 @@ const section: BlockDef = {
       },
       {
         if: "$prop.section.kind",
-        equals: "skill",
+        in: ["skill", "language", "interest"],
         then: {
-          block: "skillCategoryList",
-          props: { section: "$prop.section" },
+          repeat: {
+            block: "entryBlock",
+            for: "$prop.section.entries",
+            as: { entry: "$item" },
+            tag: "div",
+            styles: "entryContainerTight",
+            id: "entryBlockRepeatTight",
+          },
         },
         else: {
-          if: "$prop.section.kind",
-          in: ["language", "interest"],
-          then: {
-            repeat: {
-              block: "entryBlock",
-              for: "$prop.section.entries",
-              as: { entry: "$item" },
-              tag: "div",
-              styles: "entryContainerTight",
-              id: "entryBlockRepeatTight",
-            },
-          },
-          else: {
-            repeat: {
-              block: "entryBlock",
-              for: "$prop.section.entries",
-              as: { entry: "$item" },
-              tag: "div",
-              styles: "entryContainerSpaced",
-              id: "entryBlockRepeatSpaced",
-            },
+          repeat: {
+            block: "entryBlock",
+            for: "$prop.section.entries",
+            as: { entry: "$item" },
+            tag: "div",
+            styles: "entryContainerSpaced",
+            id: "entryBlockRepeatSpaced",
           },
         },
       },
@@ -297,16 +237,16 @@ const contactPart: BlockDef = {
   props: ["part"],
   node: { tag: "li", text: "$prop.part", styles: "entryContactPart" },
 }
-export const classicTemplateDefinition: TemplateDefinition =
+export const twoColumnTemplateDefinition: TemplateDefinition =
   parseTemplateDefinition({
     schemaVersion: 2,
-    id: "classic",
-    name: "Classic",
+    id: "two-column",
+    name: "Two Column",
     description:
-      "A centred header over full-width sections. The safest choice when you don't know how the CV will be read.",
+      "A centred header over a two-column body: Experience leads in a wide main column, everything else sits in a compact side column.",
     density: "Balanced",
-    atsSafe: true,
-    bestFor: "Most applications, and anything going through a job portal",
+    atsSafe: false,
+    bestFor: "Design-forward applications reviewed by a person rather than parsed by a bot",
 
     page: {
       size: "A4",
@@ -329,13 +269,13 @@ export const classicTemplateDefinition: TemplateDefinition =
         textTransform: "uppercase",
       },
 
-      // Bullet list container — no left padding, so bullets align flush with
-      // the text above them (Batch 4, docs/user-request.md)
+      // Bullet list container
       bulletListContainer: {
         marginTop: 3, // 4px → 3pt
         display: "flex",
         flexDirection: "column",
         gap: 1.5, // 2px → 1.5pt
+        paddingLeft: 12, // 16px → 12pt
         listStyleType: "none",
       },
 
@@ -357,17 +297,14 @@ export const classicTemplateDefinition: TemplateDefinition =
         fontWeight: 600,
       },
 
-      // Company/institution name when it's a link — dashed underline signals
-      // "clickable" to a human reader without looking like a normal hyperlink.
-      entryLink: {
-        color: "inherit",
-        textDecorationLine: "underline",
-        textDecorationStyle: "dashed",
-      },
-
       // Entry subtitle (muted)
       entrySubtitleMuted: {
         color: "#737373",
+      },
+
+      // Entry keywords (muted)
+      entryKeywordsMuted: {
+        color: "#525252",
       },
 
       // Skill/language/interest entry
@@ -406,19 +343,29 @@ export const classicTemplateDefinition: TemplateDefinition =
         fontStyle: "italic",
       },
 
-      // Location (workplace/employment type) — inline in the Work/Volunteer
-      // heading, not its own line (ATS-review fix, Batch 4 follow-up).
-      // `fontWeight: 400` resets the bold it would otherwise inherit from
-      // the enclosing `entryTitle`-styled `<h3>`.
-      entryMetaLine: {
+      // Entry URL (below subtitle, above summary)
+      entryUrlLine: {
         color: "#525252",
         fontSize: 8.25, // 11px → 8.25pt
-        fontWeight: 400,
       },
 
       // Entry score (inline, normal font style)
       entryScoreInline: {
         fontStyle: "normal",
+      },
+
+      // Entry summary paragraph
+      entrySummary: {
+        marginTop: 1.5, // 2px → 1.5pt
+        lineHeight: 1.375,
+        color: "#404040",
+      },
+
+      // Entry line groups container
+      entryLineGroupsContainer: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 1.5, // 2px → 1.5pt
       },
 
       // Entry containers with different gaps
@@ -445,7 +392,6 @@ export const classicTemplateDefinition: TemplateDefinition =
         display: "flex",
         flexDirection: "column",
         gap: 3, // 4px → 3pt
-
       },
 
       // Header name (h1)
@@ -461,10 +407,18 @@ export const classicTemplateDefinition: TemplateDefinition =
         color: "#525252",
       },
 
-      // Contact line — merged plain text, not a flex row (Batch 4)
+      // Contact parts container
       contactPartsContainer: {
+        display: "flex",
+        flexDirection: "row",
+        gap: 3, // 4px → 3pt
         fontSize: 8.25, // 11px → 8.25pt
         color: "#525252",
+      },
+
+      // Contact separator
+      contactSeparator: {
+        color: "#a3a3a3",
       },
 
       // Summary block (muted)
@@ -474,23 +428,50 @@ export const classicTemplateDefinition: TemplateDefinition =
         color: "#404040",
       },
 
-      // Sections container
-      sectionsContainer: {
+      // Two-column body: wide main column (Experience) + narrow side column
+      // (everything else). flexGrow ratio 2:1 keeps the split proportional
+      // without hand-computed widths fighting the column gap.
+      bodyContainer: {
         marginTop: 21, // 28px → 21pt
+        display: "flex",
+        flexDirection: "row",
+        gap: 18, // 24px → 18pt
+      },
+
+      mainColumn: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 18, // 24px → 18pt
+        flexGrow: 2,
+        flexBasis: 0,
+      },
+
+      secondaryColumn: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 13.5, // 18px → 13.5pt — tighter, since this column is narrower
+        flexGrow: 1,
+        flexBasis: 0,
+      },
+
+      // Sections container within each column
+      sectionsContainer: {
         display: "flex",
         flexDirection: "column",
         gap: 18, // 24px → 18pt
       },
 
-
-
+      sectionsContainerSecondary: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 13.5, // 18px → 13.5pt
+      },
     },
 
     blocks: {
       sectionHeading,
+      bulletList,
       bulletItem,
-      skillCategoryLine,
-      skillCategoryList,
       entryBlock,
       entryKeyword,
       section,
@@ -502,36 +483,42 @@ export const classicTemplateDefinition: TemplateDefinition =
       bulletListContainer: { title: "Bullet list", description: "The `<ul>` wrapper around a group of bullet points." },
       bulletItem: { title: "Bullet item", description: "One bullet point's row — marker plus text." },
       bulletMarker: { title: "Bullet marker", description: "The glyph in front of each bullet point." },
-      entryTitle: { title: "Entry title", description: "An entry's main heading — a job title, a degree, or a Skills category label." },
-      entryLink: { title: "Entry link", description: "The dashed underline on a company/institution name when it links out — signals \"clickable\" without looking like a normal hyperlink." },
-      entrySubtitleMuted: { title: "Entry subtitle (muted)", description: "The smaller, greyed-out line under a language/interest entry's title." },
-      entrySkillBlock: { title: "Language/interest entry", description: "The compact single-line layout used for Languages and Interests." },
+      entryTitle: { title: "Entry title", description: "An entry's main heading — a job title, a skill's name, a degree." },
+      entrySubtitleMuted: { title: "Entry subtitle (muted)", description: "The smaller, greyed-out line under a skill/language/interest entry's title." },
+      entryKeywordsMuted: { title: "Entry keywords (muted)", description: "A skill entry's trailing keyword list." },
+      entrySkillBlock: { title: "Skill/language/interest entry", description: "The compact single-line layout used for Skills, Languages, and Interests." },
       entryRegularBlock: { title: "Regular entry", description: "The multi-line layout used for Work, Education, Projects, and the rest." },
-      entryHeaderRow: { title: "Entry header row", description: "The row pairing an entry's title with its date range (Education/Projects/Awards/etc. — Work/Volunteer isolate the date onto its own line instead)." },
-      entryDate: { title: "Entry date", description: "The date range text — its own line for Work/Volunteer entries, right-aligned in the header row for every other kind." },
-      entrySubtitleBlock: { title: "Entry subtitle", description: "The italic line under a regular entry's title — institution, awarder, or similar." },
-      entryMetaLine: { title: "Entry meta line", description: "\"(Workplace type, Employment type)\" appended inline after the company name — Work/Volunteer entries, omitted when both are the default (\"on-site\"/\"full-time\")." },
+      entryHeaderRow: { title: "Entry header row", description: "The row pairing an entry's title with its date range." },
+      entryDate: { title: "Entry date", description: "The date range text, right-aligned in the header row." },
+      entrySubtitleBlock: { title: "Entry subtitle", description: "The italic line under a regular entry's title — company, institution, or similar." },
+      entryUrlLine: { title: "Entry URL line", description: "The small link line under an entry's subtitle." },
       entryScoreInline: { title: "Entry score (inline)", description: "A parenthetical score/grade appended after an education entry's subtitle." },
-      entryContainerTight: { title: "Entry spacing (tight)", description: "Vertical gap between entries in a Languages/Interests section." },
+      entrySummary: { title: "Entry summary", description: "A regular entry's description paragraph." },
+      entryLineGroupsContainer: { title: "Entry bullet groups", description: "Wraps an entry's responsibility/highlight bullet lists." },
+      entryContainerTight: { title: "Entry spacing (tight)", description: "Vertical gap between entries in a Skills/Languages/Interests section." },
       entryContainerSpaced: { title: "Entry spacing (roomy)", description: "Vertical gap between entries in every other section." },
       section: { title: "Section", description: "One section's own wrapper (heading plus its entries)." },
       headerBox: { title: "Header block", description: "The centred name/headline/contact block at the top of the page." },
       headerName: { title: "Name (header)", description: "Your name, in large type at the top." },
       headerHeadline: { title: "Headline (header)", description: "The line under your name — your title or tagline." },
-      contactPartsContainer: { title: "Contact line", description: "The merged \"email | phone | location | ...\" text line." },
+      contactPartsContainer: { title: "Contact line", description: "The row of contact details (email, phone, location, links)." },
+      contactSeparator: { title: "Contact separator", description: "The \"|\" glyph between contact details." },
       summaryBlock: { title: "Summary", description: "Your professional summary paragraph." },
-      sectionsContainer: { title: "Sections container", description: "Vertical stack of every section on the page, below the header." },
+      bodyContainer: { title: "Body container", description: "The two-column row below the header." },
+      mainColumn: { title: "Main column", description: "The wide column — Experience." },
+      secondaryColumn: { title: "Side column", description: "The narrow column — every other section." },
+      sectionsContainer: { title: "Main column sections", description: "Vertical stack of the main column's sections." },
+      sectionsContainerSecondary: { title: "Side column sections", description: "Vertical stack of the side column's sections." },
     },
 
     blocksSchema: {
       sectionHeading: { title: "Section heading", description: "Renders a section's title label." },
+      bulletList: { title: "Bullet list", description: "Renders a group of bullet points as a `<ul>`." },
       bulletItem: { title: "Bullet item", description: "Renders one bullet point — marker plus text." },
-      skillCategoryLine: { title: "Skill category line", description: "Renders one category's \"Category: skill, skill, skill\" bullet line." },
-      skillCategoryList: { title: "Skill category list", description: "Renders the Skills section's whole body — one category line per category, in one shared `<ul>`." },
-      entryBlock: { title: "Entry", description: "Renders one section entry, its layout branching by kind (language/interest vs. work vs. education, ...)." },
-      entryKeyword: { title: "Entry keyword", description: "Merge-mode filler block — never actually rendered, required by the schema." },
-      section: { title: "Section", description: "Renders one section: its heading plus every entry (or, for Skills, every category line) in it." },
-      contactPart: { title: "Contact part", description: "Merge-mode filler block for the header's contact line — never actually rendered, required by the schema." },
+      entryBlock: { title: "Entry", description: "Renders one section entry, its layout branching by kind (skill vs. work vs. education, ...)." },
+      entryKeyword: { title: "Entry keyword", description: "Renders one keyword in a skill entry's trailing list." },
+      section: { title: "Section", description: "Renders one section: its heading plus every entry in it." },
+      contactPart: { title: "Contact part", description: "Renders one piece of the header's contact line." },
     },
 
     root: {
@@ -555,14 +542,19 @@ export const classicTemplateDefinition: TemplateDefinition =
               },
             },
             {
-              // Merged plain text ("email | phone | location | ..."), not a
-              // list — ATS/parser friendly (Batch 4, docs/user-request.md).
               repeat: {
                 block: "contactPart",
                 for: "$data.contactParts",
-                tag: "p",
+                as: { part: "$item" },
+                // Not "p": this container is laid out with flex/gap, which
+                // only applies to block-level elements, not inline text.
+                tag: "ul",
                 styles: "contactPartsContainer",
-                merge: { text: "$item", separator: " | " },
+                separator: {
+                  tag: "li",
+                  styles: "contactSeparator",
+                  children: [{ text: "|", id: "contactSeparatorText" }],
+                },
               },
             },
           ],
@@ -576,14 +568,44 @@ export const classicTemplateDefinition: TemplateDefinition =
           },
         },
         {
-          repeat: {
-            block: "section",
-            for: "$data.sections",
-            as: { section: "$item" },
-            tag: "div",
-            styles: "sectionsContainer",
-            id: "sectionsRepeat",
-          },
+          tag: "div",
+          styles: "bodyContainer",
+          children: [
+            {
+              tag: "div",
+              styles: "mainColumn",
+              children: [
+                {
+                  repeat: {
+                    block: "section",
+                    for: "$data.sections",
+                    as: { section: "$item" },
+                    tag: "div",
+                    styles: "sectionsContainer",
+                    filter: { field: "$item.kind", op: "in", value: ["work"] },
+                    id: "mainSectionsRepeat",
+                  },
+                },
+              ],
+            },
+            {
+              tag: "aside",
+              styles: "secondaryColumn",
+              children: [
+                {
+                  repeat: {
+                    block: "section",
+                    for: "$data.sections",
+                    as: { section: "$item" },
+                    tag: "div",
+                    styles: "sectionsContainerSecondary",
+                    filter: { field: "$item.kind", op: "not-in", value: ["work"] },
+                    id: "secondarySectionsRepeat",
+                  },
+                },
+              ],
+            },
+          ],
         },
       ],
     },

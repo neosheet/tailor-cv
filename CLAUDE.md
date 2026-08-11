@@ -61,10 +61,9 @@ symlink/real-file layout).
 - Supabase changes frequently; the supabase skill will verify against current docs rather than relying on training data — let it.
 
 ## Verifying UI work
-
 Keep the visual check simple — as long as it works, that's enough. Confirm, then stop.
 
-- **Don't visually check mobile/narrow viewports or dark mode.** No resizing the
+- **Need permission approval before doing it. Don't visually check mobile/narrow viewports or dark mode.** No resizing the
   viewport, no toggling themes, no screenshots of either. Semantic tokens and
   responsive utilities are assumed to handle both; if one is actually broken, fix it
   when it's reported.

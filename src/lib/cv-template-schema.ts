@@ -50,9 +50,6 @@ export type ElementNode = {
   attrs?: Record<string, string>
   text?: string
   children?: TemplateNode[]
-  fixed?: boolean
-  break?: boolean
-  wrap?: boolean
 }
 
 /** Block instance node. */
@@ -77,6 +74,20 @@ export type RepeatNode = {
     style?: Style
     styles?: string | string[]
     separator?: TemplateNode
+    /**
+     * Renders every item as one joined string instead of one block instance
+     * per item — e.g. a skills list as "React, Vue, Svelte." instead of
+     * `ul > li`. When set, `block`/`separator` are ignored for this repeat;
+     * `tag` still wraps the joined text (default "div").
+     */
+    merge?: {
+      /** Resolved per item via `resolveValue` against `{ $item, $index }` — e.g. `"$item.title"`. */
+      text: string
+      /** Between consecutive items. Default `", "`. */
+      separator?: string
+      /** Appended once, after the last item. Default `""`. */
+      end?: string
+    }
   }
 }
 
@@ -101,22 +112,12 @@ export type JoinNode = {
   }
 }
 
-/** Page number node. */
-export type PageNumberNode = {
-  pageNumber: true
-  id?: string
-  format?: string
-  style?: Style
-  styles?: string | string[]
-}
-
 export type TemplateNode =
   | ElementNode
   | BlockInstanceNode
   | RepeatNode
   | IfNode
   | JoinNode
-  | PageNumberNode
 
 export type BlockDef = {
   props?: string[]
@@ -125,8 +126,22 @@ export type BlockDef = {
 
 export type TemplateSettings = {
   styles?: Record<string, Style>
-  nodes?: Record<string, { hidden?: boolean }>
+  /** Per-CV overrides onto `TemplateDefinition.page` — see the Page tab. */
+  page?: Partial<PageConfig>
+  /**
+   * Per-CV overrides keyed by a node's own `id` — addresses one specific
+   * node in the template tree (e.g. the Skills section's bullet marker,
+   * independent of Work's), not every use of a block by name. `text` is run
+   * through the same `resolveValue` any node's own `text` gets, so an
+   * override can be a literal ("- ") or a sigil/interpolated string
+   * ("$item.title") to rebind the node to different data. See the Block
+   * Settings tab.
+   */
+  nodes?: Record<string, { hidden?: boolean; styles?: string | string[]; text?: string }>
 }
+
+/** Human-readable label + blurb for one entry in `stylesSchema`/`blocksSchema`. */
+export type SchemaMeta = { title: string; description?: string }
 
 export type TemplateDefinition = {
   schemaVersion: 2
@@ -139,6 +154,10 @@ export type TemplateDefinition = {
   page: PageConfig
   styles: Record<string, StyleDef>
   blocks: Record<string, BlockDef>
+  /** Title + description per `styles` key — powers the Style tab's picker labels. */
+  stylesSchema?: Record<string, SchemaMeta>
+  /** Title + description per `blocks` key — powers the Block Settings tab's group labels. */
+  blocksSchema?: Record<string, SchemaMeta>
   root: TemplateNode
 }
 
@@ -195,7 +214,6 @@ const templateNodeSchema: z.ZodTypeAny = z.lazy(() =>
     repeatNodeSchema,
     ifNodeSchema,
     joinNodeSchema,
-    pageNumberNodeSchema,
   ])
 )
 
@@ -216,9 +234,6 @@ const elementNodeSchema = z
     attrs: z.record(z.string(), z.string()).optional(),
     text: z.string().optional(),
     children: z.array(templateNodeSchema).optional(),
-    fixed: z.boolean().optional(),
-    break: z.boolean().optional(),
-    wrap: z.boolean().optional(),
   })
   .strict()
 
@@ -257,6 +272,14 @@ const repeatNodeSchema = z
         style: styleSchema.optional(),
         styles: z.union([z.string(), z.array(z.string())]).optional(),
         separator: templateNodeSchema.optional(),
+        merge: z
+          .object({
+            text: z.string(),
+            separator: z.string().optional(),
+            end: z.string().optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict(),
   })
@@ -287,19 +310,14 @@ const joinNodeSchema = z
   })
   .strict()
 
-const pageNumberNodeSchema = z
-  .object({
-    pageNumber: z.literal(true),
-    id: z.string().optional(),
-    format: z.string().optional(),
-    style: styleSchema.optional(),
-    styles: z.union([z.string(), z.array(z.string())]).optional(),
-  })
-  .strict()
-
 const blockDefSchema = z.object({
   props: z.array(z.string()).optional(),
   node: templateNodeSchema,
+})
+
+const schemaMetaSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
 })
 
 export const templateDefinitionSchema = z.object({
@@ -313,13 +331,22 @@ export const templateDefinitionSchema = z.object({
   page: pageConfigSchema,
   styles: z.record(z.string(), styleDefSchema),
   blocks: z.record(z.string(), blockDefSchema),
+  stylesSchema: z.record(z.string(), schemaMetaSchema).optional(),
+  blocksSchema: z.record(z.string(), schemaMetaSchema).optional(),
   root: templateNodeSchema,
 })
 
 export const templateSettingsSchema = z.object({
   styles: z.record(z.string(), styleSchema).optional(),
-  nodes: z.record(z.string(), z.object({ hidden: z.boolean().optional() }))
-    .optional(),
+  page: pageConfigSchema.partial().optional(),
+  nodes: z.record(
+    z.string(),
+    z.object({
+      hidden: z.boolean().optional(),
+      styles: z.union([z.string(), z.array(z.string())]).optional(),
+      text: z.string().optional(),
+    })
+  ).optional(),
 })
 
 /**

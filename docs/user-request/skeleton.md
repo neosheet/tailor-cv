@@ -1,0 +1,1 @@
+on every loading state, display as skeleton shadcn on the component. Don't use 'loading...' text

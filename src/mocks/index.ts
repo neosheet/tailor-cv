@@ -150,6 +150,7 @@ export function createItem(
     endDate: null,
     details: input.details ?? {},
     yearsExperience: null,
+    categoryId: null,
     tags,
     note: input.note ?? null,
     favorite: false,

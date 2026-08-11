@@ -1,5 +1,5 @@
 import type { InventoryStore } from "@/lib/inventory-store"
-import type { PersonaData } from "@/lib/persona-store"
+import type { PersonaData, PersonaStore } from "@/lib/persona-store"
 import { resolveCv } from "@/lib/cv"
 import { buildCvSnapshot, templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
 import type { CvTemplate } from "@/lib/cv-templates"
@@ -203,6 +203,50 @@ export async function deleteApplication(
   )
 }
 
+/** Archives an application (soft-hide from the list, until restored). */
+export async function archiveApplication(
+  store: ApplicationStore,
+  applicationId: string
+): Promise<DbApplication> {
+  const { data, error } = await supabase
+    .from("applications")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", applicationId)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const updated = mapApplicationRow(data)
+  store.setApplications((current) =>
+    current.map((a) => (a.id === applicationId ? updated : a))
+  )
+
+  return updated
+}
+
+/** Restores a previously archived application. */
+export async function restoreApplication(
+  store: ApplicationStore,
+  applicationId: string
+): Promise<DbApplication> {
+  const { data, error } = await supabase
+    .from("applications")
+    .update({ archived_at: null })
+    .eq("id", applicationId)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const updated = mapApplicationRow(data)
+  store.setApplications((current) =>
+    current.map((a) => (a.id === applicationId ? updated : a))
+  )
+
+  return updated
+}
+
 // ---------------------------------------------------------------------------
 // Mutator — status changes + the freeze
 // ---------------------------------------------------------------------------
@@ -225,7 +269,7 @@ export async function deleteApplication(
  */
 export async function setGlobalApplicationStatus(
   store: ApplicationStore,
-  persona: PersonaData,
+  persona: PersonaStore,
   inventory: InventoryStore,
   applicationId: string,
   next: GlobalApplicationStatus,
@@ -245,6 +289,13 @@ export async function setGlobalApplicationStatus(
   if (current.globalStatus === "draft" && next !== "draft") {
     if (!current.cvId) {
       throw new Error("Cannot leave draft without an attached CV.")
+    }
+
+    // The freeze writes `cv_snapshot` exactly once, ever — resolving it from
+    // a persona/inventory store that hasn't finished its initial fetch would
+    // silently bake in an empty document with no way to ever re-capture it.
+    if (persona.loading || inventory.loading) {
+      throw new Error("Still loading your CVs — try again in a moment.")
     }
 
     const resolved = resolveCv(persona, inventory, current.cvId)

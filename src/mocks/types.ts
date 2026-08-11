@@ -323,6 +323,7 @@ export type DbApplication = DbTimestamps & {
   cvSnapshot: CvSnapshotV1 | null
   note: string | null
   tags: string[]
+  archivedAt: string | null
 }
 
 // ---------------------------------------------------------------------------

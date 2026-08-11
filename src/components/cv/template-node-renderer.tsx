@@ -12,15 +12,16 @@ import type {
   ElementNode,
   IfNode,
   JoinNode,
-  PageNumberNode,
+  PageConfig,
   RepeatNode,
   TemplateDefinition,
   TemplateNode,
+  TemplateSettings,
 } from "@/lib/cv-template-schema"
 import type { ResumeDocument } from "@/lib/persona"
 
 /**
- * DOM backend renderer for spec 07 CV templates.
+ * DOM renderer for spec 07 CV templates.
  * Mirrors json-ui/renderer.jsx but adapted to spec 07's exact shapes.
  * Uses shared core (resolveValue, resolveStyleObject) for scope and style resolution.
  */
@@ -42,15 +43,27 @@ const UNITLESS = new Set([
 const K = 96 / 72
 
 /**
- * react-pdf (yoga) style shorthands that plain CSS doesn't understand —
- * expanded to real longhands so the DOM backend renders the same padding/
- * margin as the PDF backend instead of silently dropping them.
+ * Yoga-style shorthands (inherited from the json-ui reference format) that
+ * plain CSS doesn't understand — expanded to real longhands so they aren't
+ * silently dropped.
  */
 const SHORTHAND: Record<string, [keyof CSSProperties, keyof CSSProperties]> = {
   paddingVertical: ["paddingTop", "paddingBottom"],
   paddingHorizontal: ["paddingLeft", "paddingRight"],
   marginVertical: ["marginTop", "marginBottom"],
   marginHorizontal: ["marginLeft", "marginRight"],
+}
+
+/** One node-id's override from `TemplateSettings.nodes` — see the Block Settings tab. */
+type NodeOverride = { hidden?: boolean; styles?: string | string[]; text?: string }
+
+function nodeOverride(
+  id: string | undefined,
+  settings: Record<string, unknown> | undefined
+): NodeOverride | undefined {
+  if (!id) return undefined
+  const nodes = settings?.nodes as Record<string, NodeOverride> | undefined
+  return nodes?.[id]
 }
 
 /** Falsy for `if`, empty arrays, empty strings, etc. */
@@ -101,10 +114,7 @@ function renderNode(
   settings: Record<string, unknown> | undefined,
   expanding: Set<string>
 ): ReactNode {
-  // Structural dispatch per spec 07 order (pageNumber → repeat → block → if → join → else ElementNode)
-  if ("pageNumber" in node) {
-    return renderPageNumber(node as PageNumberNode, scope, data, blocks, styles, settings)
-  }
+  // Structural dispatch per spec 07 order (repeat → block → if → join → else ElementNode)
   if ("repeat" in node) {
     return renderRepeat(node as RepeatNode, scope, data, blocks, styles, settings, expanding)
   }
@@ -122,32 +132,6 @@ function renderNode(
   return renderElement(node as ElementNode, scope, data, blocks, styles, settings, expanding)
 }
 
-function renderPageNumber(
-  node: PageNumberNode,
-  _scope: TemplateScope,
-  _data: ResumeDocument,
-  _blocks: Record<string, BlockDef>,
-  styles: Record<string, Style>,
-  settings: Record<string, unknown> | undefined,
-): ReactNode {
-  // DOM backend is static (no real page numbers in preview)
-  const format = node.format || "{n} / {t}"
-  const text = format.replace("{n}", "1").replace("{t}", "1")
-
-  const resolvedStyle = resolveStyleObject(
-    node.styles,
-    styles,
-    node.style,
-    (settings?.styles as Record<string, unknown>) ?? undefined
-  )
-  const cssStyle = scaleStyle(resolvedStyle)
-
-  if (cssStyle) {
-    return <span style={cssStyle}>{text}</span>
-  }
-  return text
-}
-
 function renderElement(
   node: ElementNode,
   scope: TemplateScope,
@@ -157,10 +141,16 @@ function renderElement(
   settings: Record<string, unknown> | undefined,
   expanding: Set<string>
 ): ReactNode {
-  // Check if hidden by settings
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (node.id && (settings?.nodes as any)?.[node.id]?.hidden) {
+  const override = nodeOverride(node.id, settings)
+  if (override?.hidden) {
     return null
+  }
+  if (override?.styles !== undefined || override?.text !== undefined) {
+    node = {
+      ...node,
+      ...(override.styles !== undefined ? { styles: override.styles } : {}),
+      ...(override.text !== undefined ? { text: override.text } : {}),
+    }
   }
 
   const tag = node.tag
@@ -191,10 +181,11 @@ function renderElement(
       }
     }
 
-    if(!tag){
-      return content
+    if (!tag) {
+      // No wrapping element requested — but a style still needs somewhere to
+      // live, so fall back to a bare `<span>` rather than silently dropping it.
+      return cssStyle ? <span style={cssStyle}>{content}</span> : content
     }
-
 
     return createElement(tag, { style: cssStyle }, content)
   }
@@ -210,11 +201,11 @@ function renderElement(
       return null
     }
 
-    return createElement(tag, { style: cssStyle }, ...rendered)
+    return createElement(tag ?? "div", { style: cssStyle }, ...rendered)
   }
 
   // Empty element
-  return createElement(tag, { style: cssStyle })
+  return createElement(tag ?? "div", { style: cssStyle })
 }
 
 function renderRepeat(
@@ -227,6 +218,12 @@ function renderRepeat(
   expanding: Set<string>
 ): ReactNode {
   const { repeat } = node
+  const override = nodeOverride(repeat.id, settings)
+  if (override?.hidden) {
+    return null
+  }
+  const repeatStyles = override?.styles !== undefined ? override.styles : repeat.styles
+
   const arrayValue = resolveValue(repeat.for, scope, data)
   if (!Array.isArray(arrayValue) || arrayValue.length === 0) {
     return null
@@ -261,6 +258,29 @@ function renderRepeat(
   }
 
   const tag = repeat.tag ?? "div"
+
+  if (repeat.merge) {
+    const { text, separator = ", ", end = "" } = repeat.merge
+    const parts = candidates
+      .map((item, index) => resolveValue(text, { item, index }, data))
+      .filter((value) => !isEmpty(value))
+      .map((value) => String(value))
+
+    if (parts.length === 0) {
+      return null
+    }
+
+    const resolvedStyle = resolveStyleObject(
+      repeatStyles,
+      styles,
+      repeat.style,
+      (settings?.styles as Record<string, unknown>) ?? undefined
+    )
+    const cssStyle = scaleStyle(resolvedStyle)
+
+    return createElement(tag, { style: cssStyle }, parts.join(separator) + end)
+  }
+
   const rendered = candidates.map((item, index) => {
     // Resolve `as` mapping against {item, index}
     const itemScope: TemplateScope = {}
@@ -301,7 +321,7 @@ function renderRepeat(
   })
 
   const resolvedStyle = resolveStyleObject(
-    repeat.styles,
+    repeatStyles,
     styles,
     repeat.style,
     (settings?.styles as Record<string, unknown>) ?? undefined
@@ -350,6 +370,11 @@ function renderBlockInstance(
     )
   }
 
+  const override = nodeOverride(node.id, settings)
+  if (override?.hidden) {
+    return null
+  }
+
   // Resolve props and create new scope
   const propScope: Record<string, unknown> = {}
   if (node.props) {
@@ -362,9 +387,22 @@ function renderBlockInstance(
   const nextExpanding = new Set(expanding)
   nextExpanding.add(node.block)
 
+  // A style/text override targets this instantiation site specifically, so
+  // it patches the block's own root node rather than the (styleless)
+  // BlockInstanceNode wrapper — e.g. overriding the h2 `sectionHeading`
+  // renders with, not some wrapper around it.
+  let rootNode = blockDef.node
+  if (override?.styles !== undefined || override?.text !== undefined) {
+    rootNode = {
+      ...rootNode,
+      ...(override.styles !== undefined ? { styles: override.styles } : {}),
+      ...(override.text !== undefined ? { text: override.text } : {}),
+    } as TemplateNode
+  }
+
   // Render the block's node tree
   return renderNode(
-    blockDef.node,
+    rootNode,
     nextScope,
     data,
     blocks,
@@ -464,19 +502,21 @@ export function TemplateNodeRenderer({
 }: {
   definition: TemplateDefinition
   context: ResumeDocument
-  settings?: Record<string, unknown>
+  settings?: TemplateSettings
   className?: string
   ref?: React.Ref<HTMLDivElement>
 }) {
+  // Per-CV overrides (Page tab) shallow-merged onto the template's own page
+  // config — same "settings patch onto template base" pattern styles use.
+  const page: PageConfig = { ...definition.page, ...settings?.page }
   const {
-    page: {
-      size,
-      fontFamily = "Helvetica",
-      fontSize = 10,
-      lineHeight = 1.4,
-      color = "#111827",
-    },
-  } = definition
+    size,
+    orientation = "portrait",
+    fontFamily = "Helvetica",
+    fontSize = 10,
+    lineHeight = 1.4,
+    color = "#111827",
+  } = page
 
   // Page dimensions in points; scale to pixels for DOM
   const pageSizeMap: Record<string, { width: number; height: number }> = {
@@ -486,9 +526,13 @@ export function TemplateNodeRenderer({
   }
 
   const pageDim = pageSizeMap[size]
-  const pageWidthPx = Math.round(pageDim.width * K)
-  const pageHeightPx = Math.round(pageDim.height * K)
-  const pageMarginPx = Math.round((definition.page.margin ?? 0) * K)
+  const [pageWidthPt, pageHeightPt] =
+    orientation === "landscape"
+      ? [pageDim.height, pageDim.width]
+      : [pageDim.width, pageDim.height]
+  const pageWidthPx = Math.round(pageWidthPt * K)
+  const pageHeightPx = Math.round(pageHeightPt * K)
+  const pageMarginPx = Math.round((page.margin ?? 0) * K)
 
   return (
     <div

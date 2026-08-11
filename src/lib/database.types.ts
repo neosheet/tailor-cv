@@ -80,6 +80,7 @@ export type Database = {
       applications: {
         Row: {
           apply_via: string | null
+          archived_at: string | null
           company: string | null
           cover_letter: string | null
           created_at: string
@@ -103,6 +104,7 @@ export type Database = {
         }
         Insert: {
           apply_via?: string | null
+          archived_at?: string | null
           company?: string | null
           cover_letter?: string | null
           created_at?: string
@@ -128,6 +130,7 @@ export type Database = {
         }
         Update: {
           apply_via?: string | null
+          archived_at?: string | null
           company?: string | null
           cover_letter?: string | null
           created_at?: string

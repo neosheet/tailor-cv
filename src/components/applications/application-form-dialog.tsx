@@ -21,17 +21,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { NoteInput } from "@/components/inventory/note-input"
 import { TagInput } from "@/components/inventory/tag-input"
+import { DeadlineDatePicker } from "@/components/applications/deadline-date-picker"
+import { VacancyDetailEditor } from "@/components/applications/vacancy-detail-editor"
 import type { ApplicationFormFields } from "@/lib/application"
+import { APPLICATION_JOB_TYPES, JOB_TYPE_LABEL } from "@/lib/application-job-type"
+import { APPLICATION_WORK_TYPES, WORK_TYPE_LABEL } from "@/lib/application-work-type"
+import { isEmptyHtml } from "@/lib/quill-html"
+import type { ApplicationJobType, ApplicationWorkType } from "@/mocks/types"
 
 /** Sentinel for the CV select's "no CV" option — `Select` needs a string value, `cvId` is `string | null`. */
 const NO_CV = "none"
 
+/** Sentinel for the job/work type selects' unset option — same reasoning as `NO_CV`. */
+const NO_VALUE = "none"
+
 /**
- * Title, Source, Vacancy detail, Apply via, and a CV picker — the fields an
- * application itself owns. One component, used both for New Application and
+ * Title, Company/Position/Location, Job type/Working type/Deadline, Source,
+ * Vacancy detail, Cover letter, Apply via, and a CV picker — the fields an application
+ * itself owns. One component, used both for New Application and
  * for editing an existing one from the detail Sheet (`ApplicationDetailSheet`
  * opens this in edit mode rather than duplicating the field markup inline —
  * see that file's comment for why). Styled to match `CvFormDialog`: an
@@ -43,8 +52,15 @@ export function ApplicationFormDialog({
   title,
   confirmLabel,
   initialTitle = "",
+  initialCompany = "",
+  initialPosition = "",
+  initialLocation = "",
+  initialJobType = null,
+  initialWorkType = null,
+  initialDeadline = null,
   initialSourceUrl = "",
   initialVacancyDetail = "",
+  initialCoverLetter = "",
   initialApplyVia = "",
   initialCvId = null,
   initialNote = null,
@@ -57,8 +73,15 @@ export function ApplicationFormDialog({
   title: string
   confirmLabel: string
   initialTitle?: string
+  initialCompany?: string
+  initialPosition?: string
+  initialLocation?: string
+  initialJobType?: ApplicationJobType | null
+  initialWorkType?: ApplicationWorkType | null
+  initialDeadline?: string | null
   initialSourceUrl?: string
   initialVacancyDetail?: string
+  initialCoverLetter?: string
   initialApplyVia?: string
   initialCvId?: string | null
   initialNote?: string | null
@@ -67,8 +90,15 @@ export function ApplicationFormDialog({
   onSubmit: (fields: ApplicationFormFields) => Promise<void>
 }) {
   const [applicationTitle, setApplicationTitle] = React.useState(initialTitle)
+  const [company, setCompany] = React.useState(initialCompany)
+  const [position, setPosition] = React.useState(initialPosition)
+  const [location, setLocation] = React.useState(initialLocation)
+  const [jobType, setJobType] = React.useState(initialJobType ?? NO_VALUE)
+  const [workType, setWorkType] = React.useState(initialWorkType ?? NO_VALUE)
+  const [deadline, setDeadline] = React.useState(initialDeadline)
   const [sourceUrl, setSourceUrl] = React.useState(initialSourceUrl)
   const [vacancyDetail, setVacancyDetail] = React.useState(initialVacancyDetail)
+  const [coverLetter, setCoverLetter] = React.useState(initialCoverLetter)
   const [applyVia, setApplyVia] = React.useState(initialApplyVia)
   const [cvId, setCvId] = React.useState(initialCvId ?? NO_CV)
   const [note, setNote] = React.useState(initialNote)
@@ -82,8 +112,15 @@ export function ApplicationFormDialog({
     setWasOpen(open)
     if (open) {
       setApplicationTitle(initialTitle)
+      setCompany(initialCompany)
+      setPosition(initialPosition)
+      setLocation(initialLocation)
+      setJobType(initialJobType ?? NO_VALUE)
+      setWorkType(initialWorkType ?? NO_VALUE)
+      setDeadline(initialDeadline)
       setSourceUrl(initialSourceUrl)
       setVacancyDetail(initialVacancyDetail)
+      setCoverLetter(initialCoverLetter)
       setApplyVia(initialApplyVia)
       setCvId(initialCvId ?? NO_CV)
       setNote(initialNote)
@@ -92,6 +129,14 @@ export function ApplicationFormDialog({
   }
 
   const cvSelectOptions = [{ value: NO_CV, label: "No CV" }, ...cvOptions]
+  const jobTypeOptions = [
+    { value: NO_VALUE, label: "Not specified" },
+    ...APPLICATION_JOB_TYPES.map((value) => ({ value, label: JOB_TYPE_LABEL[value] })),
+  ]
+  const workTypeOptions = [
+    { value: NO_VALUE, label: "Not specified" },
+    ...APPLICATION_WORK_TYPES.map((value) => ({ value, label: WORK_TYPE_LABEL[value] })),
+  ]
 
   const canSubmit = applicationTitle.trim() !== ""
 
@@ -103,8 +148,15 @@ export function ApplicationFormDialog({
     try {
       await onSubmit({
         title: trimmed,
+        company: company.trim() || null,
+        position: position.trim() || null,
+        location: location.trim() || null,
+        jobType: jobType === NO_VALUE ? null : (jobType as ApplicationJobType),
+        workType: workType === NO_VALUE ? null : (workType as ApplicationWorkType),
+        deadline,
         sourceUrl: sourceUrl.trim() || null,
-        vacancyDetail: vacancyDetail.trim() || null,
+        vacancyDetail: isEmptyHtml(vacancyDetail) ? null : vacancyDetail,
+        coverLetter: isEmptyHtml(coverLetter) ? null : coverLetter,
         applyVia: applyVia.trim() || null,
         cvId: cvId === NO_CV ? null : cvId,
         note,
@@ -118,7 +170,7 @@ export function ApplicationFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -144,6 +196,89 @@ export function ApplicationFormDialog({
                 />
               </InputGroup>
             </Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field>
+                <FieldLabel htmlFor="application-company">Company</FieldLabel>
+                <Input
+                  id="application-company"
+                  placeholder="Acme Inc."
+                  value={company}
+                  onChange={(event) => setCompany(event.target.value)}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="application-position">Position</FieldLabel>
+                <Input
+                  id="application-position"
+                  placeholder="Senior Engineer"
+                  value={position}
+                  onChange={(event) => setPosition(event.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field>
+                <FieldLabel htmlFor="application-location">Location</FieldLabel>
+                <Input
+                  id="application-location"
+                  placeholder="Jakarta, Indonesia"
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="application-deadline">Deadline</FieldLabel>
+                <DeadlineDatePicker
+                  id="application-deadline"
+                  value={deadline}
+                  onValueChange={setDeadline}
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field>
+                <FieldLabel htmlFor="application-job-type">Job type</FieldLabel>
+                <Select
+                  items={jobTypeOptions}
+                  value={jobType}
+                  onValueChange={(next) => setJobType(next as string)}
+                >
+                  <SelectTrigger id="application-job-type" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {jobTypeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="application-work-type">Working type</FieldLabel>
+                <Select
+                  items={workTypeOptions}
+                  value={workType}
+                  onValueChange={(next) => setWorkType(next as string)}
+                >
+                  <SelectTrigger id="application-work-type" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {workTypeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
             <Field>
               <FieldLabel htmlFor="application-source">Source</FieldLabel>
               <Input
@@ -155,11 +290,20 @@ export function ApplicationFormDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="application-vacancy-detail">Vacancy detail</FieldLabel>
-              <Textarea
+              <VacancyDetailEditor
                 id="application-vacancy-detail"
-                placeholder="Paste the job description or notes"
                 value={vacancyDetail}
-                onChange={(event) => setVacancyDetail(event.target.value)}
+                onValueChange={setVacancyDetail}
+                placeholder="Paste the job description or notes"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="application-cover-letter">Cover letter</FieldLabel>
+              <VacancyDetailEditor
+                id="application-cover-letter"
+                value={coverLetter}
+                onValueChange={setCoverLetter}
+                placeholder="Write or paste your cover letter"
               />
             </Field>
             <Field>

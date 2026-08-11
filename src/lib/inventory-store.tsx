@@ -19,9 +19,17 @@ export type InventoryData = {
   itemSkills: DbItemSkill[]
 }
 
+export type SkillCategory = {
+  id: string
+  name: string
+  position: number
+}
+
 export type InventoryStore = InventoryData & {
   /** The tag registry — names only, mirroring `mocks/tags.ts`'s in-memory list. */
   tags: string[]
+  /** The skill category registry — FK rows, unlike `tags`' flat name array. */
+  skillCategories: SkillCategory[]
   /** Null until auth resolves; mutators need this to scope their writes. */
   userId: string | null
   loading: boolean
@@ -31,6 +39,7 @@ export type InventoryStore = InventoryData & {
   setLines: React.Dispatch<React.SetStateAction<DbInventoryLine[]>>
   setItemSkills: React.Dispatch<React.SetStateAction<DbItemSkill[]>>
   setTags: React.Dispatch<React.SetStateAction<string[]>>
+  setSkillCategories: React.Dispatch<React.SetStateAction<SkillCategory[]>>
 }
 
 const InventoryStoreContext = React.createContext<InventoryStore | null>(null)
@@ -52,6 +61,7 @@ export function mapItemRow(row: Tables<"inventory_items">): DbInventoryItem {
     endDate: row.end_date,
     details: (row.details ?? {}) as Record<string, unknown>,
     yearsExperience: row.years_experience,
+    categoryId: row.category_id,
     tags: row.tags,
     note: row.note,
     favorite: row.favorite,
@@ -82,6 +92,14 @@ export function mapItemSkillRow(row: Tables<"item_skills">): DbItemSkill {
     position: row.position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  }
+}
+
+export function mapSkillCategoryRow(row: Tables<"skill_categories">): SkillCategory {
+  return {
+    id: row.id,
+    name: row.name,
+    position: row.position,
   }
 }
 
@@ -121,6 +139,7 @@ export function InventoryStoreProvider({
   const [lines, setLines] = React.useState<DbInventoryLine[]>([])
   const [itemSkills, setItemSkills] = React.useState<DbItemSkill[]>([])
   const [tags, setTags] = React.useState<string[]>([])
+  const [skillCategories, setSkillCategories] = React.useState<SkillCategory[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
   const [version, setVersion] = React.useState(0)
@@ -148,11 +167,16 @@ export function InventoryStoreProvider({
 
         const itemIds = (itemRows ?? []).map((row) => row.id)
 
-        const [linesResult, skillsResult, tagsResult] = await Promise.all([
+        const [linesResult, skillsResult, tagsResult, categoriesResult] = await Promise.all([
           fetchLinesForItems(itemIds),
           fetchSkillsForItems(itemIds),
           supabase
             .from("tags")
+            .select("*")
+            .eq("user_id", userId as string)
+            .order("name"),
+          supabase
+            .from("skill_categories")
             .select("*")
             .eq("user_id", userId as string)
             .order("name"),
@@ -161,6 +185,7 @@ export function InventoryStoreProvider({
         if (linesResult.error) throw linesResult.error
         if (skillsResult.error) throw skillsResult.error
         if (tagsResult.error) throw tagsResult.error
+        if (categoriesResult.error) throw categoriesResult.error
 
         if (cancelled) return
 
@@ -168,6 +193,7 @@ export function InventoryStoreProvider({
         setLines((linesResult.data ?? []).map(mapLineRow))
         setItemSkills((skillsResult.data ?? []).map(mapItemSkillRow))
         setTags((tagsResult.data ?? []).map((row) => row.name))
+        setSkillCategories((categoriesResult.data ?? []).map(mapSkillCategoryRow))
       } catch (caught) {
         if (!cancelled) {
           setError(toError(caught))
@@ -194,6 +220,7 @@ export function InventoryStoreProvider({
       lines,
       itemSkills,
       tags,
+      skillCategories,
       userId,
       loading,
       error,
@@ -202,8 +229,9 @@ export function InventoryStoreProvider({
       setLines,
       setItemSkills,
       setTags,
+      setSkillCategories,
     }),
-    [items, lines, itemSkills, tags, userId, loading, error, refetch]
+    [items, lines, itemSkills, tags, skillCategories, userId, loading, error, refetch]
   )
 
   return (

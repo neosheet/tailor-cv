@@ -1,4 +1,6 @@
+import { batch1DemoTemplateDefinition } from "@/lib/cv-template-defs/batch1-demo"
 import { classicTemplateDefinition } from "@/lib/cv-template-defs/classic"
+import { twoColumnTemplateDefinition } from "@/lib/cv-template-defs/two-column"
 import type { TemplateDefinition } from "@/lib/cv-template-schema"
 
 /**
@@ -36,5 +38,25 @@ export const cvTemplates: CvTemplate[] = [
     density: "Balanced",
     atsSafe: true,
     bestFor: "Most applications, and anything going through a job portal",
+  },
+  {
+    id: "two-column",
+    name: "Two Column",
+    description:
+      "A centred header over a two-column body: Experience leads in a wide main column, everything else sits in a compact side column.",
+    definition: twoColumnTemplateDefinition,
+    density: "Balanced",
+    atsSafe: false,
+    bestFor: "Design-forward applications reviewed by a person rather than parsed by a bot",
+  },
+  {
+    id: "batch1-demo",
+    name: "Batch 1 Demo (interpolation + merge)",
+    description:
+      "Classic, but the intro line uses string interpolation and the Skills section renders as one merged, comma-separated sentence instead of a list — a live test surface for the two new template-engine capabilities, not a real layout choice.",
+    definition: batch1DemoTemplateDefinition,
+    density: "Balanced",
+    atsSafe: false,
+    bestFor: "Trying out Batch 1's template-engine changes against real data",
   },
 ]

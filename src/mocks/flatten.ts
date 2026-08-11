@@ -91,6 +91,7 @@ export function flatten(pools: SourcePool[], userId: string) {
         endDate: source.endDate ?? null,
         details: source.details ?? {},
         yearsExperience: source.yearsExperience ?? null,
+        categoryId: null,
         tags: source.tags ?? [],
         note: source.note ?? null,
         favorite: source.favorite ?? false,

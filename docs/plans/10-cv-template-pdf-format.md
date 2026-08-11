@@ -1,5 +1,12 @@
 # 10 — CV Template Format v2: JSON-UI Structure + Real PDF Output
 
+**Archival note (`native-print` branch):** the PDF backend this plan builds
+(`template-pdf-renderer.tsx`, `@react-pdf/renderer`) was executed as written, then later
+confirmed dead code and deleted outright once `cv-print.tsx` switched to native
+`window.print()` — see [specs/07](../specs/07-cv-template-pdf-format.md)'s amendment
+note and `docs/progress.md`. Kept here as the historical record of that phase's
+execution, same as spec 05 is kept relative to spec 07.
+
 Implements [specs/07-cv-template-pdf-format.md](../specs/07-cv-template-pdf-format.md)
 (supersedes [specs/05](../specs/05-cv-template-format.md) and its plan,
 [plans/06](06-cv-template-format.md), which was never executed). Replaces the current

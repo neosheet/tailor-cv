@@ -159,6 +159,8 @@ export type ItemInput = {
   startDate?: string | null
   endDate?: string | null
   yearsExperience?: number | null
+  /** Skills only. */
+  categoryId?: string | null
 }
 
 export type ContactDetails = {
@@ -268,6 +270,7 @@ export async function createItem(
       start_date: input.startDate ?? null,
       end_date: input.endDate ?? null,
       years_experience: input.yearsExperience ?? null,
+      category_id: input.categoryId ?? null,
       position: itemsOfKind(store, kind).length,
     })
     .select()
@@ -310,6 +313,7 @@ export async function updateItem(
       ...(patch.yearsExperience !== undefined
         ? { years_experience: patch.yearsExperience }
         : {}),
+      ...(patch.categoryId !== undefined ? { category_id: patch.categoryId } : {}),
     })
     .eq("id", itemId)
     .select()
