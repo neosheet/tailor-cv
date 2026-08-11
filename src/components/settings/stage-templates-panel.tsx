@@ -51,6 +51,7 @@ import {
 } from "@/lib/stage-templates"
 import { useApplicationStore } from "@/lib/application-store"
 import type { BuiltInStageCategory, DbStageTemplate } from "@/mocks/types"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 
 /**
  * The Stage Templates registry — every reusable stage name + default category,
@@ -72,8 +73,15 @@ export function StageTemplatesPanel() {
   const templates = listStageTemplates(store)
   const [query, setQuery] = React.useState("")
 
-  const [renaming, setRenaming] = React.useState<DbStageTemplate | null>(null)
-  const [deleting, setDeleting] = React.useState<DbStageTemplate | null>(null)
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const renaming =
+    dialog === "rename-stage-template"
+      ? (templates.find((template) => template.id === get("id")) ?? null)
+      : null
+  const deleting =
+    dialog === "delete-stage-template"
+      ? (templates.find((template) => template.id === get("id")) ?? null)
+      : null
 
   const needle = query.trim().toLowerCase()
   const visible = needle
@@ -147,7 +155,9 @@ export function StageTemplatesPanel() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => setRenaming(template)}
+                        onClick={() =>
+                          open("rename-stage-template", { id: template.id })
+                        }
                         aria-label={`Rename ${template.name}`}
                       >
                         <PencilIcon />
@@ -155,7 +165,9 @@ export function StageTemplatesPanel() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => setDeleting(template)}
+                        onClick={() =>
+                          open("delete-stage-template", { id: template.id })
+                        }
                         aria-label={`Delete ${template.name}`}
                       >
                         <Trash2Icon />
@@ -174,10 +186,10 @@ export function StageTemplatesPanel() {
           key={renaming.id}
           template={renaming}
           open
-          onCancel={() => setRenaming(null)}
+          onCancel={() => close(["id"])}
           onRename={async (name, category) => {
             await updateStageTemplate(store, renaming.id, { name, category })
-            setRenaming(null)
+            close(["id"])
           }}
         />
       ) : null}
@@ -186,10 +198,10 @@ export function StageTemplatesPanel() {
         <DeleteStageTemplateDialog
           template={deleting}
           open
-          onCancel={() => setDeleting(null)}
+          onCancel={() => close(["id"])}
           onDelete={async () => {
             await deleteStageTemplate(store, deleting.id)
-            setDeleting(null)
+            close(["id"])
           }}
         />
       ) : null}

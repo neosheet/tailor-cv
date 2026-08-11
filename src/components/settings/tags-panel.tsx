@@ -37,9 +37,9 @@ import {
   listTags,
   renameTag,
   validateTagName,
-  type TagUsage,
 } from "@/lib/tags"
 import { useInventoryStore } from "@/lib/inventory-store"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 
 /**
  * The tag registry — every tag, what it's on, and the three things you can do
@@ -56,8 +56,20 @@ export function TagsPanel() {
   const [query, setQuery] = React.useState("")
 
   // Which rows a dialog is open for. One dialog for the table, not one per row.
-  const [renaming, setRenaming] = React.useState<TagUsage | null>(null)
-  const [deleting, setDeleting] = React.useState<TagUsage[] | null>(null)
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const renaming =
+    dialog === "rename-tag"
+      ? (tags.find((tag) => tag.name === get("id")) ?? null)
+      : null
+  const deleting =
+    dialog === "delete-tag"
+      ? (() => {
+          const ids = get("ids")?.split(",") ?? []
+          const names = new Set(ids)
+          const matched = tags.filter((tag) => names.has(tag.name))
+          return matched.length > 0 ? matched : null
+        })()
+      : null
 
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(new Set())
 
@@ -95,7 +107,7 @@ export function TagsPanel() {
     }
 
     setSelected(new Set())
-    setDeleting(null)
+    close(["ids"])
   }
 
   return (
@@ -136,7 +148,7 @@ export function TagsPanel() {
               count={selected.size}
               onClear={() => setSelected(new Set())}
               onDelete={() =>
-                setDeleting(tags.filter((tag) => selected.has(tag.name)))
+                open("delete-tag", { ids: Array.from(selected).join(",") })
               }
             />
           ) : null}
@@ -193,7 +205,7 @@ export function TagsPanel() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => setRenaming(tag)}
+                        onClick={() => open("rename-tag", { id: tag.name })}
                         aria-label={`Rename ${tag.name}`}
                       >
                         <PencilIcon />
@@ -201,7 +213,7 @@ export function TagsPanel() {
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => setDeleting([tag])}
+                        onClick={() => open("delete-tag", { ids: tag.name })}
                         aria-label={`Delete ${tag.name}`}
                       >
                         <Trash2Icon />
@@ -221,10 +233,10 @@ export function TagsPanel() {
           key={renaming.name}
           tag={renaming}
           open
-          onCancel={() => setRenaming(null)}
+          onCancel={() => close(["id"])}
           onRename={async (name) => {
             await renameTag(store, renaming.name, name)
-            setRenaming(null)
+            close(["id"])
           }}
         />
       ) : null}
@@ -233,7 +245,7 @@ export function TagsPanel() {
         <DeleteTagDialog
           tags={deleting}
           open
-          onCancel={() => setDeleting(null)}
+          onCancel={() => close(["ids"])}
           onDelete={() => applyDelete(deleting.map((tag) => tag.name))}
         />
       ) : null}

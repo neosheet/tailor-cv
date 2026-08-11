@@ -13,6 +13,7 @@ import { TagsPanel } from "@/components/settings/tags-panel"
 import { SkillCategoriesPanel } from "@/components/settings/skill-categories-panel"
 import { StageTemplatesPanel } from "@/components/settings/stage-templates-panel"
 import { sections } from "@/lib/navigation"
+import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 
 /**
  * Settings, one tab per thing there is to configure.
@@ -22,12 +23,13 @@ import { sections } from "@/lib/navigation"
  */
 export function SettingsPage() {
   const page = sections.settings
+  const [tab, setTab] = useTabSearchParam("tab", "tags")
 
   return (
     <>
       <PageHeader title={page.title} description={page.description} />
 
-      <Tabs defaultValue="tags" className="gap-4">
+      <Tabs value={tab} onValueChange={setTab} className="gap-4">
         <TabsList variant="line">
           <TabsTrigger value="tags">Tags</TabsTrigger>
           <TabsTrigger value="skill-categories">Skill Categories</TabsTrigger>
