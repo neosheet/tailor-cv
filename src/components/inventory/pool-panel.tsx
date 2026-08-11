@@ -294,7 +294,7 @@ export function PoolPanel({
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border">
+      <div className="shrink-0 overflow-hidden rounded-xl border">
         {mode === "manage" && selected.size > 0 ? (
           <BulkActions
             count={selected.size}
