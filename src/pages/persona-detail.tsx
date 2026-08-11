@@ -1,4 +1,3 @@
-import * as React from "react"
 import { formatDistanceToNow } from "date-fns"
 import {
   ArrowLeftIcon,
@@ -48,6 +47,7 @@ import { LINE_HEADING } from "@/components/inventory/columns"
 import { PoolPickerDialog } from "@/components/inventory/pool-picker-dialog"
 import { DeletePersonaDialog } from "@/components/persona/delete-persona-dialog"
 import { PersonaFormDialog } from "@/components/persona/persona-form-dialog"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { cvTemplates } from "@/lib/cv-templates"
 import { allCvs } from "@/lib/cv"
 import { useInventoryStore } from "@/lib/inventory-store"
@@ -83,11 +83,12 @@ export function PersonaDetailPage() {
   const navigate = useNavigate()
   const inventoryStore = useInventoryStore()
   const personaStore = usePersonaStore()
-  const [openKind, setOpenKind] = React.useState<ItemKind | null>(null)
-  const [formDialogMode, setFormDialogMode] = React.useState<
-    "edit" | "duplicate" | null
-  >(null)
-  const [deleting, setDeleting] = React.useState(false)
+  const { dialog, get, open, close } = useDialogSearchParams()
+  const openKind =
+    dialog === "pool-picker" ? (get("kind") as ItemKind | null) : null
+  const formDialogMode =
+    dialog === "edit" || dialog === "duplicate" ? dialog : null
+  const deleting = dialog === "delete"
 
   const persona = id ? findPersona(personaStore, id) : undefined
 
@@ -196,7 +197,7 @@ export function PersonaDetailPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => setFormDialogMode("edit")}>
+              <DropdownMenuItem onClick={() => open("edit")}>
                 <PencilIcon />
                 Edit
               </DropdownMenuItem>
@@ -206,7 +207,7 @@ export function PersonaDetailPage() {
                 <StarIcon className={persona.favorite ? "fill-current" : undefined} />
                 {persona.favorite ? "Remove from favourites" : "Favorite"}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setFormDialogMode("duplicate")}>
+              <DropdownMenuItem onClick={() => open("duplicate")}>
                 <CopyIcon />
                 Duplicate
               </DropdownMenuItem>
@@ -215,7 +216,7 @@ export function PersonaDetailPage() {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 variant="destructive"
-                onClick={() => setDeleting(true)}
+                onClick={() => open("delete")}
               >
                 <Trash2Icon />
                 Delete
@@ -230,17 +231,17 @@ export function PersonaDetailPage() {
         <BasicsCard
           label="Name"
           value={document.name || null}
-          onPick={() => setOpenKind("name")}
+          onPick={() => open("pool-picker", { kind: "name" })}
         />
         <BasicsCard
           label="Headline"
           value={document.headline}
-          onPick={() => setOpenKind("headline")}
+          onPick={() => open("pool-picker", { kind: "headline" })}
         />
         <BasicsCard
           label="Summary"
           value={document.summary}
-          onPick={() => setOpenKind("summary")}
+          onPick={() => open("pool-picker", { kind: "summary" })}
         />
       </div>
 
@@ -250,7 +251,10 @@ export function PersonaDetailPage() {
           <CardHeader>
             <CardTitle className="text-sm">Contact</CardTitle>
             <CardAction>
-              <PickButton label="Contact" onClick={() => setOpenKind("contact")} />
+              <PickButton
+                label="Contact"
+                onClick={() => open("pool-picker", { kind: "contact" })}
+              />
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
@@ -272,7 +276,7 @@ export function PersonaDetailPage() {
             <CardAction>
               <PickButton
                 label="Location"
-                onClick={() => setOpenKind("location")}
+                onClick={() => open("pool-picker", { kind: "location" })}
               />
             </CardAction>
           </CardHeader>
@@ -285,7 +289,10 @@ export function PersonaDetailPage() {
           <CardHeader>
             <CardTitle className="text-sm">Social</CardTitle>
             <CardAction>
-              <PickButton label="Social" onClick={() => setOpenKind("social")} />
+              <PickButton
+                label="Social"
+                onClick={() => open("pool-picker", { kind: "social" })}
+              />
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
@@ -311,7 +318,7 @@ export function PersonaDetailPage() {
               key={kind}
               heading={titleFor(kind)}
               section={sectionByKind.get(kind)}
-              onPick={() => setOpenKind(kind)}
+              onPick={() => open("pool-picker", { kind })}
             />
           ))}
         </div>
@@ -321,7 +328,7 @@ export function PersonaDetailPage() {
               key={kind}
               heading={titleFor(kind)}
               section={sectionByKind.get(kind)}
-              onPick={() => setOpenKind(kind)}
+              onPick={() => open("pool-picker", { kind })}
             />
           ))}
 
@@ -368,7 +375,7 @@ export function PersonaDetailPage() {
       <PoolPickerDialog
         kind={openKind ?? "work"}
         open={openKind !== null}
-        onOpenChange={(next) => !next && setOpenKind(null)}
+        onOpenChange={(next) => !next && close(["kind"])}
         title={openKind ? titleFor(openKind) : ""}
         singleSelect={openKind !== null && PICK_ONE_KINDS.includes(openKind)}
         initialSelected={openKind ? currentItemIds(openKind) : []}
@@ -377,7 +384,7 @@ export function PersonaDetailPage() {
 
       <PersonaFormDialog
         open={formDialogMode !== null}
-        onOpenChange={(next) => !next && setFormDialogMode(null)}
+        onOpenChange={(next) => !next && close()}
         title={formDialogMode === "edit" ? "Edit Persona" : "Duplicate Persona"}
         confirmLabel={formDialogMode === "edit" ? "Save" : "Duplicate"}
         initialName={
@@ -402,7 +409,7 @@ export function PersonaDetailPage() {
       <DeletePersonaDialog
         persona={deleting ? persona : null}
         cvCount={usedByCvs.length}
-        onCancel={() => setDeleting(false)}
+        onCancel={() => close()}
         onConfirm={async () => {
           await deletePersona(personaStore, persona.id)
           navigate("/personas")

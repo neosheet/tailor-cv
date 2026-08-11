@@ -1,7 +1,7 @@
-import * as React from "react"
 import {
   CopyIcon,
   Ellipsis,
+  FilePlusIcon,
   PencilIcon,
   PlusIcon,
   StarIcon,
@@ -27,8 +27,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { PageHeader } from "@/components/layout/page-header"
+import { CvFormDialog } from "@/components/cv/cv-form-dialog"
 import { DeletePersonaDialog } from "@/components/persona/delete-persona-dialog"
 import { PersonaFormDialog } from "@/components/persona/persona-form-dialog"
+import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
+import { createCv } from "@/lib/cv"
+import { cvTemplates } from "@/lib/cv-templates"
 import { useInventoryStore } from "@/lib/inventory-store"
 import {
   allPersonas,
@@ -36,9 +40,9 @@ import {
   createPersona,
   deletePersona,
   duplicatePersona,
+  findPersona,
   togglePersonaFavorite,
   updatePersona,
-  type DbPersona,
 } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
 import { sections } from "@/lib/navigation"
@@ -47,12 +51,33 @@ export function PersonasPage() {
   const inventoryStore = useInventoryStore()
   const personaStore = usePersonaStore()
   const navigate = useNavigate()
-  const [creating, setCreating] = React.useState(false)
-  const [formDialog, setFormDialog] = React.useState<{
-    mode: "edit" | "duplicate"
-    persona: DbPersona
-  } | null>(null)
-  const [deleteTarget, setDeleteTarget] = React.useState<DbPersona | null>(null)
+  const { dialog, get, open, close } = useDialogSearchParams()
+
+  const formDialogMode =
+    dialog === "edit" || dialog === "duplicate" ? dialog : null
+  const formDialogId = get("id")
+  const formDialogPersona = formDialogId
+    ? (findPersona(personaStore, formDialogId) ?? null)
+    : null
+
+  const deleteTargetId = dialog === "delete" ? get("id") : null
+  const deleteTarget = deleteTargetId
+    ? (findPersona(personaStore, deleteTargetId) ?? null)
+    : null
+
+  const createCvForId = dialog === "new-cv" ? get("personaId") : null
+  const createCvFor = createCvForId
+    ? (findPersona(personaStore, createCvForId) ?? null)
+    : null
+
+  const personaOptions = allPersonas(personaStore).map((persona) => ({
+    value: persona.id,
+    label: persona.name,
+  }))
+  const templateOptions = cvTemplates.map((template) => ({
+    value: template.id,
+    label: template.name,
+  }))
 
   const rows = allPersonas(personaStore).map((persona) => {
     const document = buildResumeDocument(personaStore, inventoryStore, persona.id)
@@ -69,7 +94,7 @@ export function PersonasPage() {
         title={sections.personas.title}
         description={sections.personas.description}
         action={
-          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+          <Button variant="outline" size="sm" onClick={() => open("new")}>
             <PlusIcon data-icon="inline-start" />
             New Persona
           </Button>
@@ -151,9 +176,7 @@ export function PersonasPage() {
                     <DropdownMenuContent align="end" className="min-w-44">
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() =>
-                            setFormDialog({ mode: "edit", persona })
-                          }
+                          onClick={() => open("edit", { id: persona.id })}
                         >
                           <PencilIcon />
                           Edit
@@ -173,19 +196,25 @@ export function PersonasPage() {
                             : "Favorite"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() =>
-                            setFormDialog({ mode: "duplicate", persona })
-                          }
+                          onClick={() => open("duplicate", { id: persona.id })}
                         >
                           <CopyIcon />
                           Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            open("new-cv", { personaId: persona.id })
+                          }
+                        >
+                          <FilePlusIcon />
+                          Create CV
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() => setDeleteTarget(persona)}
+                          onClick={() => open("delete", { id: persona.id })}
                         >
                           <Trash2Icon />
                           Delete
@@ -201,8 +230,8 @@ export function PersonasPage() {
       </div>
 
       <PersonaFormDialog
-        open={creating}
-        onOpenChange={setCreating}
+        open={dialog === "new"}
+        onOpenChange={(next) => !next && close()}
         title="New Persona"
         confirmLabel="Create"
         onSubmit={async (fields) => {
@@ -212,25 +241,25 @@ export function PersonasPage() {
       />
 
       <PersonaFormDialog
-        open={formDialog !== null}
-        onOpenChange={(next) => !next && setFormDialog(null)}
-        title={formDialog?.mode === "edit" ? "Edit Persona" : "Duplicate Persona"}
-        confirmLabel={formDialog?.mode === "edit" ? "Save" : "Duplicate"}
+        open={formDialogMode !== null}
+        onOpenChange={(next) => !next && close(["id"])}
+        title={formDialogMode === "edit" ? "Edit Persona" : "Duplicate Persona"}
+        confirmLabel={formDialogMode === "edit" ? "Save" : "Duplicate"}
         initialName={
-          formDialog?.mode === "edit"
-            ? formDialog.persona.name
-            : `${formDialog?.persona.name ?? ""} (Copy)`
+          formDialogMode === "edit"
+            ? (formDialogPersona?.name ?? "")
+            : `${formDialogPersona?.name ?? ""} (Copy)`
         }
-        initialNote={formDialog?.persona.note ?? null}
-        initialTags={formDialog?.persona.tags ?? []}
+        initialNote={formDialogPersona?.note ?? null}
+        initialTags={formDialogPersona?.tags ?? []}
         onSubmit={async (fields) => {
-          if (!formDialog) return
-          if (formDialog.mode === "edit") {
-            await updatePersona(personaStore, formDialog.persona.id, fields)
+          if (!formDialogPersona || !formDialogMode) return
+          if (formDialogMode === "edit") {
+            await updatePersona(personaStore, formDialogPersona.id, fields)
           } else {
             const persona = await duplicatePersona(
               personaStore,
-              formDialog.persona.id,
+              formDialogPersona.id,
               fields
             )
             navigate(`/personas/${persona.id}`)
@@ -240,11 +269,26 @@ export function PersonasPage() {
 
       <DeletePersonaDialog
         persona={deleteTarget}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => close(["id"])}
         onConfirm={async () => {
           if (!deleteTarget) return
           await deletePersona(personaStore, deleteTarget.id)
-          setDeleteTarget(null)
+          close(["id"])
+        }}
+      />
+
+      <CvFormDialog
+        open={createCvFor !== null}
+        onOpenChange={(next) => !next && close(["personaId"])}
+        title="Create CV"
+        confirmLabel="Create"
+        initialName={createCvFor?.name ?? ""}
+        initialPersonaId={createCvFor?.id}
+        personaOptions={personaOptions}
+        templateOptions={templateOptions}
+        onSubmit={async (fields) => {
+          const cv = await createCv(personaStore, fields)
+          navigate(`/cvs/${cv.id}/print`)
         }}
       />
     </>
