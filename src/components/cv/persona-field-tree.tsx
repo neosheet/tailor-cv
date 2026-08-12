@@ -33,6 +33,7 @@ import {
   resetCvNodeOverride,
   resetCvPageProperty,
   resetCvStyleProperty,
+  saveAsNewTemplate,
   setCvNodeOverride,
   setCvPageProperty,
   setCvStyleProperty,
@@ -45,6 +46,7 @@ import { collectBlockNodeIds, resolveStyleObject } from "@/lib/cv-template-core"
 import { linesOf } from "@/lib/inventory"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { inventoryPages } from "@/lib/navigation"
+import { SaveAsNewTemplateDialog } from "@/components/cv/save-as-new-template-dialog"
 import {
   FIELD_REGISTRY,
   hiddenFieldsOf,
@@ -991,22 +993,40 @@ export type PersonaFieldTreeProps = {
 export function PersonaFieldTree({ cv, template }: PersonaFieldTreeProps) {
   const isFrozen = cv.personaId === null
   const [tab, setTab] = useTabSearchParam("tab", isFrozen ? "style" : "visibility")
+  const personaStore = usePersonaStore()
+  const [saveTemplateOpen, setSaveTemplateOpen] = React.useState(false)
+
+  const hasOverrides =
+    Object.keys(cv.templateSettings.styles ?? {}).length > 0 ||
+    Object.keys(cv.templateSettings.page ?? {}).length > 0 ||
+    Object.keys(cv.templateSettings.nodes ?? {}).length > 0
 
   return (
     <Card className="flex h-full flex-col gap-0 overflow-hidden py-0">
       <CardContent className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-0">
         <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-0">
-          <TabsList variant="line" className="mx-2 mt-2 w-fit self-start">
-            {isFrozen ? null : (
-              <>
-                <TabsTrigger value="visibility">Visibility</TabsTrigger>
-                <TabsTrigger value="data">Data</TabsTrigger>
-              </>
-            )}
-            <TabsTrigger value="style">Style</TabsTrigger>
-            <TabsTrigger value="page">Page</TabsTrigger>
-            <TabsTrigger value="blocks">Block</TabsTrigger>
-          </TabsList>
+          <div className="mx-2 mt-2 flex items-center justify-between gap-2">
+            <TabsList variant="line" className="w-fit self-start">
+              {isFrozen ? null : (
+                <>
+                  <TabsTrigger value="visibility">Visibility</TabsTrigger>
+                  <TabsTrigger value="data">Data</TabsTrigger>
+                </>
+              )}
+              <TabsTrigger value="style">Style</TabsTrigger>
+              <TabsTrigger value="page">Page</TabsTrigger>
+              <TabsTrigger value="blocks">Block</TabsTrigger>
+            </TabsList>
+            {hasOverrides ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSaveTemplateOpen(true)}
+              >
+                Save as new template
+              </Button>
+            ) : null}
+          </div>
           {isFrozen ? null : (
             <>
               <TabsContent
@@ -1031,6 +1051,13 @@ export function PersonaFieldTree({ cv, template }: PersonaFieldTreeProps) {
           </TabsContent>
         </Tabs>
       </CardContent>
+      <SaveAsNewTemplateDialog
+        open={saveTemplateOpen}
+        onOpenChange={setSaveTemplateOpen}
+        onSubmit={async (fields) => {
+          await saveAsNewTemplate(personaStore, cv, template, fields)
+        }}
+      />
     </Card>
   )
 }
