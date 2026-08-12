@@ -7,7 +7,7 @@
  * unreadable, so the data is authored nested and flattened by `flatten.ts`.
  */
 
-import type { TemplateSettings } from "../lib/cv-template-schema"
+import type { TemplateDefinition, TemplateSettings } from "../lib/cv-template-schema"
 import type { CvSnapshotV1 } from "../lib/cv-snapshot"
 
 export type ItemKind =
@@ -223,6 +223,20 @@ export type DbCv = DbTimestamps & {
   personaSettings: CvPersonaSettings
   /** Set only on a frozen (imported) CV — see `personaId`'s doc comment above. */
   snapshot: CvSnapshotV1 | null
+}
+
+/**
+ * A user-saved, standalone `TemplateDefinition` produced by "Save as new
+ * template" (docs/specs/13-save-as-new-template.md) — never a delta on top
+ * of a built-in, always a complete definition on its own.
+ */
+export type DbCvTemplate = DbTimestamps & {
+  id: string
+  userId: string
+  name: string
+  description: string
+  schemaVersion: number
+  definition: TemplateDefinition
 }
 
 export type SourceCv = {

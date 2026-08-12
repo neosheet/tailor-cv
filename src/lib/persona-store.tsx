@@ -5,10 +5,12 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import type { Tables } from "@/lib/database.types"
 import type { TemplateSettings } from "@/lib/cv-template-schema"
+import { parseTemplateDefinition } from "@/lib/cv-template-schema"
 import { parseCvSnapshot } from "@/lib/cv-snapshot"
 import type {
   CvPersonaSettings,
   DbCv,
+  DbCvTemplate,
   DbPersonaItem,
   DbPersonaLine,
   DbPersonaSection,
@@ -51,6 +53,7 @@ export type PersonaData = {
   personaItems: DbPersonaItem[]
   personaLines: DbPersonaLine[]
   cvs: DbCv[]
+  cvTemplates: DbCvTemplate[]
 }
 
 export type PersonaStore = PersonaData & {
@@ -63,6 +66,7 @@ export type PersonaStore = PersonaData & {
   setPersonaItems: React.Dispatch<React.SetStateAction<DbPersonaItem[]>>
   setPersonaLines: React.Dispatch<React.SetStateAction<DbPersonaLine[]>>
   setCvs: React.Dispatch<React.SetStateAction<DbCv[]>>
+  setCvTemplates: React.Dispatch<React.SetStateAction<DbCvTemplate[]>>
 }
 
 const PersonaStoreContext = React.createContext<PersonaStore | null>(null)
@@ -129,6 +133,19 @@ export function mapCvRow(row: Tables<"cvs">): DbCv {
   }
 }
 
+export function mapCvTemplateRow(row: Tables<"cv_templates">): DbCvTemplate {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    description: row.description,
+    schemaVersion: row.schema_version,
+    definition: parseTemplateDefinition(row.definition),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 async function fetchByPersonaIds<T>(
   table: "persona_sections" | "persona_items" | "persona_lines",
   personaIds: string[]
@@ -159,6 +176,7 @@ export function PersonaStoreProvider({
   const [personaItems, setPersonaItems] = React.useState<DbPersonaItem[]>([])
   const [personaLines, setPersonaLines] = React.useState<DbPersonaLine[]>([])
   const [cvs, setCvs] = React.useState<DbCv[]>([])
+  const [cvTemplates, setCvTemplates] = React.useState<DbCvTemplate[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
   const [version, setVersion] = React.useState(0)
@@ -186,7 +204,7 @@ export function PersonaStoreProvider({
 
         const personaIds = (personaRows ?? []).map((row) => row.id)
 
-        const [sectionsResult, itemsResult, linesResult, cvsResult] =
+        const [sectionsResult, itemsResult, linesResult, cvsResult, cvTemplatesResult] =
           await Promise.all([
             fetchByPersonaIds<Tables<"persona_sections">>(
               "persona_sections",
@@ -205,12 +223,18 @@ export function PersonaStoreProvider({
               .select("*")
               .eq("user_id", userId as string)
               .order("created_at"),
+            supabase
+              .from("cv_templates")
+              .select("*")
+              .eq("user_id", userId as string)
+              .order("created_at"),
           ])
 
         if (sectionsResult.error) throw sectionsResult.error
         if (itemsResult.error) throw itemsResult.error
         if (linesResult.error) throw linesResult.error
         if (cvsResult.error) throw cvsResult.error
+        if (cvTemplatesResult.error) throw cvTemplatesResult.error
 
         if (cancelled) return
 
@@ -219,6 +243,7 @@ export function PersonaStoreProvider({
         setPersonaItems((itemsResult.data ?? []).map(mapPersonaItemRow))
         setPersonaLines((linesResult.data ?? []).map(mapPersonaLineRow))
         setCvs((cvsResult.data ?? []).map(mapCvRow))
+        setCvTemplates((cvTemplatesResult.data ?? []).map(mapCvTemplateRow))
       } catch (caught) {
         if (!cancelled) {
           setError(toError(caught))
@@ -246,6 +271,7 @@ export function PersonaStoreProvider({
       personaItems,
       personaLines,
       cvs,
+      cvTemplates,
       userId,
       loading,
       error,
@@ -255,6 +281,7 @@ export function PersonaStoreProvider({
       setPersonaItems,
       setPersonaLines,
       setCvs,
+      setCvTemplates,
     }),
     [
       personas,
@@ -262,6 +289,7 @@ export function PersonaStoreProvider({
       personaItems,
       personaLines,
       cvs,
+      cvTemplates,
       userId,
       loading,
       error,
