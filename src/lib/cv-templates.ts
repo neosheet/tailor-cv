@@ -2,6 +2,7 @@ import { batch1DemoTemplateDefinition } from "@/lib/cv-template-defs/batch1-demo
 import { classicTemplateDefinition } from "@/lib/cv-template-defs/classic"
 import { twoColumnTemplateDefinition } from "@/lib/cv-template-defs/two-column"
 import type { TemplateDefinition } from "@/lib/cv-template-schema"
+import type { DbCvTemplate } from "@/mocks/types"
 
 /**
  * Available print layouts for rendering a CV.
@@ -60,3 +61,49 @@ export const cvTemplates: CvTemplate[] = [
     bestFor: "Trying out Batch 1's template-engine changes against real data",
   },
 ]
+
+/**
+ * Resolves a template id against the built-in registry first, then a
+ * user's saved `cv_templates` rows — the combined lookup every call site
+ * should use instead of `cvTemplates.find` directly, now that ids can come
+ * from either source. See docs/specs/13-save-as-new-template.md.
+ */
+export function findTemplate(
+  id: string,
+  savedTemplates: DbCvTemplate[]
+): CvTemplate | undefined {
+  const builtIn = cvTemplates.find((candidate) => candidate.id === id)
+  if (builtIn) return builtIn
+
+  const saved = savedTemplates.find((candidate) => candidate.id === id)
+  if (!saved) return undefined
+
+  return {
+    id: saved.id,
+    name: saved.name,
+    description: saved.description,
+    definition: saved.definition,
+    density: saved.definition.density,
+    atsSafe: saved.definition.atsSafe,
+    bestFor: saved.definition.bestFor,
+  }
+}
+
+/** Built-ins first, then a user's saved templates — the combined option list. */
+export function allTemplates(savedTemplates: DbCvTemplate[]): CvTemplate[] {
+  return [
+    ...cvTemplates,
+    ...savedTemplates.map(
+      (saved) =>
+        ({
+          id: saved.id,
+          name: saved.name,
+          description: saved.description,
+          definition: saved.definition,
+          density: saved.definition.density,
+          atsSafe: saved.definition.atsSafe,
+          bestFor: saved.definition.bestFor,
+        }) satisfies CvTemplate
+    ),
+  ]
+}

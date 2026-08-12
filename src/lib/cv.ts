@@ -1,6 +1,6 @@
 import type { InventoryStore } from "@/lib/inventory-store"
 import { buildResumeDocument, requireUserId, type PersonaData, type ResumeDocument } from "@/lib/persona"
-import { cvTemplates, type CvTemplate } from "@/lib/cv-templates"
+import { cvTemplates, findTemplate, type CvTemplate } from "@/lib/cv-templates"
 import { templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
 import { bakeTemplateSettings } from "@/lib/cv-template-bake"
 import { mapCvRow, mapCvTemplateRow, type PersonaStore } from "@/lib/persona-store"
@@ -60,8 +60,7 @@ export function resolveCv(
     cv.personaSettings.fieldVisibility ?? {}
   )
   const template =
-    cvTemplates.find((candidate) => candidate.id === cv.templateId) ??
-    cvTemplates[0]
+    findTemplate(cv.templateId ?? "", persona.cvTemplates) ?? cvTemplates[0]
 
   return { cv, document, template }
 }

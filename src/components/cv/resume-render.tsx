@@ -2,6 +2,7 @@ import { TemplateRender } from "@/components/cv/templates"
 import { cn } from "@/lib/utils"
 import type { TemplateDefinition, TemplateSettings } from "@/lib/cv-template-schema"
 import type { ResumeDocument } from "@/lib/persona"
+import type { DbCvTemplate } from "@/mocks/types"
 
 /**
  * A rendered CV at a chosen scale.
@@ -20,6 +21,7 @@ export function ResumeRender({
   templateId,
   definition,
   settings,
+  savedTemplates = [],
   scale = 1,
   className,
   ref
@@ -32,13 +34,15 @@ export function ResumeRender({
   definition?: TemplateDefinition
   /** Per-CV style overrides — see `cv-template-schema.ts`'s `TemplateSettings`. */
   settings?: TemplateSettings
+  /** A user's saved (Save-as-new-template) rows — checked when `templateId` isn't a built-in. */
+  savedTemplates?: DbCvTemplate[]
   scale?: number
   className?: string
 }) {
   if (scale === 1) {
     return (
       <div className={className}>
-        <TemplateRender ref={ref} templateId={templateId} definition={definition} document={document} settings={settings} />
+        <TemplateRender ref={ref} templateId={templateId} definition={definition} document={document} settings={settings} savedTemplates={savedTemplates} />
       </div>
     )
   }
@@ -53,7 +57,7 @@ export function ResumeRender({
       style={{ "--resume-scale": scale } as React.CSSProperties}
     >
       <div className="origin-top-left scale-(--resume-scale)">
-        <TemplateRender ref={ref} templateId={templateId} definition={definition} document={document} settings={settings} />
+        <TemplateRender ref={ref} templateId={templateId} definition={definition} document={document} settings={settings} savedTemplates={savedTemplates} />
       </div>
     </div>
   )

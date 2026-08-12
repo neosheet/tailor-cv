@@ -1,7 +1,8 @@
 import { TemplateNodeRenderer } from "@/components/cv/template-node-renderer"
-import { cvTemplates } from "@/lib/cv-templates"
+import { cvTemplates, findTemplate } from "@/lib/cv-templates"
 import type { TemplateDefinition, TemplateSettings } from "@/lib/cv-template-schema"
 import type { ResumeDocument } from "@/lib/persona"
+import type { DbCvTemplate } from "@/mocks/types"
 
 /**
  * Renders a CV under the template `templateId` names — or, when `definition`
@@ -27,6 +28,7 @@ export function TemplateRender({
   definition,
   document,
   settings,
+  savedTemplates = [],
     ref
 }: {
   templateId: string
@@ -34,11 +36,13 @@ export function TemplateRender({
   definition?: TemplateDefinition
   document: ResumeDocument
   settings?: TemplateSettings
+  /** A user's saved (Save-as-new-template) rows — checked when `templateId` isn't a built-in. */
+  savedTemplates?: DbCvTemplate[]
     ref?: React.Ref<HTMLDivElement>
 }) {
   const resolvedDefinition =
     definition ??
-    (cvTemplates.find((candidate) => candidate.id === templateId) ?? cvTemplates[0]).definition
+    (findTemplate(templateId, savedTemplates) ?? cvTemplates[0]).definition
 
   return (
     <TemplateNodeRenderer

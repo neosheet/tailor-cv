@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table"
 import { CvFormDialog } from "@/components/cv/cv-form-dialog"
 import { DeleteCvDialog } from "@/components/cv/delete-cv-dialog"
-import { cvTemplates } from "@/lib/cv-templates"
+import { allTemplates, findTemplate } from "@/lib/cv-templates"
 import {
   allCvs,
   createCv,
@@ -82,7 +82,7 @@ export function CvListPanel() {
   const rows = allCvs(store).map((cv) => ({
     cv,
     persona: cv.personaId ? findPersona(store, cv.personaId) : undefined,
-    template: cvTemplates.find((candidate) => candidate.id === cv.templateId),
+    template: findTemplate(cv.templateId ?? "", store.cvTemplates),
   }))
 
   const formDialog =
@@ -101,7 +101,7 @@ export function CvListPanel() {
     value: persona.id,
     label: persona.name,
   }))
-  const templateOptions = cvTemplates.map((template) => ({
+  const templateOptions = allTemplates(store.cvTemplates).map((template) => ({
     value: template.id,
     label: template.name,
   }))
