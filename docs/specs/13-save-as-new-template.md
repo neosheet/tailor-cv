@@ -183,15 +183,26 @@ same column without collision).
    saved templates can share a name, same as `cvs.name`/`personas.name` allow
    duplicates elsewhere in this schema. Consistent with existing convention,
    not treated as a gap to close here.
-2. **Gallery placement.** Whether saved templates render in
-   `templates-panel.tsx` intermixed with the four built-ins, in a separate
-   "Your templates" section, or only surface in the picker `Select`s
-   (`cv-list-panel.tsx`/`personas.tsx`) without a gallery card at all, is
-   implementation detail for the plan — this spec only requires that they be
-   *selectable* everywhere a built-in is.
-3. **Baking `nodes.hidden` when the node is a `repeat`/`if` branch root.**
-   `bakeTemplateSettings` needs one concrete rule per parent-slot shape
-   (`children` array vs. a single `then`/`else`/`separator` field) — worth
-   enumerating against the real built-in definitions during planning rather
-   than guessed here, since getting empty-propagation wrong would silently
-   change how a saved template renders relative to the CV it was baked from.
+2. ~~Gallery placement.~~ **Resolved.** Saved templates surface only in the
+   picker `Select`s (`cv-list-panel.tsx`'s Template picker, via
+   `allTemplates`) — `templates-panel.tsx`'s gallery stays built-ins-only.
+   It's an ad hoc, unsaved-preview surface for browsing layouts before
+   committing to one; saving is already a deliberate action taken from the
+   CV edit page, not something that needs its own browsing step.
+3. ~~Baking `nodes.hidden`/`styles`/`text` per parent-slot shape.~~
+   **Resolved.** `hidden` removes the node from a `children` array (dropping
+   the key entirely if it empties out, matching empty-propagation) or clears
+   an optional `then`/`else`/`separator` slot; a slot that's required
+   (`IfNode.then`, `TemplateDefinition.root`) falls back to an empty
+   `{ tag: "div" }` rather than being unsettable. The one case that isn't a
+   plain in-place patch: a `BlockInstanceNode`'s own `styles`/`text` override
+   only ever affected *that call site* at render time
+   (`renderBlockInstance`), not other instantiations of the same block by
+   name — baking that in place onto the shared `blocks[name]` entry would
+   incorrectly leak the override to every other call site referencing the
+   same block. `bakeTemplateSettings` (`src/lib/cv-template-bake.ts`) clones
+   the block under a private name and repoints just that call site instead.
+   Verified against the real Classic definition: two different repeats
+   (`entryBlockRepeatTight`/`entryBlockRepeatSpaced`) sharing one
+   `entryBlock` block bake independently, and `sectionHeadingInstance`'s
+   style override clones `sectionHeading` without mutating the original.
