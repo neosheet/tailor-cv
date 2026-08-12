@@ -291,3 +291,112 @@ export async function deleteTag(
     )
   )
 }
+
+/** Every occurrence of a name in `from` becomes `to`, then the result is deduped. */
+function withTagsMerged(tags: string[], from: string[], to: string): string[] {
+  return Array.from(
+    new Set(tags.map((tag) => (from.includes(tag) ? to : tag)))
+  )
+}
+
+/**
+ * Merges `fromNames` into a single tag, `raw`.
+ *
+ * `raw` may name an existing tag — including one of `fromNames` itself, so
+ * "these three are duplicates, keep this one" works — or a brand-new name,
+ * registered here first. Whichever it is, every row carrying any of
+ * `fromNames` ends up carrying it instead, and the other source registry rows
+ * are dropped. Same content-tables-first/registry-last order as `deleteTag`,
+ * and the same sequential-not-transactional caveat as `renameTag`.
+ */
+export async function mergeTags(
+  store: InventoryStore,
+  fromNames: string[],
+  raw: string
+): Promise<string> {
+  if (
+    fromNames.length === 0 ||
+    fromNames.some((name) => !store.tags.includes(name))
+  ) {
+    throw new Error("One of the selected tags no longer exists.")
+  }
+
+  const normalised = normaliseTagName(raw)
+  const targetExists = store.tags.includes(normalised)
+  const to = targetExists ? normalised : assertValid(raw, store.tags)
+
+  const userId = requireUserId(store)
+  // The target carries itself already — only the other selected tags need rewriting.
+  const from = fromNames.filter((name) => name !== to)
+
+  if (!targetExists) {
+    const { error } = await supabase
+      .from("tags")
+      .insert({ user_id: userId, name: to })
+
+    if (error) throw error
+  }
+
+  if (from.length > 0) {
+    const { data: itemRows, error: itemsError } = await supabase
+      .from("inventory_items")
+      .select("id, tags")
+      .eq("user_id", userId)
+      .overlaps("tags", from)
+
+    if (itemsError) throw itemsError
+
+    for (const row of itemRows ?? []) {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ tags: withTagsMerged(row.tags, from, to) })
+        .eq("id", row.id)
+
+      if (error) throw error
+    }
+
+    const { data: lineRows, error: linesError } = await supabase
+      .from("inventory_lines")
+      .select("id, tags")
+      .overlaps("tags", from)
+
+    if (linesError) throw linesError
+
+    for (const row of lineRows ?? []) {
+      const { error } = await supabase
+        .from("inventory_lines")
+        .update({ tags: withTagsMerged(row.tags, from, to) })
+        .eq("id", row.id)
+
+      if (error) throw error
+    }
+
+    const { error: deleteError } = await supabase
+      .from("tags")
+      .delete()
+      .eq("user_id", userId)
+      .in("name", from)
+
+    if (deleteError) throw deleteError
+  }
+
+  store.setTags((current) =>
+    Array.from(new Set([...current.filter((tag) => !from.includes(tag)), to])).sort()
+  )
+  store.setItems((current) =>
+    current.map((item) =>
+      item.tags.some((tag) => from.includes(tag))
+        ? { ...item, tags: withTagsMerged(item.tags, from, to) }
+        : item
+    )
+  )
+  store.setLines((current) =>
+    current.map((line) =>
+      line.tags.some((tag) => from.includes(tag))
+        ? { ...line, tags: withTagsMerged(line.tags, from, to) }
+        : line
+    )
+  )
+
+  return to
+}

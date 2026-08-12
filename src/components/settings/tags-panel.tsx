@@ -1,5 +1,5 @@
 import * as React from "react"
-import { PencilIcon, PlusIcon, TagsIcon, Trash2Icon, XIcon } from "lucide-react"
+import { MergeIcon, PencilIcon, PlusIcon, TagsIcon, Trash2Icon, XIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,7 @@ import {
 import { SearchInput } from "@/components/search-input"
 import {
   DeleteTagDialog,
+  MergeTagDialog,
   RenameTagDialog,
 } from "@/components/settings/tag-dialogs"
 import { usageLabel } from "@/lib/tag-copy"
@@ -35,6 +36,7 @@ import {
   createTag,
   deleteTag,
   listTags,
+  mergeTags,
   renameTag,
   validateTagName,
 } from "@/lib/tags"
@@ -63,6 +65,15 @@ export function TagsPanel() {
       : null
   const deleting =
     dialog === "delete-tag"
+      ? (() => {
+          const ids = get("ids")?.split(",") ?? []
+          const names = new Set(ids)
+          const matched = tags.filter((tag) => names.has(tag.name))
+          return matched.length > 0 ? matched : null
+        })()
+      : null
+  const merging =
+    dialog === "merge-tag"
       ? (() => {
           const ids = get("ids")?.split(",") ?? []
           const names = new Set(ids)
@@ -110,6 +121,12 @@ export function TagsPanel() {
     close(["ids"])
   }
 
+  async function applyMerge(names: string[], to: string) {
+    await mergeTags(store, names, to)
+    setSelected(new Set())
+    close(["ids"])
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
@@ -147,6 +164,9 @@ export function TagsPanel() {
             <BulkActions
               count={selected.size}
               onClear={() => setSelected(new Set())}
+              onMerge={() =>
+                open("merge-tag", { ids: Array.from(selected).join(",") })
+              }
               onDelete={() =>
                 open("delete-tag", { ids: Array.from(selected).join(",") })
               }
@@ -241,6 +261,15 @@ export function TagsPanel() {
         />
       ) : null}
 
+      {merging ? (
+        <MergeTagDialog
+          tags={merging}
+          open
+          onCancel={() => close(["ids"])}
+          onMerge={(to) => applyMerge(merging.map((tag) => tag.name), to)}
+        />
+      ) : null}
+
       {deleting ? (
         <DeleteTagDialog
           tags={deleting}
@@ -253,18 +282,16 @@ export function TagsPanel() {
   )
 }
 
-/**
- * Shown once tags are checked. Delete is the only bulk action that makes sense
- * here — renaming several tags to one name is a merge, and merging is not
- * something this screen does.
- */
+/** Shown once tags are checked. Merge folds the selection into one tag; delete drops it. */
 function BulkActions({
   count,
   onClear,
+  onMerge,
   onDelete,
 }: {
   count: number
   onClear: () => void
+  onMerge: () => void
   onDelete: () => void
 }) {
   return (
@@ -278,7 +305,11 @@ function BulkActions({
       >
         <XIcon />
       </Button>
-      <div className="ml-auto">
+      <div className="ml-auto flex gap-2">
+        <Button variant="outline" size="sm" onClick={onMerge}>
+          <MergeIcon data-icon="inline-start" />
+          Merge
+        </Button>
         <Button variant="destructive" size="sm" onClick={onDelete}>
           <Trash2Icon data-icon="inline-start" />
           Delete

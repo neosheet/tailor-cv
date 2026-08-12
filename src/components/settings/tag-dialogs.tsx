@@ -13,7 +13,16 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
+import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -23,8 +32,16 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { usageSentence } from "@/lib/tag-copy"
-import { usageOfAny, validateTagName, type TagUsage } from "@/lib/tags"
+import {
+  normaliseTagName,
+  usageOfAny,
+  validateTagName,
+  type TagUsage,
+} from "@/lib/tags"
 import { useInventoryStore } from "@/lib/inventory-store"
+
+/** Enough to pick from without turning the popup into a second list to read. */
+const MAX_SUGGESTIONS = 5
 
 /**
  * Rename a tag. Same validation as the add field, plus the tag's own name is
@@ -84,6 +101,133 @@ export function RenameTagDialog({
             </Button>
             <Button type="submit" disabled={Boolean(problem)}>
               Rename
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Merge a checked batch of tags into one — an existing tag (any tag in the
+ * registry, including one of the tags being merged, so "these are duplicates,
+ * keep this one" works) or a brand-new name typed in.
+ *
+ * The target field is a plain autocomplete, not a create-or-pick toggle: what
+ * ends up in the box is what gets merged into, whether it was typed fresh or
+ * picked from a suggestion. `mergeTags` itself decides whether that means
+ * registering a new tag or landing on an existing one.
+ */
+export function MergeTagDialog({
+  tags,
+  open,
+  onCancel,
+  onMerge,
+}: {
+  tags: TagUsage[]
+  open: boolean
+  onCancel: () => void
+  onMerge: (to: string) => void
+}) {
+  const store = useInventoryStore()
+  const [value, setValue] = React.useState("")
+  const fromNames = tags.map((tag) => tag.name)
+  const usage: TagUsage = { name: "", ...usageOfAny(store, fromNames) }
+
+  const normalised = normaliseTagName(value)
+  const targetExists = store.tags.includes(normalised)
+  // Landing on any existing tag is always fine, including one of the tags
+  // being merged — only a genuinely new name has to pass the usual rules.
+  const problem = targetExists ? null : validateTagName(value, store.tags)
+
+  const suggestions = React.useMemo(
+    () => store.tags.filter((tag) => tag.startsWith(normalised)).slice(0, MAX_SUGGESTIONS),
+    [store.tags, normalised]
+  )
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+
+    if (!problem && normalised) {
+      onMerge(value)
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setValue("")
+          onCancel()
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={submit}>
+          <DialogHeader>
+            <DialogTitle>
+              {tags.length > 1 ? `Merge ${tags.length} tags` : `Merge “${fromNames[0]}”`}
+            </DialogTitle>
+            <DialogDescription>
+              {usage.itemCount + usage.lineCount > 0
+                ? `Between them they are ${usageSentence(usage)}. Merging moves all of it onto the tag below, then removes the old names.`
+                : "Nothing is tagged with them yet — merging just replaces the names below."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 flex flex-wrap gap-1">
+            {tags.map((tag) => (
+              <Badge key={tag.name} variant="secondary">
+                {tag.name}
+              </Badge>
+            ))}
+          </div>
+
+          <DialogBody>
+            <Field className="mt-4" data-invalid={value && problem ? true : undefined}>
+              <FieldLabel htmlFor="merge-tag-target">Merge into</FieldLabel>
+              <Combobox
+                autoHighlight
+                items={suggestions}
+                filter={null}
+                inputValue={value}
+                onInputValueChange={setValue}
+                onValueChange={(next: string | null) => {
+                  if (next) setValue(next)
+                }}
+              >
+                <ComboboxInput
+                  id="merge-tag-target"
+                  autoFocus
+                  placeholder="Existing or new tag name…"
+                  aria-label="Merge into"
+                  aria-invalid={value && problem ? true : undefined}
+                />
+                <ComboboxContent>
+                  <ComboboxEmpty>
+                    Not in the registry yet — this will create a new tag.
+                  </ComboboxEmpty>
+                  <ComboboxList>
+                    {(tag: string) => (
+                      <ComboboxItem key={tag} value={tag}>
+                        {tag}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+              {value && problem ? <FieldError>{problem}</FieldError> : null}
+            </Field>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={Boolean(problem) || !normalised}>
+              Merge
             </Button>
           </DialogFooter>
         </form>
