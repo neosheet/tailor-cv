@@ -2,11 +2,12 @@ import type { InventoryStore } from "@/lib/inventory-store"
 import { buildResumeDocument, requireUserId, type PersonaData, type ResumeDocument } from "@/lib/persona"
 import { cvTemplates, type CvTemplate } from "@/lib/cv-templates"
 import { templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
-import { mapCvRow, type PersonaStore } from "@/lib/persona-store"
+import { bakeTemplateSettings } from "@/lib/cv-template-bake"
+import { mapCvRow, mapCvTemplateRow, type PersonaStore } from "@/lib/persona-store"
 import { supabase } from "@/lib/supabase"
 import type { Json } from "@/lib/database.types"
-import type { PageConfig, TemplateSettings } from "@/lib/cv-template-schema"
-import type { CvPersonaSettings, DbCv, FieldVisibility, ItemKind } from "@/mocks/types"
+import type { PageConfig, TemplateDefinition, TemplateSettings } from "@/lib/cv-template-schema"
+import type { CvPersonaSettings, DbCv, DbCvTemplate, FieldVisibility, ItemKind } from "@/mocks/types"
 
 /**
  * The CV layer — a saved (Persona, Template) pairing. See
@@ -509,4 +510,57 @@ export async function resetCvNodeOverride(
   const nextNodes = { ...cv.templateSettings.nodes, [nodeId]: nextNode }
 
   await saveCvTemplateSettings(store, cvId, { ...cv.templateSettings, nodes: nextNodes })
+}
+
+// ---------------------------------------------------------------------------
+// "Save as new template" — see docs/specs/13-save-as-new-template.md
+// ---------------------------------------------------------------------------
+
+export type SaveAsNewTemplateFields = {
+  name: string
+  description: string
+}
+
+/**
+ * Bakes `cv`'s current `template_settings` onto `base`'s definition and
+ * inserts the result as a new, standalone `cv_templates` row. Does not
+ * modify `cv` itself — it stays on its original base template id with its
+ * own `template_settings` intact, still further editable.
+ */
+export async function saveAsNewTemplate(
+  store: PersonaStore,
+  cv: DbCv,
+  base: CvTemplate,
+  fields: SaveAsNewTemplateFields
+): Promise<DbCvTemplate> {
+  const userId = requireUserId(store)
+  const baked = bakeTemplateSettings(base.definition, cv.templateSettings)
+  const definition: TemplateDefinition = {
+    ...baked,
+    id: crypto.randomUUID(),
+    name: fields.name,
+    description: fields.description,
+    density: "Balanced",
+    atsSafe: false,
+    bestFor: "",
+  }
+
+  const { data, error } = await supabase
+    .from("cv_templates")
+    .insert({
+      user_id: userId,
+      name: fields.name,
+      description: fields.description,
+      schema_version: definition.schemaVersion,
+      definition: definition as unknown as Json,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const saved = mapCvTemplateRow(data)
+  store.setCvTemplates((current) => [...current, saved])
+
+  return saved
 }
