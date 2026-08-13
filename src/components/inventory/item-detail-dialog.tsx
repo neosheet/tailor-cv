@@ -8,6 +8,7 @@ import {
   Trash2Icon,
 } from "lucide-react"
 import { Link } from "react-router"
+import { ExternalLink } from "@/components/external-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -243,14 +244,10 @@ function DetailsSection({
         ) : null}
         {item.url ? (
           <Field label="Link">
-            <a
+            <ExternalLink
               href={item.url}
-              target="_blank"
-              rel="noreferrer"
               className="underline underline-offset-4 hover:text-primary"
-            >
-              {item.url.replace(/^https?:\/\//, "")}
-            </a>
+            />
           </Field>
         ) : null}
 

@@ -38,7 +38,7 @@ const NO_CV = "none"
 const NO_VALUE = "none"
 
 /**
- * Title, Company/Position/Location, Job type/Working type/Deadline, Source,
+ * Title, Company/Position/Location, Job type/Working type/Deadline, URL,
  * Vacancy detail, Cover letter, Apply via, and a CV picker — the fields an application
  * itself owns. One component, used both for New Application and
  * for editing an existing one from the detail Sheet (`ApplicationDetailSheet`
@@ -280,10 +280,11 @@ export function ApplicationFormDialog({
               </Field>
             </div>
             <Field>
-              <FieldLabel htmlFor="application-source">Source</FieldLabel>
+              <FieldLabel htmlFor="application-source">URL</FieldLabel>
               <Input
                 id="application-source"
-                placeholder="Where you found the listing"
+                type="url"
+                placeholder="Link to the job listing"
                 value={sourceUrl}
                 onChange={(event) => setSourceUrl(event.target.value)}
               />

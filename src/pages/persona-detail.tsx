@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router"
 
+import { ExternalLink } from "@/components/external-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -478,6 +479,20 @@ function SectionCard({
           <p className="text-sm text-muted-foreground">
             No entries selected yet.
           </p>
+        ) : section.kind === "skill" && section.skillGroups ? (
+          section.skillGroups.map((group, index) => (
+            <div key={group.category} className="flex flex-col gap-2">
+              {index > 0 ? <Separator /> : null}
+              <p className="text-sm font-medium">{group.category}</p>
+              <div className="flex flex-wrap gap-1">
+                {group.skills.map((skill) => (
+                  <Badge key={skill} variant="secondary">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ))
         ) : (
           section.entries.map((entry, index) => (
             <div key={entry.id} className="flex flex-col gap-2">
@@ -496,7 +511,17 @@ function EntryView({ entry }: { entry: ResumeEntry }) {
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div>
-          <p className="font-medium">{entry.title}</p>
+          <p className="font-medium">
+            {entry.title}
+            {entry.kind === "work" && entry.url ? (
+              <ExternalLink
+                href={entry.url}
+                className="ml-2 text-xs font-normal text-muted-foreground hover:underline hover:underline-offset-4"
+              >
+                {entry.url}
+              </ExternalLink>
+            ) : null}
+          </p>
           {entry.subtitle ? (
             <p className="text-sm text-muted-foreground">{entry.subtitle}</p>
           ) : null}

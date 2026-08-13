@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ExternalLink } from "@/components/external-link"
 import { ResumeRender } from "@/components/cv/resume-render"
 import { TimelineTab } from "@/components/applications/timeline-tab"
 import { VacancyDetailContent } from "@/components/applications/vacancy-detail-content"
@@ -52,6 +53,22 @@ function DetailField({ label, children }: { label: string; children: React.React
 
 function formatDeadline(deadline: string | null): string {
   return deadline ? format(parseISO(deadline), "PP") : "—"
+}
+
+/** The URL field — link to the job opportunity page — shared by both `variant`s. */
+function SourceUrlField({ application }: { application: DbApplication }) {
+  return (
+    <DetailField label="URL">
+      {application.sourceUrl ? (
+        <ExternalLink
+          href={application.sourceUrl}
+          className="underline underline-offset-4 hover:text-primary"
+        />
+      ) : (
+        "—"
+      )}
+    </DetailField>
+  )
 }
 
 /**
@@ -175,7 +192,7 @@ function JobDetailTab({
         <div className="flex flex-col gap-4 border rounded-xl p-4">
           <dl className="flex flex-col gap-3 text-sm">
             <JobMetaFields application={application} />
-            <DetailField label="Source">{application.sourceUrl ?? "—"}</DetailField>
+            <SourceUrlField application={application} />
             <DetailField label="Apply via">{application.applyVia ?? "—"}</DetailField>
             <DetailField label="CV">{cv?.name ?? "—"}</DetailField>
             <NoteAndTagsFields application={application} />
@@ -194,7 +211,7 @@ function JobDetailTab({
     <div className="flex flex-col gap-4">
       <dl className="flex flex-col gap-3 text-sm">
         <JobMetaFields application={application} />
-        <DetailField label="Source">{application.sourceUrl ?? "—"}</DetailField>
+        <SourceUrlField application={application} />
         <DetailField label="Vacancy detail">
           <VacancyDetailContent html={application.vacancyDetail} />
         </DetailField>

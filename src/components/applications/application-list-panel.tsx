@@ -10,6 +10,7 @@ import {
 import { useSearchParams } from "react-router"
 import { format, parseISO } from "date-fns"
 
+import { ExternalLink } from "@/components/external-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -41,6 +42,7 @@ import { ApplicationDetailSheet } from "@/components/applications/application-de
 import { ApplicationFormDialog } from "@/components/applications/application-form-dialog"
 import { ArchiveApplicationDialog } from "@/components/applications/archive-application-dialog"
 import { DeleteApplicationDialog } from "@/components/applications/delete-application-dialog"
+import { SimilarApplicationsDialog } from "@/components/applications/similar-applications-dialog"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { useSessionState } from "@/hooks/use-session-state"
 import { stripHtml } from "@/lib/quill-html"
@@ -50,6 +52,7 @@ import {
   createApplication,
   deleteApplication,
   findApplication,
+  findSimilarApplications,
   restoreApplication,
   updateApplication,
 } from "@/lib/application"
@@ -108,6 +111,11 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
   const [statusFilter, setStatusFilter] = React.useState<GlobalApplicationStatus | typeof ALL_STATUSES>(
     ALL_STATUSES
   )
+
+  // Set right after a create whose Company + URL match existing
+  // applications — see `findSimilarApplications`. Informational only, so it
+  // lives outside the URL-synced dialog state the rest of this panel uses.
+  const [similarApplications, setSimilarApplications] = React.useState<DbApplication[] | null>(null)
 
   // Keyed per tab so List and Archive filters don't collide, and outlive the
   // page the same way Inventory's pool filters do.
@@ -190,7 +198,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
               <TableHead>Company</TableHead>
               <TableHead>Deadline</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Source</TableHead>
+              <TableHead>URL</TableHead>
               <TableHead>CV</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="w-10" />
@@ -231,7 +239,14 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                     <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap text-muted-foreground">
-                    {application.sourceUrl ?? "—"}
+                    {application.sourceUrl ? (
+                      <ExternalLink
+                        href={application.sourceUrl}
+                        className="underline underline-offset-4 hover:text-primary"
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap">
                     {cv?.name ?? "—"}
@@ -300,7 +315,9 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
         confirmLabel="Create"
         cvOptions={cvOptions}
         onSubmit={async (fields) => {
+          const duplicates = findSimilarApplications(store, fields.company, fields.sourceUrl)
           await createApplication(store, fields)
+          if (duplicates.length > 0) setSimilarApplications(duplicates)
         }}
       />
 
@@ -360,6 +377,11 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
           await deleteApplication(store, deleteTarget.id)
           close(["id"])
         }}
+      />
+
+      <SimilarApplicationsDialog
+        applications={similarApplications}
+        onOpenChange={(next) => !next && setSimilarApplications(null)}
       />
     </div>
   )

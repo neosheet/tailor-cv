@@ -39,6 +39,31 @@ export function findApplication(
 }
 
 /**
+ * Existing applications (active or archived — `data.applications` holds
+ * both) that share the same Company and URL as the given values. Used to
+ * warn about likely duplicates without blocking creation — see spec's
+ * duplication-detect note. Both fields must be present and match
+ * case-insensitively; a blank Company or URL never matches anything, so
+ * applications missing either field don't collide with one another.
+ */
+export function findSimilarApplications(
+  data: ApplicationData,
+  company: string | null | undefined,
+  sourceUrl: string | null | undefined
+): DbApplication[] {
+  const needleCompany = company?.trim().toLowerCase()
+  const needleSourceUrl = sourceUrl?.trim().toLowerCase()
+
+  if (!needleCompany || !needleSourceUrl) return []
+
+  return data.applications.filter(
+    (application) =>
+      application.company?.trim().toLowerCase() === needleCompany &&
+      application.sourceUrl?.trim().toLowerCase() === needleSourceUrl
+  )
+}
+
+/**
  * Everything the `/applications/:id/cv` route needs to render the CV
  * attached to one application. Prefers `cvSnapshot` (frozen, once status has
  * left `draft`) over `cvId` (still live, while in `draft`) — see spec 10's

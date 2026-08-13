@@ -24,7 +24,7 @@ the first real version; fields are intentionally minimal and expected to grow.
 | Field | Type | Notes |
 |---|---|---|
 | Title | text, required | e.g. "Senior Engineer @ Acme" |
-| Source | text (URL), optional | where the listing was found |
+| URL | text (URL), optional | link to the job opportunity page |
 | Vacancy detail | text, optional | pasted job description / notes |
 | Apply via | text, optional | free text — an email address, a URL, "referral", whatever applies |
 | CV | FK → `cvs`, optional | which CV was/will be sent |
@@ -220,8 +220,11 @@ stage-templates.ts`: registry CRUD (`listStageTemplates`, `createStageTemplate`,
 ## UI
 
 - `/applications` (`applications.tsx`): a table — Title, Company, Deadline, Status
-  (badge), Source, CV name, last updated — with a status filter and a **New
-  Application** button opening a form dialog.
+  (badge), URL, CV name, last updated — with a status filter and a **New
+  Application** button opening a form dialog. Creating an application whose
+  Company + URL match an existing one (active or archived) surfaces a
+  non-blocking "similar applications found" dialog after the create succeeds —
+  see `findSimilarApplications`.
 - Row click opens a detail `Sheet` (also reachable full-page at
   `/applications/:id`), tabbed: **Job Detail** (editable fields, the Global Status
   `Select` — every option enabled once a CV is attached, a confirmation step the
