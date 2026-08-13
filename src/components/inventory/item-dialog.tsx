@@ -217,6 +217,7 @@ const KIND_FIELDS: Record<ItemKind, FieldConfig[]> = {
     { key: "subtitle", label: "Awarder", icon: BuildingIcon },
     { key: "summary", label: "Summary", kind: "multiline", icon: TextIcon },
     { key: "startDate", label: "Awarded", kind: "date", icon: CalendarIcon },
+    { key: "url", label: "Link", icon: LinkIcon },
   ],
   certificate: [
     { key: "title", label: "Certificate name", icon: BadgeCheckIcon },

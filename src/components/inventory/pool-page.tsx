@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { PoolPanel } from "@/components/inventory/pool-panel"
+import { PoolTableSkeleton } from "@/components/inventory/pool-table-skeleton"
 import { usePoolData } from "@/components/inventory/use-pool-data"
 import type { ItemKind } from "@/lib/inventory"
 import type { NavPage } from "@/lib/navigation"
@@ -17,7 +18,7 @@ export function PoolPage({ page, kind }: { page: NavPage; kind: ItemKind }) {
     return (
       <>
         <PageHeader title={page.title} description={page.description} />
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <PoolTableSkeleton />
       </>
     )
   }

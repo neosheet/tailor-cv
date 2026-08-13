@@ -25,9 +25,22 @@ documents live in `docs/` (see `docs/README.md`):
 4. **Execute** with `/do` for plans produced by `/make-plan`, checking off phases in
    `docs/progress.md` as they complete — keep that file in sync with reality, don't
    let it drift.
+5. **Commit as soon as a task (or plan phase) is complete.** No need to ask first —
+   this is standing authorization to commit at each completion point. Still follow
+   the repo's normal commit hygiene (stage relevant files only, no `--no-verify`,
+   never force-push or amend). Push remains something to ask about separately.
 
 Don't ask for confirmation before invoking skills below — they're expected to fire
 automatically based on the task at hand.
+
+## Code map
+
+`docs/code-map.md` is a table-of-contents index of important files by domain
+(routing, layout, inventory, persona/CV, applications, settings, data/backend).
+**Check it first when exploring the codebase or locating where a feature
+lives** — it's cheaper than scanning/grepping the tree. **Keep it in sync:**
+whenever you add, remove, rename, or meaningfully repurpose a file it lists,
+update `docs/code-map.md` in the same change.
 
 ## Skills (`.claude/skills/`)
 
@@ -61,15 +74,16 @@ symlink/real-file layout).
 - Supabase changes frequently; the supabase skill will verify against current docs rather than relying on training data — let it.
 
 ## Verifying UI work
-Keep the visual check simple — as long as it works, that's enough. Confirm, then stop.
+**Skip the visual check by default — don't screenshot or browse the app unless the
+user explicitly asks for it.**
 
-- **Need permission approval before doing it. Don't visually check mobile/narrow viewports or dark mode.** No resizing the
-  viewport, no toggling themes, no screenshots of either. Semantic tokens and
-  responsive utilities are assumed to handle both; if one is actually broken, fix it
-  when it's reported.
-- **Default check is one desktop screenshot of the changed page plus a console-error
-  check.** That's enough. Don't sweep every route or re-screenshot after each tweak.
 - Always run `npm run typecheck` and `npm run lint` before calling work done — those
-  are cheap and catch the real problems.
-- Exception: verify a viewport or theme only when the user asks, or when the change
-  is specifically about responsive behaviour or theming.
+  are cheap and catch the real problems, and are required regardless of visual
+  checking.
+- Do a visual check (one desktop screenshot of the changed page plus a console-error
+  check) only when the user asks for it, or when the change is specifically about
+  visual/responsive/theming behavior where a check is the only way to confirm it.
+- When a visual check does happen: don't check mobile/narrow viewports or dark mode
+  unless asked — no resizing the viewport, no toggling themes, no screenshots of
+  either. Semantic tokens and responsive utilities are assumed to handle both; fix it
+  when it's actually reported broken.

@@ -232,6 +232,7 @@ export const FIELD_REGISTRY: Partial<Record<ItemKind, { key: string; label: stri
     { key: "subtitle", label: "Awarder" },
     { key: "summary", label: "Summary" },
     { key: "dates", label: "Date" },
+    { key: "url", label: "Link" },
   ],
   certificate: [
     { key: "title", label: "Certificate name" },
@@ -451,10 +452,10 @@ export function buildResumeDocument(
   const location = locationItem ? formatLocation(locationItem) : null
   const socials = !isKindHidden(fieldVisibility, "social")
     ? selectedIn("social").map((item) => ({
-        network: item.title,
-        username: item.subtitle,
-        url: item.url,
-      }))
+      network: item.title,
+      username: item.subtitle,
+      url: item.url,
+    }))
     : []
 
   const sections = persona.personaSections
@@ -506,11 +507,11 @@ export function buildResumeDocument(
     contactParts: [
       contact?.email,
       contact?.phone,
-      location,
       contact?.url?.replace(/^https?:\/\//, ""),
       ...socials.map(
-        (social) => social.url?.replace(/^https?:\/\//, "") ?? social.network
+        (social) => social.url?.replace(/^https?:\/\//, "") ?? social.network,
       ),
+      location,
     ].filter((part): part is string => Boolean(part)),
   }
 }
@@ -620,12 +621,12 @@ function buildMetaLine(details: Record<string, unknown>): string | null {
   const location = typeof details.location === "string" ? details.location : null
   const workplaceType =
     typeof details.workplaceType === "string" &&
-    details.workplaceType.toLowerCase() !== "on-site"
+      details.workplaceType.toLowerCase() !== "on-site"
       ? capitalize(details.workplaceType)
       : null
   const employmentType =
     typeof details.employmentType === "string" &&
-    details.employmentType.toLowerCase() !== "full-time"
+      details.employmentType.toLowerCase() !== "full-time"
       ? capitalize(details.employmentType)
       : null
 
