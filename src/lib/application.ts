@@ -126,6 +126,8 @@ export type ApplicationFormFields = {
   cvId?: string | null
   note?: string | null
   tags?: string[]
+  requiredSkillsInput?: string | null
+  missingSkills?: string[] | null
 }
 
 /**
@@ -197,6 +199,10 @@ export async function updateApplication(
       ...(patch.cvId !== undefined ? { cv_id: patch.cvId } : {}),
       ...(patch.note !== undefined ? { note: patch.note } : {}),
       ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
+      ...(patch.requiredSkillsInput !== undefined
+        ? { required_skills_input: patch.requiredSkillsInput }
+        : {}),
+      ...(patch.missingSkills !== undefined ? { missing_skills: patch.missingSkills } : {}),
     })
     .eq("id", applicationId)
     .select()

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { FileTextIcon, PencilIcon } from "lucide-react"
+import { FileTextIcon, PencilIcon, TriangleAlert } from "lucide-react"
 import { Link } from "react-router"
 import { format, parseISO } from "date-fns"
 
@@ -28,6 +28,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExternalLink } from "@/components/external-link"
 import { ResumeRender } from "@/components/cv/resume-render"
+import { SkillsCheckDialog } from "@/components/skills/skills-check-dialog"
 import { TimelineTab } from "@/components/applications/timeline-tab"
 import { VacancyDetailContent } from "@/components/applications/vacancy-detail-content"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
@@ -35,11 +36,12 @@ import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
 import { JOB_TYPE_LABEL } from "@/lib/application-job-type"
 import { WORK_TYPE_LABEL } from "@/lib/application-work-type"
-import { resolveApplicationCv, setGlobalApplicationStatus } from "@/lib/application"
+import { resolveApplicationCv, setGlobalApplicationStatus, updateApplication } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
 import { findCv } from "@/lib/cv"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { usePersonaStore } from "@/lib/persona-store"
+import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
 import type { GlobalApplicationStatus, DbApplication, DbCv } from "@/mocks/types"
 
 function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
@@ -67,6 +69,46 @@ function SourceUrlField({ application }: { application: DbApplication }) {
       ) : (
         "—"
       )}
+    </DetailField>
+  )
+}
+
+/**
+ * The last saved Check result plus the trigger to reopen `SkillsCheckDialog`
+ * — shared by both `variant`s' sidebar `dl`. Disabled (no trigger) when no CV
+ * is attached, since there's nothing to check against.
+ */
+function MissingSkillsField({
+  application,
+  onOpenCheck,
+}: {
+  application: DbApplication
+  onOpenCheck: () => void
+}) {
+  return (
+    <DetailField label="Missing skills">
+      <div className="flex flex-col items-start gap-2">
+        {application.missingSkills && application.missingSkills.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {application.missingSkills.map((skill) => (
+              <Badge key={skill} variant="destructive">
+                <TriangleAlert data-icon="inline-start" />
+                {skill}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <span>—</span>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!application.cvId}
+          onClick={onOpenCheck}
+        >
+          Check skills
+        </Button>
+      </div>
     </DetailField>
   )
 }
@@ -169,12 +211,14 @@ function JobDetailTab({
   cv,
   gateReason,
   onStatusChange,
+  onOpenSkillsCheck,
   variant,
 }: {
   application: DbApplication
   cv: DbCv | undefined
   gateReason: "missing-cv" | "loading" | null
   onStatusChange: (next: GlobalApplicationStatus) => void
+  onOpenSkillsCheck: () => void
   variant: "sheet" | "page"
 }) {
   if (variant === "page") {
@@ -195,6 +239,7 @@ function JobDetailTab({
             <SourceUrlField application={application} />
             <DetailField label="Apply via">{application.applyVia ?? "—"}</DetailField>
             <DetailField label="CV">{cv?.name ?? "—"}</DetailField>
+            <MissingSkillsField application={application} onOpenCheck={onOpenSkillsCheck} />
             <NoteAndTagsFields application={application} />
           </dl>
           <StatusSelectField
@@ -220,6 +265,7 @@ function JobDetailTab({
         </DetailField>
         <DetailField label="Apply via">{application.applyVia ?? "—"}</DetailField>
         <DetailField label="CV">{cv?.name ?? "—"}</DetailField>
+        <MissingSkillsField application={application} onOpenCheck={onOpenSkillsCheck} />
         <NoteAndTagsFields application={application} />
       </dl>
       <StatusSelectField
@@ -265,6 +311,35 @@ export function ApplicationDetailView({
 
   const cv = application.cvId ? findCv(personaStore, application.cvId) : undefined
   const resolvedCv = resolveApplicationCv(application, personaStore, inventoryStore)
+
+  const skillsCheckDialog = useDialogSearchParams()
+  const [requiredSkillsInput, setRequiredSkillsInput] = React.useState(
+    application.requiredSkillsInput ?? ""
+  )
+  const [missingSkillsResult, setMissingSkillsResult] = React.useState<string[] | null>(
+    application.missingSkills
+  )
+  const [savingSkillsCheck, setSavingSkillsCheck] = React.useState(false)
+  const availableSkills = resolvedCv ? skillTitlesOf(resolvedCv.document) : []
+
+  function openSkillsCheck() {
+    setRequiredSkillsInput(application.requiredSkillsInput ?? "")
+    setMissingSkillsResult(application.missingSkills)
+    skillsCheckDialog.open("skills-check")
+  }
+
+  async function saveSkillsCheck() {
+    setSavingSkillsCheck(true)
+    try {
+      await updateApplication(applicationStore, application.id, {
+        requiredSkillsInput: requiredSkillsInput.trim() || null,
+        missingSkills: missingSkillsResult && missingSkillsResult.length > 0 ? missingSkillsResult : null,
+      })
+      skillsCheckDialog.close()
+    } finally {
+      setSavingSkillsCheck(false)
+    }
+  }
 
   async function handleStatusChange(next: GlobalApplicationStatus) {
     if (next === application.globalStatus) return
@@ -334,6 +409,7 @@ export function ApplicationDetailView({
               cv={cv}
               gateReason={gateReason}
               onStatusChange={handleStatusChange}
+              onOpenSkillsCheck={openSkillsCheck}
               variant={variant}
             />
           </TabsContent>
@@ -411,6 +487,23 @@ export function ApplicationDetailView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SkillsCheckDialog
+        open={skillsCheckDialog.dialog === "skills-check"}
+        onOpenChange={(next) => !next && skillsCheckDialog.close()}
+        value={requiredSkillsInput}
+        onValueChange={setRequiredSkillsInput}
+        result={missingSkillsResult}
+        onCheck={() =>
+          setMissingSkillsResult(findMissingSkills(requiredSkillsInput, availableSkills))
+        }
+        disabledReason={!resolvedCv ? "Select a CV first" : undefined}
+        extraFooter={
+          <Button size="sm" disabled={savingSkillsCheck} onClick={saveSkillsCheck}>
+            {savingSkillsCheck ? "Saving…" : "Save"}
+          </Button>
+        }
+      />
     </>
   )
 }

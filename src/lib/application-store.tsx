@@ -60,6 +60,8 @@ export function mapApplicationRow(row: Tables<"applications">): DbApplication {
     note: row.note,
     tags: row.tags,
     archivedAt: row.archived_at,
+    requiredSkillsInput: row.required_skills_input,
+    missingSkills: row.missing_skills,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
