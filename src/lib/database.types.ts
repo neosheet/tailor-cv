@@ -92,8 +92,10 @@ export type Database = {
           id: string
           job_type: Database["public"]["Enums"]["application_job_type"] | null
           location: string | null
+          missing_skills: string[] | null
           note: string | null
           position: string | null
+          required_skills_input: string | null
           source_url: string | null
           tags: string[]
           title: string
@@ -116,8 +118,10 @@ export type Database = {
           id?: string
           job_type?: Database["public"]["Enums"]["application_job_type"] | null
           location?: string | null
+          missing_skills?: string[] | null
           note?: string | null
           position?: string | null
+          required_skills_input?: string | null
           source_url?: string | null
           tags?: string[]
           title: string
@@ -142,8 +146,10 @@ export type Database = {
           id?: string
           job_type?: Database["public"]["Enums"]["application_job_type"] | null
           location?: string | null
+          missing_skills?: string[] | null
           note?: string | null
           position?: string | null
+          required_skills_input?: string | null
           source_url?: string | null
           tags?: string[]
           title?: string
