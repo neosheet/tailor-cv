@@ -6,9 +6,11 @@ import {
   PencilIcon,
   StarIcon,
   Trash2Icon,
+  TriangleAlert,
   UsersIcon,
 } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router"
+import { useState, type ReactNode } from "react"
 
 import { ExternalLink } from "@/components/external-link"
 import { Badge } from "@/components/ui/badge"
@@ -48,6 +50,7 @@ import { LINE_HEADING } from "@/components/inventory/columns"
 import { PoolPickerDialog } from "@/components/inventory/pool-picker-dialog"
 import { DeletePersonaDialog } from "@/components/persona/delete-persona-dialog"
 import { PersonaFormDialog } from "@/components/persona/persona-form-dialog"
+import { SkillsCheckDialog } from "@/components/skills/skills-check-dialog"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { cvTemplates } from "@/lib/cv-templates"
 import { allCvs } from "@/lib/cv"
@@ -68,6 +71,7 @@ import {
   type ResumeSection,
 } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
+import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
 import type { ItemKind } from "@/mocks/types"
 
 /** Left column of the two-column layout — the entries with the most content. */
@@ -90,6 +94,12 @@ export function PersonaDetailPage() {
   const formDialogMode =
     dialog === "edit" || dialog === "duplicate" ? dialog : null
   const deleting = dialog === "delete"
+  const skillsCheckOpen = dialog === "skills-check"
+
+  // In-memory only — never persisted, gone on refresh. See
+  // docs/specs/14-missing-skills-check.md's "Persona detail page (ephemeral)".
+  const [requiredSkillsInput, setRequiredSkillsInput] = useState("")
+  const [missingSkillsResult, setMissingSkillsResult] = useState<string[] | null>(null)
 
   const persona = id ? findPersona(personaStore, id) : undefined
 
@@ -119,6 +129,7 @@ export function PersonaDetailPage() {
   }
 
   const document = buildResumeDocument(personaStore, inventoryStore, persona.id)
+  const availableSkills = skillTitlesOf(document)
   const usedByCvs = allCvs(personaStore).filter(
     (cv) => cv.personaId === persona.id
   )
@@ -330,6 +341,18 @@ export function PersonaDetailPage() {
               heading={titleFor(kind)}
               section={sectionByKind.get(kind)}
               onPick={() => open("pool-picker", { kind })}
+              extraAction={
+                kind === "skill" ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => open("skills-check")}
+                  >
+                    <TriangleAlert data-icon="inline-start" />
+                    Check skills
+                  </Button>
+                ) : undefined
+              }
             />
           ))}
 
@@ -372,6 +395,17 @@ export function PersonaDetailPage() {
           </Card>
         </div>
       </div>
+
+      <SkillsCheckDialog
+        open={skillsCheckOpen}
+        onOpenChange={(next) => !next && close()}
+        value={requiredSkillsInput}
+        onValueChange={setRequiredSkillsInput}
+        result={missingSkillsResult}
+        onCheck={() =>
+          setMissingSkillsResult(findMissingSkills(requiredSkillsInput, availableSkills))
+        }
+      />
 
       <PoolPickerDialog
         kind={openKind ?? "work"}
@@ -461,16 +495,20 @@ function SectionCard({
   heading,
   section,
   onPick,
+  extraAction,
 }: {
   heading: string
   section: ResumeSection | undefined
   onPick: () => void
+  /** An extra action alongside `PickButton` — used by the Skills card's "Check skills" trigger. */
+  extraAction?: ReactNode
 }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>{heading}</CardTitle>
-        <CardAction>
+        <CardAction className="flex items-center gap-1">
+          {extraAction}
           <PickButton label={heading} onClick={onPick} />
         </CardAction>
       </CardHeader>
