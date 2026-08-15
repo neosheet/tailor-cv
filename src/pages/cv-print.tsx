@@ -1,6 +1,6 @@
-import { ArrowLeftIcon, DownloadIcon, FileDownIcon } from "lucide-react"
+import { ArrowLeftIcon, DownloadIcon, FileDownIcon, TriangleAlert } from "lucide-react"
 import { Link, useParams } from "react-router"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useReactToPrint } from "react-to-print";
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +14,7 @@ import {
 import { useSidebar } from "@/components/ui/sidebar"
 import { PersonaFieldTree } from "@/components/cv/persona-field-tree"
 import { ResumeRender } from "@/components/cv/resume-render"
+import { SkillsCheckDialog } from "@/components/skills/skills-check-dialog"
 import type { CvTemplate } from "@/lib/cv-templates"
 import { resolveCv } from "@/lib/cv"
 import { buildCvSnapshot } from "@/lib/cv-snapshot"
@@ -21,6 +22,7 @@ import { downloadCvSnapshot } from "@/lib/cv-snapshot-download"
 import { useInventoryStore } from "@/lib/inventory-store"
 import type { ResumeDocument } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
+import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
 import type { DbCv } from "@/mocks/types"
 
 /**
@@ -67,6 +69,14 @@ function CvResolved({
 }) {
   const fileName = `${document.personaName} — ${template.name}.pdf`
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // In-memory only — never persisted, gone on refresh. See
+  // docs/specs/14-missing-skills-check.md's "CV page (ephemeral)".
+  const [skillsCheckOpen, setSkillsCheckOpen] = useState(false)
+  const [requiredSkillsInput, setRequiredSkillsInput] = useState("")
+  const [missingSkillsResult, setMissingSkillsResult] = useState<string[] | null>(null)
+  const availableSkills = skillTitlesOf(document)
+
   // The Page tab's margin override, same precedence the DOM renderer uses.
   const pageMargin = cv.templateSettings.page?.margin ?? template.definition.page.margin ?? 0
   const reactToPrintFn = useReactToPrint({
@@ -80,53 +90,71 @@ function CvResolved({
   })
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          render={<Link to="/cvs" />}
-          nativeButton={false}
-        >
-          <ArrowLeftIcon data-icon="inline-start" />
-          {cv.name}
-        </Button>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {document.personaName} - {template.name}
-          </span>
-
+    <>
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
-            variant="outline"
-            onClick={() => downloadCvSnapshot(buildCvSnapshot(cv, document, template))}
+            variant="ghost"
+            size="sm"
+            render={<Link to="/cvs" />}
+            nativeButton={false}
           >
-            <FileDownIcon data-icon="inline-start" />
-            Export
+            <ArrowLeftIcon data-icon="inline-start" />
+            {cv.name}
           </Button>
 
-          <Button onClick={reactToPrintFn}>Print</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {document.personaName} - {template.name}
+            </span>
+
+            <Button variant="outline" onClick={() => setSkillsCheckOpen(true)}>
+              <TriangleAlert data-icon="inline-start" />
+              Check skills
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => downloadCvSnapshot(buildCvSnapshot(cv, document, template))}
+            >
+              <FileDownIcon data-icon="inline-start" />
+              Export
+            </Button>
+
+            <Button onClick={reactToPrintFn}>Print</Button>
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-1 gap-4 overflow-hidden">
-        <aside className="w-80 shrink-0">
-          <PersonaFieldTree cv={cv} template={template} />
-        </aside>
+        <div className="flex flex-1 gap-4 overflow-hidden">
+          <aside className="w-80 shrink-0">
+            <PersonaFieldTree cv={cv} template={template} />
+          </aside>
 
-        <div className="flex-1 overflow-auto rounded-xl bg-muted p-5">
-          <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
-            <ResumeRender
-              ref={contentRef}
-              document={document}
-              templateId={template.id}
-              definition={template.definition}
-              settings={cv.templateSettings}
-            />
+          <div className="flex-1 overflow-auto rounded-xl bg-muted p-5">
+            <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
+              <ResumeRender
+                ref={contentRef}
+                document={document}
+                templateId={template.id}
+                definition={template.definition}
+                settings={cv.templateSettings}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <SkillsCheckDialog
+        open={skillsCheckOpen}
+        onOpenChange={setSkillsCheckOpen}
+        value={requiredSkillsInput}
+        onValueChange={setRequiredSkillsInput}
+        result={missingSkillsResult}
+        onCheck={() =>
+          setMissingSkillsResult(findMissingSkills(requiredSkillsInput, availableSkills))
+        }
+      />
+    </>
   )
 }
 
