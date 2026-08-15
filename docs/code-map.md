@@ -120,6 +120,8 @@ or its responsibility materially changes, update this file in the same change.
 |---|---|
 | `src/components/ui/*` | shadcn/ui primitives — extend via the `shadcn` skill, don't hand-build |
 | `src/components/search-input.tsx`, `external-link.tsx`, `theme-provider.tsx` | Small shared building blocks |
+| `src/components/skills/skills-check-dialog.tsx` | Reusable "paste required skills, see what's missing" dialog — controlled, no fetch/persist of its own. Used by Application detail (persisted), CV page, and Persona detail (both ephemeral) |
+| `src/lib/skill-check.ts` | `findMissingSkills` (case-insensitive line-diff) and `skillTitlesOf` (flattens a resolved `ResumeDocument`'s skill section) — shared by the three `SkillsCheckDialog` call sites |
 | `src/hooks/use-dialog-search-params.ts`, `use-tab-search-param.ts` | URL-synced UI state (open dialogs, active tab) |
 | `src/hooks/use-session-state.ts`, `use-mobile.ts` | sessionStorage-backed state, mobile breakpoint detection |
 

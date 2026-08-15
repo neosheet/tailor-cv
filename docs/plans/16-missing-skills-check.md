@@ -92,7 +92,10 @@ in-memory only (gone on refresh).
 
 ## Data model
 
-### Migration — `supabase/migrations/20260816050000_add_application_skill_check.sql`
+### Migration — `supabase/migrations/20260815215833_add_application_skill_check.sql`
+
+(Filename timestamp is whatever `apply_migration` stamps at execution time — the
+exact value above is what actually landed; don't hardcode a different one.)
 
 ```sql
 -- Manual "missing skills" check against a job posting's required-skills list,
