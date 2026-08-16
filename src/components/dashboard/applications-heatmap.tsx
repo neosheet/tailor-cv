@@ -35,7 +35,7 @@ function DayCell({ day }: { day: HeatmapDay }) {
           />
         }
       />
-      <TooltipContent>
+      <TooltipContent sideOffset={8} className="pointer-events-none">
         <div className="flex flex-col gap-0.5 py-0.5 text-center">
           <span className="font-medium">{format(date, "EEEE")}</span>
           <span>{format(date, "MMM d, yyyy")}</span>
@@ -77,7 +77,7 @@ export function ApplicationsHeatmap({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-2">
           <div className="flex min-w-[872px] flex-col gap-1">
             <div className="flex gap-1 pl-7">
               {weeks.map((week, i) => (
