@@ -107,13 +107,6 @@ export function ApplicationsHeatmap({
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-end gap-1.5 pt-1 text-xs text-muted-foreground">
-              <span>Less</span>
-              {([0, 1, 2, 3, 4] as const).map((level) => (
-                <div key={level} className={cn("size-3 rounded-sm", LEVEL_CLASS[level])} />
-              ))}
-              <span>More</span>
-            </div>
           </div>
         </div>
       </CardContent>
