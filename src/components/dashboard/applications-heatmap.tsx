@@ -29,7 +29,7 @@ function DayCell({ day }: { day: HeatmapDay }) {
         render={
           <div
             className={cn(
-              "h-3 w-full rounded-sm outline-2 outline-offset-1 outline-ring hover:outline",
+              "h-3 w-full rounded-sm hover:outline-2 hover:outline-offset-1 hover:outline-ring",
               LEVEL_CLASS[day.level]
             )}
           />
