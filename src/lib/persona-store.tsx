@@ -3,6 +3,7 @@ import * as React from "react"
 
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { toError, useRefetchVersion, useStoreContext } from "@/lib/store-context"
 import type { Tables } from "@/lib/database.types"
 import type { TemplateSettings } from "@/lib/cv-template-schema"
 import { parseTemplateDefinition } from "@/lib/cv-template-schema"
@@ -70,10 +71,6 @@ export type PersonaStore = PersonaData & {
 }
 
 const PersonaStoreContext = React.createContext<PersonaStore | null>(null)
-
-function toError(caught: unknown): Error {
-  return caught instanceof Error ? caught : new Error(String(caught))
-}
 
 export function mapPersonaRow(row: Tables<"personas">): DbPersona {
   return {
@@ -179,7 +176,7 @@ export function PersonaStoreProvider({
   const [cvTemplates, setCvTemplates] = React.useState<DbCvTemplate[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
-  const [version, setVersion] = React.useState(0)
+  const { version, refetch } = useRefetchVersion()
 
   React.useEffect(() => {
     let cancelled = false
@@ -262,8 +259,6 @@ export function PersonaStoreProvider({
     }
   }, [userId, version])
 
-  const refetch = React.useCallback(() => setVersion((v) => v + 1), [])
-
   const value = React.useMemo<PersonaStore>(
     () => ({
       personas,
@@ -305,11 +300,8 @@ export function PersonaStoreProvider({
 }
 
 export function usePersonaStore(): PersonaStore {
-  const context = React.useContext(PersonaStoreContext)
-
-  if (!context) {
-    throw new Error("usePersonaStore must be used within a PersonaStoreProvider")
-  }
-
-  return context
+  return useStoreContext(
+    PersonaStoreContext,
+    "usePersonaStore must be used within a PersonaStoreProvider"
+  )
 }

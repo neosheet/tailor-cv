@@ -3,6 +3,7 @@ import * as React from "react"
 
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { toError, useRefetchVersion, useStoreContext } from "@/lib/store-context"
 import type { Tables } from "@/lib/database.types"
 import { parseCvSnapshot } from "@/lib/cv-snapshot"
 import type { DbApplication, DbApplicationStage, DbStageTemplate } from "@/mocks/types"
@@ -33,10 +34,6 @@ export type ApplicationStore = ApplicationData & {
 const ApplicationStoreContext = React.createContext<ApplicationStore | null>(
   null
 )
-
-function toError(caught: unknown): Error {
-  return caught instanceof Error ? caught : new Error(String(caught))
-}
 
 export function mapApplicationRow(row: Tables<"applications">): DbApplication {
   return {
@@ -132,7 +129,7 @@ export function ApplicationStoreProvider({
   )
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
-  const [version, setVersion] = React.useState(0)
+  const { version, refetch } = useRefetchVersion()
 
   React.useEffect(() => {
     let cancelled = false
@@ -197,8 +194,6 @@ export function ApplicationStoreProvider({
     }
   }, [userId, version])
 
-  const refetch = React.useCallback(() => setVersion((v) => v + 1), [])
-
   const value = React.useMemo<ApplicationStore>(
     () => ({
       applications,
@@ -231,13 +226,8 @@ export function ApplicationStoreProvider({
 }
 
 export function useApplicationStore(): ApplicationStore {
-  const context = React.useContext(ApplicationStoreContext)
-
-  if (!context) {
-    throw new Error(
-      "useApplicationStore must be used within an ApplicationStoreProvider"
-    )
-  }
-
-  return context
+  return useStoreContext(
+    ApplicationStoreContext,
+    "useApplicationStore must be used within an ApplicationStoreProvider"
+  )
 }

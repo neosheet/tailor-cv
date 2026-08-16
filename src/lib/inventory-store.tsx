@@ -3,6 +3,7 @@ import * as React from "react"
 
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { toError, useRefetchVersion, useStoreContext } from "@/lib/store-context"
 import type { Tables } from "@/lib/database.types"
 import type { DbInventoryItem, DbInventoryLine, DbItemSkill } from "@/mocks/types"
 
@@ -43,10 +44,6 @@ export type InventoryStore = InventoryData & {
 }
 
 const InventoryStoreContext = React.createContext<InventoryStore | null>(null)
-
-function toError(caught: unknown): Error {
-  return caught instanceof Error ? caught : new Error(String(caught))
-}
 
 export function mapItemRow(row: Tables<"inventory_items">): DbInventoryItem {
   return {
@@ -142,7 +139,7 @@ export function InventoryStoreProvider({
   const [skillCategories, setSkillCategories] = React.useState<SkillCategory[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
-  const [version, setVersion] = React.useState(0)
+  const { version, refetch } = useRefetchVersion()
 
   React.useEffect(() => {
     let cancelled = false
@@ -212,8 +209,6 @@ export function InventoryStoreProvider({
     }
   }, [userId, version])
 
-  const refetch = React.useCallback(() => setVersion((v) => v + 1), [])
-
   const value = React.useMemo<InventoryStore>(
     () => ({
       items,
@@ -242,13 +237,8 @@ export function InventoryStoreProvider({
 }
 
 export function useInventoryStore(): InventoryStore {
-  const context = React.useContext(InventoryStoreContext)
-
-  if (!context) {
-    throw new Error(
-      "useInventoryStore must be used within an InventoryStoreProvider"
-    )
-  }
-
-  return context
+  return useStoreContext(
+    InventoryStoreContext,
+    "useInventoryStore must be used within an InventoryStoreProvider"
+  )
 }

@@ -131,6 +131,7 @@ or its responsibility materially changes, update this file in the same change.
 | File | Purpose |
 |---|---|
 | `src/lib/supabase.ts` | Supabase client init |
+| `src/lib/store-context.ts` | Shared scaffold for the three `*-store.tsx` providers: `toError`, `useRefetchVersion`, `useStoreContext` — the fetch-effect body and per-field state stay in each store, only the identical wrapper pieces are shared |
 | `src/lib/database.types.ts` | Generated Supabase types — regenerate via Supabase MCP, never hand-edit |
 | `supabase/migrations/*.sql` | Schema history, chronological by timestamp filename |
 | `src/mocks/*` | Dev/seed mock data (personas, work, education, skills, projects, cvs, misc), `flatten.ts`, `types.ts` |
