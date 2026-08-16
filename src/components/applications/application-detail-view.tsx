@@ -41,7 +41,8 @@ import { useApplicationStore } from "@/lib/application-store"
 import { findCv } from "@/lib/cv"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { usePersonaStore } from "@/lib/persona-store"
-import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
+import { skillTitlesOf } from "@/lib/skill-check"
+import { useSkillsCheck } from "@/hooks/use-skills-check"
 import type { GlobalApplicationStatus, DbApplication, DbCv } from "@/mocks/types"
 
 function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
@@ -313,18 +314,12 @@ export function ApplicationDetailView({
   const resolvedCv = resolveApplicationCv(application, personaStore, inventoryStore)
 
   const skillsCheckDialog = useDialogSearchParams()
-  const [requiredSkillsInput, setRequiredSkillsInput] = React.useState(
-    application.requiredSkillsInput ?? ""
-  )
-  const [missingSkillsResult, setMissingSkillsResult] = React.useState<string[] | null>(
-    application.missingSkills
-  )
+  const skillsCheck = useSkillsCheck()
   const [savingSkillsCheck, setSavingSkillsCheck] = React.useState(false)
   const availableSkills = resolvedCv ? skillTitlesOf(resolvedCv.document) : []
 
   function openSkillsCheck() {
-    setRequiredSkillsInput(application.requiredSkillsInput ?? "")
-    setMissingSkillsResult(application.missingSkills)
+    skillsCheck.reset(application.requiredSkillsInput ?? "", application.missingSkills)
     skillsCheckDialog.open("skills-check")
   }
 
@@ -332,8 +327,9 @@ export function ApplicationDetailView({
     setSavingSkillsCheck(true)
     try {
       await updateApplication(applicationStore, application.id, {
-        requiredSkillsInput: requiredSkillsInput.trim() || null,
-        missingSkills: missingSkillsResult && missingSkillsResult.length > 0 ? missingSkillsResult : null,
+        requiredSkillsInput: skillsCheck.value.trim() || null,
+        missingSkills:
+          skillsCheck.result && skillsCheck.result.length > 0 ? skillsCheck.result : null,
       })
       skillsCheckDialog.close()
     } finally {
@@ -491,12 +487,10 @@ export function ApplicationDetailView({
       <SkillsCheckDialog
         open={skillsCheckDialog.dialog === "skills-check"}
         onOpenChange={(next) => !next && skillsCheckDialog.close()}
-        value={requiredSkillsInput}
-        onValueChange={setRequiredSkillsInput}
-        result={missingSkillsResult}
-        onCheck={() =>
-          setMissingSkillsResult(findMissingSkills(requiredSkillsInput, availableSkills))
-        }
+        value={skillsCheck.value}
+        onValueChange={skillsCheck.setValue}
+        result={skillsCheck.result}
+        onCheck={() => skillsCheck.onCheck(availableSkills)}
         disabledReason={!resolvedCv ? "Select a CV first" : undefined}
         extraFooter={
           <Button size="sm" disabled={savingSkillsCheck} onClick={saveSkillsCheck}>

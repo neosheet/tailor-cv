@@ -10,7 +10,7 @@ import {
   UsersIcon,
 } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router"
-import { useState, type ReactNode } from "react"
+import type { ReactNode } from "react"
 
 import { ExternalLink } from "@/components/external-link"
 import { Badge } from "@/components/ui/badge"
@@ -71,7 +71,8 @@ import {
   type ResumeSection,
 } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
-import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
+import { skillTitlesOf } from "@/lib/skill-check"
+import { useSkillsCheck } from "@/hooks/use-skills-check"
 import type { ItemKind } from "@/mocks/types"
 
 /** Left column of the two-column layout — the entries with the most content. */
@@ -95,11 +96,9 @@ export function PersonaDetailPage() {
     dialog === "edit" || dialog === "duplicate" ? dialog : null
   const deleting = dialog === "delete"
   const skillsCheckOpen = dialog === "skills-check"
-
   // In-memory only — never persisted, gone on refresh. See
   // docs/specs/14-missing-skills-check.md's "Persona detail page (ephemeral)".
-  const [requiredSkillsInput, setRequiredSkillsInput] = useState("")
-  const [missingSkillsResult, setMissingSkillsResult] = useState<string[] | null>(null)
+  const skillsCheck = useSkillsCheck()
 
   const persona = id ? findPersona(personaStore, id) : undefined
 
@@ -399,12 +398,10 @@ export function PersonaDetailPage() {
       <SkillsCheckDialog
         open={skillsCheckOpen}
         onOpenChange={(next) => !next && close()}
-        value={requiredSkillsInput}
-        onValueChange={setRequiredSkillsInput}
-        result={missingSkillsResult}
-        onCheck={() =>
-          setMissingSkillsResult(findMissingSkills(requiredSkillsInput, availableSkills))
-        }
+        value={skillsCheck.value}
+        onValueChange={skillsCheck.setValue}
+        result={skillsCheck.result}
+        onCheck={() => skillsCheck.onCheck(availableSkills)}
       />
 
       <PoolPickerDialog

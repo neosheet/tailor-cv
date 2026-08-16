@@ -22,7 +22,8 @@ import { downloadCvSnapshot } from "@/lib/cv-snapshot-download"
 import { useInventoryStore } from "@/lib/inventory-store"
 import type { ResumeDocument } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
-import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
+import { skillTitlesOf } from "@/lib/skill-check"
+import { useSkillsCheck } from "@/hooks/use-skills-check"
 import type { DbCv } from "@/mocks/types"
 
 /**
@@ -73,9 +74,8 @@ function CvResolved({
   // In-memory only — never persisted, gone on refresh. See
   // docs/specs/14-missing-skills-check.md's "CV page (ephemeral)".
   const [skillsCheckOpen, setSkillsCheckOpen] = useState(false)
-  const [requiredSkillsInput, setRequiredSkillsInput] = useState("")
-  const [missingSkillsResult, setMissingSkillsResult] = useState<string[] | null>(null)
   const availableSkills = skillTitlesOf(document)
+  const skillsCheck = useSkillsCheck()
 
   // The Page tab's margin override, same precedence the DOM renderer uses.
   const pageMargin = cv.templateSettings.page?.margin ?? template.definition.page.margin ?? 0
@@ -147,12 +147,10 @@ function CvResolved({
       <SkillsCheckDialog
         open={skillsCheckOpen}
         onOpenChange={setSkillsCheckOpen}
-        value={requiredSkillsInput}
-        onValueChange={setRequiredSkillsInput}
-        result={missingSkillsResult}
-        onCheck={() =>
-          setMissingSkillsResult(findMissingSkills(requiredSkillsInput, availableSkills))
-        }
+        value={skillsCheck.value}
+        onValueChange={skillsCheck.setValue}
+        result={skillsCheck.result}
+        onCheck={() => skillsCheck.onCheck(availableSkills)}
       />
     </>
   )

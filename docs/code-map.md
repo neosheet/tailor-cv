@@ -123,6 +123,7 @@ or its responsibility materially changes, update this file in the same change.
 | `src/components/skills/skills-check-dialog.tsx` | Reusable "paste required skills, see what's missing" dialog — controlled, no fetch/persist of its own. Used by Application detail (persisted), CV page, and Persona detail (both ephemeral) |
 | `src/lib/skill-check.ts` | `findMissingSkills` (case-insensitive line-diff) and `skillTitlesOf` (flattens a resolved `ResumeDocument`'s skill section) — shared by the three `SkillsCheckDialog` call sites |
 | `src/hooks/use-dialog-search-params.ts`, `use-tab-search-param.ts` | URL-synced UI state (open dialogs, active tab) |
+| `src/hooks/use-skills-check.ts` | `useSkillsCheck` — shared `value`/`result`/`onCheck`/`reset` state for the three `SkillsCheckDialog` callers; dialog open/close and persistence stay with each caller |
 | `src/hooks/use-session-state.ts`, `use-mobile.ts` | sessionStorage-backed state, mobile breakpoint detection |
 
 ## Data & backend
