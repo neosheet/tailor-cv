@@ -297,6 +297,11 @@ export async function restoreApplication(
  * `importCvSnapshot` — the frozen copy lives only in
  * `applications.cv_snapshot`, a column on the application itself; the
  * original CV in the `cvs` table is untouched and stays fully live/editable.
+ *
+ * The same freeze also stamps `applied_at` once, the dashboard's source of
+ * truth for "the day this application was actually applied to" — there's no
+ * status-change history table to derive it from otherwise (see
+ * `applied_at`'s migration).
  */
 export async function setGlobalApplicationStatus(
   store: ApplicationStore,
@@ -315,7 +320,9 @@ export async function setGlobalApplicationStatus(
     throw new Error(`No application "${applicationId}".`)
   }
 
-  let snapshotPatch: { cv_snapshot: Json } | Record<string, never> = {}
+  let snapshotPatch:
+    | { cv_snapshot: Json; applied_at: string }
+    | Record<string, never> = {}
 
   if (current.globalStatus === "draft" && next !== "draft") {
     if (!current.cvId) {
@@ -335,7 +342,10 @@ export async function setGlobalApplicationStatus(
     }
 
     const snapshot = buildCvSnapshot(resolved.cv, resolved.document, resolved.template)
-    snapshotPatch = { cv_snapshot: snapshot as unknown as Json }
+    snapshotPatch = {
+      cv_snapshot: snapshot as unknown as Json,
+      applied_at: new Date().toISOString(),
+    }
   }
 
   const { data, error } = await supabase

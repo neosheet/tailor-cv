@@ -338,6 +338,8 @@ export type DbApplication = DbTimestamps & {
   note: string | null
   tags: string[]
   archivedAt: string | null
+  /** Stamped once, at the same "freeze" moment as `cvSnapshot` — the first transition away from `draft`. */
+  appliedAt: string | null
   /** Raw pasted required-skills text (one per line) from the last Check. */
   requiredSkillsInput: string | null
   /** Result of the last Check — `null` when nothing was missing (or never checked). */

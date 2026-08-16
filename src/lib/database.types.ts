@@ -79,6 +79,7 @@ export type Database = {
       }
       applications: {
         Row: {
+          applied_at: string | null
           apply_via: string | null
           archived_at: string | null
           company: string | null
@@ -105,6 +106,7 @@ export type Database = {
           work_type: Database["public"]["Enums"]["application_work_type"] | null
         }
         Insert: {
+          applied_at?: string | null
           apply_via?: string | null
           archived_at?: string | null
           company?: string | null
@@ -133,6 +135,7 @@ export type Database = {
             | null
         }
         Update: {
+          applied_at?: string | null
           apply_via?: string | null
           archived_at?: string | null
           company?: string | null
