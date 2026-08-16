@@ -124,6 +124,14 @@ export type BlockDef = {
   node: TemplateNode
 }
 
+/**
+ * One node-id's override from `TemplateSettings.nodes` — see the Block
+ * Settings tab. Shared by the DOM renderer (applies it at render time) and
+ * the baker (applies it permanently into a standalone `TemplateDefinition`);
+ * both must agree on this shape, so it's declared once, here.
+ */
+export type NodeOverride = { hidden?: boolean; styles?: string | string[]; text?: string }
+
 export type TemplateSettings = {
   styles?: Record<string, Style>
   /** Per-CV overrides onto `TemplateDefinition.page` — see the Page tab. */
@@ -137,7 +145,7 @@ export type TemplateSettings = {
    * ("$item.title") to rebind the node to different data. See the Block
    * Settings tab.
    */
-  nodes?: Record<string, { hidden?: boolean; styles?: string | string[]; text?: string }>
+  nodes?: Record<string, NodeOverride>
 }
 
 /** Human-readable label + blurb for one entry in `stylesSchema`/`blocksSchema`. */

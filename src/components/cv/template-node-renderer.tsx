@@ -1,6 +1,8 @@
 import { createElement, Fragment, type CSSProperties, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 import {
+  applyStyleTextOverride,
+  lookupNodeOverride,
   resolveValue,
   resolveStyleObject,
   type Style,
@@ -12,6 +14,7 @@ import type {
   ElementNode,
   IfNode,
   JoinNode,
+  NodeOverride,
   PageConfig,
   RepeatNode,
   TemplateDefinition,
@@ -54,16 +57,11 @@ const SHORTHAND: Record<string, [keyof CSSProperties, keyof CSSProperties]> = {
   marginHorizontal: ["marginLeft", "marginRight"],
 }
 
-/** One node-id's override from `TemplateSettings.nodes` — see the Block Settings tab. */
-type NodeOverride = { hidden?: boolean; styles?: string | string[]; text?: string }
-
 function nodeOverride(
   id: string | undefined,
   settings: Record<string, unknown> | undefined
 ): NodeOverride | undefined {
-  if (!id) return undefined
-  const nodes = settings?.nodes as Record<string, NodeOverride> | undefined
-  return nodes?.[id]
+  return lookupNodeOverride(id, settings?.nodes as Record<string, NodeOverride> | undefined)
 }
 
 /** Falsy for `if`, empty arrays, empty strings, etc. */
@@ -145,13 +143,7 @@ function renderElement(
   if (override?.hidden) {
     return null
   }
-  if (override?.styles !== undefined || override?.text !== undefined) {
-    node = {
-      ...node,
-      ...(override.styles !== undefined ? { styles: override.styles } : {}),
-      ...(override.text !== undefined ? { text: override.text } : {}),
-    }
-  }
+  node = applyStyleTextOverride(node, override)
 
   const tag = node.tag
   const resolvedStyle = resolveStyleObject(
@@ -391,14 +383,7 @@ function renderBlockInstance(
   // it patches the block's own root node rather than the (styleless)
   // BlockInstanceNode wrapper — e.g. overriding the h2 `sectionHeading`
   // renders with, not some wrapper around it.
-  let rootNode = blockDef.node
-  if (override?.styles !== undefined || override?.text !== undefined) {
-    rootNode = {
-      ...rootNode,
-      ...(override.styles !== undefined ? { styles: override.styles } : {}),
-      ...(override.text !== undefined ? { text: override.text } : {}),
-    } as TemplateNode
-  }
+  const rootNode = applyStyleTextOverride(blockDef.node, override)
 
   // Render the block's node tree
   return renderNode(

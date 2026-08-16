@@ -67,9 +67,9 @@ or its responsibility materially changes, update this file in the same change.
 | `src/lib/persona-store.tsx` | `PersonaStoreProvider` — Supabase CRUD + state for personas, CVs, and saved `cv_templates` |
 | `src/lib/cv.ts` | CV CRUD, `resolveCv` (persona + template + overrides → renderable CV), `saveAsNewTemplate` |
 | `src/lib/cv-templates.ts` | Built-in + saved template registry: `cvTemplates`, `findTemplate`, `allTemplates` |
-| `src/lib/cv-template-core.ts` | Style resolution (`resolveStyleObject`), template node/block traversal |
-| `src/lib/cv-template-schema.ts` | Template type definitions: `TemplateDefinition`, `ElementNode`, `BlockInstanceNode`, `RepeatNode`, `PageConfig` |
-| `src/lib/cv-template-bake.ts` | `bakeTemplateSettings` — flattens style/page/block overrides into a standalone saved template |
+| `src/lib/cv-template-core.ts` | Style resolution (`resolveStyleObject`), template node/block traversal, and `NodeOverride` application (`lookupNodeOverride`, `applyStyleTextOverride`) shared by the renderer and the baker — `Style`/`StyleDef` re-exported from schema.ts, not redeclared |
+| `src/lib/cv-template-schema.ts` | Template type definitions: `TemplateDefinition`, `ElementNode`, `BlockInstanceNode`, `RepeatNode`, `PageConfig`, `NodeOverride` — the format's type source of truth |
+| `src/lib/cv-template-bake.ts` | `bakeTemplateSettings` — flattens style/page/block overrides into a standalone saved template, via the same `applyStyleTextOverride` the renderer uses (except the block-instance clone-on-bake case, which is bake-specific — see the function's docstring) |
 | `src/lib/cv-template-defs/{classic,two-column,batch1-demo}.ts` | Built-in template definitions |
 | `src/lib/style-property-schema.ts`, `page-property-schema.ts` | Editable style/page property metadata driving the template property editor UI |
 | `src/lib/resume-document.ts` | `ResumeDocument`/`ResumeSection`/`ResumeEntry` types — the rendered-CV data shape |

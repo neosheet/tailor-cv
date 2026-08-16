@@ -5,7 +5,19 @@
  */
 
 import type { ResumeDocument } from "@/lib/persona"
-import type { BlockDef, TemplateDefinition, TemplateNode } from "@/lib/cv-template-schema"
+import type {
+  BlockDef,
+  NodeOverride,
+  Style,
+  StyleDef,
+  TemplateDefinition,
+  TemplateNode,
+} from "@/lib/cv-template-schema"
+
+// `Style`/`StyleDef` live in cv-template-schema.ts (the format's type source
+// of truth) — re-exported here since the renderer imports them from this
+// module alongside the resolution functions that use them.
+export type { Style, StyleDef }
 
 /** Sigil-based scope: $data (document root), $prop (block props), $item/$index (repeat context). */
 export type TemplateScope = {
@@ -13,9 +25,6 @@ export type TemplateScope = {
   item?: unknown
   index?: number
 }
-
-export type Style = Record<string, string | number>
-export type StyleDef = Style & { extends?: string[] }
 
 /** Matches one sigil token, e.g. `$data.foo.bar`, `$prop.x`, `$item`, `$index`. */
 const SIGIL_TOKEN = /\$(?:data|prop|item|index)(?:\.[A-Za-z0-9_]+)*/g
@@ -275,4 +284,40 @@ export function collectBlockNodeIds(definition: TemplateDefinition): BlockNodeId
   walk(definition.root, definition.blocks, undefined, new Set())
 
   return out
+}
+
+/**
+ * Look up a node's own `TemplateSettings.nodes` override by its `id`. Shared
+ * by the renderer (looked up per render, against the live `settings` prop)
+ * and the baker (looked up once per node during the bake walk, against the
+ * settings being baked in).
+ */
+export function lookupNodeOverride(
+  id: string | undefined,
+  overrides: Record<string, NodeOverride> | undefined
+): NodeOverride | undefined {
+  return id ? overrides?.[id] : undefined
+}
+
+/**
+ * Applies a node's `styles`/`text` override — each field *replaces* the
+ * node's own value, it does not merge onto it. Returns `node` unchanged
+ * (same reference) when the override sets neither field, so callers that
+ * rely on reference identity for a "nothing changed" fast path keep working.
+ * Shared by the renderer (`renderElement`, `renderBlockInstance`) and the
+ * baker (`bakeNode`'s ElementNode branch, and the block-instance clone case
+ * documented in cv-template-bake.ts).
+ */
+export function applyStyleTextOverride<T extends TemplateNode>(
+  node: T,
+  override: NodeOverride | undefined
+): T {
+  if (override?.styles === undefined && override?.text === undefined) {
+    return node
+  }
+  return {
+    ...node,
+    ...(override.styles !== undefined ? { styles: override.styles } : {}),
+    ...(override.text !== undefined ? { text: override.text } : {}),
+  } as T
 }

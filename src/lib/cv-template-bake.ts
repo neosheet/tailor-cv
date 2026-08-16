@@ -1,6 +1,8 @@
+import { applyStyleTextOverride } from "@/lib/cv-template-core"
 import type {
   BlockDef,
   ElementNode,
+  NodeOverride,
   PageConfig,
   StyleDef,
   TemplateDefinition,
@@ -13,20 +15,21 @@ import type {
  * fully applied — the result renders identically with no `settings` passed
  * at all. See docs/specs/13-save-as-new-template.md.
  *
- * Mirrors `template-node-renderer.tsx`'s override semantics exactly (a
- * node's own `styles`/`text` override *replaces* that field, it does not
- * merge onto it) rather than reinventing them. The one place this can't be
- * a simple in-place tree patch: a `BlockInstanceNode`'s own `styles`/`text`
- * override patches only *that call site's* copy of the block's root node
- * (`renderBlockInstance`) — other instantiations of the same block by name
- * are untouched at render time. Baking that in place onto the shared
- * `blocks[name]` entry would incorrectly leak the override to every other
- * call site referencing the same block, so that one case clones the block
- * under a private name and repoints just this call site at the clone. Every
- * other override (an `ElementNode`'s own id, a `RepeatNode`'s own id) is
- * safe to patch directly on the node object encountered during the walk,
- * since render-time settings already apply those the same way regardless of
- * which path reaches them.
+ * Uses `applyStyleTextOverride` from cv-template-core.ts — the same function
+ * `template-node-renderer.tsx` applies at render time — so a node's own
+ * `styles`/`text` override *replaces* that field (does not merge onto it)
+ * identically in both places, by construction rather than by convention. The
+ * one place this can't be a simple in-place tree patch: a `BlockInstanceNode`'s
+ * own `styles`/`text` override patches only *that call site's* copy of the
+ * block's root node (`renderBlockInstance`) — other instantiations of the
+ * same block by name are untouched at render time. Baking that in place onto
+ * the shared `blocks[name]` entry would incorrectly leak the override to
+ * every other call site referencing the same block, so that one case clones
+ * the block under a private name and repoints just this call site at the
+ * clone. Every other override (an `ElementNode`'s own id, a `RepeatNode`'s
+ * own id) is safe to patch directly on the node object encountered during
+ * the walk, since render-time settings already apply those the same way
+ * regardless of which path reaches them.
  */
 export function bakeTemplateSettings(
   definition: TemplateDefinition,
@@ -50,8 +53,6 @@ export function bakeTemplateSettings(
 
   return { ...definition, page, styles, blocks, root }
 }
-
-type NodeOverride = { hidden?: boolean; styles?: string | string[]; text?: string }
 
 function emptyNode(): TemplateNode {
   return { tag: "div" }
@@ -111,11 +112,7 @@ function bakeNode(
       const baseNode = blocks[target]!.node
       blocks[cloneName] = {
         ...blocks[target],
-        node: {
-          ...baseNode,
-          ...(override.styles !== undefined ? { styles: override.styles } : {}),
-          ...(override.text !== undefined ? { text: override.text } : {}),
-        } as TemplateNode,
+        node: applyStyleTextOverride(baseNode, override),
       }
       return { ...node, block: cloneName }
     }
@@ -142,17 +139,21 @@ function bakeNode(
   const override = node.id ? overrides[node.id] : undefined
   if (override?.hidden) return undefined
 
-  const patched: ElementNode = {
-    ...node,
-    styles: override?.styles !== undefined ? override.styles : node.styles,
-    text: override?.text !== undefined ? override.text : node.text,
-  }
+  // `applyStyleTextOverride` returns `node` itself, unchanged, when there's
+  // no override — fine for the renderer, but this function must always
+  // return a tree fully independent of `definition` (never mutate a node
+  // shared with it), so the children patch below is a fresh spread rather
+  // than an in-place write, regardless of which branch `overridden` took.
+  const overridden = applyStyleTextOverride(node, override)
+  const children = overridden.children
+    ? overridden.children
+        .map((child) => bakeNode(child, overrides, blocks, visited))
+        .filter((child): child is TemplateNode => child !== undefined)
+    : undefined
 
-  if (patched.children) {
-    const children = patched.children
-      .map((child) => bakeNode(child, overrides, blocks, visited))
-      .filter((child): child is TemplateNode => child !== undefined)
-    patched.children = children.length > 0 ? children : undefined
+  const patched: ElementNode = {
+    ...overridden,
+    children: children && children.length > 0 ? children : undefined,
   }
 
   return patched
