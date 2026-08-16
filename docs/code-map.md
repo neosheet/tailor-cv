@@ -23,8 +23,8 @@ or its responsibility materially changes, update this file in the same change.
 |---|---|
 | `src/components/layout/app-layout.tsx` | Authenticated shell: sidebar + header + route outlet |
 | `src/components/layout/app-sidebar.tsx` | Nav sidebar, driven by `navigation.ts` |
-| `src/components/layout/app-header.tsx`, `page-header.tsx`, `user-menu.tsx`, `nav-card.tsx`, `placeholder-page.tsx` | Header bar, page title/actions row, account menu, dashboard nav cards, empty-state placeholder |
-| `src/components/dashboard/stat-card.tsx`, `applications-heatmap.tsx` | Dashboard-only widgets: totals tile, GitHub-style "applications applied per day" calendar heatmap |
+| `src/components/layout/app-header.tsx`, `page-header.tsx`, `user-menu.tsx`, `nav-card.tsx`, `placeholder-page.tsx` | Header bar, page title/actions row, account menu, linked section-nav cards (used by Inventory index), empty-state placeholder |
+| `src/components/dashboard/stat-card.tsx`, `applications-heatmap.tsx` | Dashboard-only widgets: linked totals tile, GitHub-style "applications applied per day" calendar heatmap with hover tooltips |
 | `src/lib/application-heatmap.ts` | `buildApplicationHeatmap` — buckets `applied_at` timestamps into a week/weekday grid with relative intensity levels, for `applications-heatmap.tsx` |
 
 ## Pages (`src/pages/`)

@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { buildApplicationHeatmap, type HeatmapDay } from "@/lib/application-heatmap"
 
@@ -18,9 +19,31 @@ const LEVEL_CLASS: Record<HeatmapDay["level"], string> = {
   4: "bg-primary",
 }
 
-function dayLabel(day: HeatmapDay): string {
+function DayCell({ day }: { day: HeatmapDay }) {
+  const date = parseISO(day.date)
   const count = day.count === 1 ? "1 application" : `${day.count} applications`
-  return `${count} applied on ${format(parseISO(day.date), "MMM d, yyyy")}`
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <div
+            className={cn(
+              "h-3 w-full rounded-sm",
+              LEVEL_CLASS[day.level]
+            )}
+          />
+        }
+      />
+      <TooltipContent>
+        <div className="flex flex-col gap-0.5 py-0.5 text-center">
+          <span className="font-medium">{format(date, "EEEE")}</span>
+          <span>{format(date, "MMM d, yyyy")}</span>
+          <span>{count} applied</span>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 /** Month label for a week column: only shown where a new month starts within it. */
@@ -55,10 +78,13 @@ export function ApplicationsHeatmap({
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          <div className="flex min-w-max flex-col gap-1">
+          <div className="flex min-w-[872px] flex-col gap-1">
             <div className="flex gap-1 pl-7">
               {weeks.map((week, i) => (
-                <div key={week[0].date} className="w-3 shrink-0 text-xs text-muted-foreground">
+                <div
+                  key={week[0].date}
+                  className="min-w-0 flex-1 text-xs whitespace-nowrap text-muted-foreground"
+                >
                   {monthLabel(week, weeks[i - 1])}
                 </div>
               ))}
@@ -71,16 +97,11 @@ export function ApplicationsHeatmap({
                   </div>
                 ))}
               </div>
-              <div className="flex gap-1">
+              <div className="flex flex-1 gap-1">
                 {weeks.map((week) => (
-                  <div key={week[0].date} className="flex flex-col gap-1">
+                  <div key={week[0].date} className="flex min-w-0 flex-1 flex-col gap-1">
                     {week.map((day) => (
-                      <div
-                        key={day.date}
-                        title={dayLabel(day)}
-                        aria-label={dayLabel(day)}
-                        className={cn("size-3 rounded-sm", LEVEL_CLASS[day.level])}
-                      />
+                      <DayCell key={day.date} day={day} />
                     ))}
                   </div>
                 ))}
