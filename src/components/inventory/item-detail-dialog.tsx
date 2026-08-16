@@ -53,6 +53,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useInventoryStore, type InventoryStore } from "@/lib/inventory-store"
 import { usePersonaStore } from "@/lib/persona-store"
+import { KIND_FIELDS } from "@/lib/item-kind-config"
 import { personasUsingItem, type ItemUsage } from "@/lib/persona"
 
 /**
@@ -63,19 +64,14 @@ import { personasUsingItem, type ItemUsage } from "@/lib/persona"
  * varies by `kind` (a company's is "Description", a reference's "Reference").
  */
 
-type FieldLabels = {
-  summary: string
-}
-
-const DEFAULT_LABELS: FieldLabels = {
-  summary: "Summary",
-}
-
-const FIELD_LABELS: Partial<Record<ItemKind, Partial<FieldLabels>>> = {
-  work: { summary: "Description" },
-  volunteer: { summary: "Description" },
-  project: { summary: "Description" },
-  reference: { summary: "Reference" },
+/**
+ * The `summary` field's label is the one that varies by kind (a company's is
+ * "Description", a reference's "Reference") — reads it off the same
+ * `KIND_FIELDS` the item form uses, rather than keeping a second table of the
+ * same knowledge in sync by hand.
+ */
+function summaryLabel(kind: ItemKind): string {
+  return KIND_FIELDS[kind].find((field) => field.key === "summary")?.label ?? "Summary"
 }
 
 /** Prose bullets get a visible marker; keyword/course lists read fine without one. */
@@ -224,7 +220,6 @@ function DetailsSection({
   item: DbInventoryItem
   store: InventoryStore
 }) {
-  const labels = { ...DEFAULT_LABELS, ...FIELD_LABELS[item.kind] }
   const lines = allLinesOf(store, item.id)
   const skills = skillsOf(store, item.id)
 
@@ -238,7 +233,7 @@ function DetailsSection({
         {/* Title and subtitle are already shown in the dialog header — repeating
           them here would just echo what the user is looking at. */}
         {dates ? <Field label="Dates">{dates}</Field> : null}
-        <TextField label={labels.summary} value={item.summary} />
+        <TextField label={summaryLabel(item.kind)} value={item.summary} />
         {item.yearsExperience !== null ? (
           <Field label="Years of experience">{item.yearsExperience}</Field>
         ) : null}

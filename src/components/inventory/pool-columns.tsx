@@ -9,6 +9,7 @@ import {
 } from "@/components/inventory/columns"
 import { ValueCell, type PoolColumn } from "@/components/inventory/pool-table"
 import { contactDetails, locationDetails, type ItemKind } from "@/lib/inventory"
+import { KIND_LINE_KINDS } from "@/lib/item-kind-config"
 
 /**
  * Columns for every pool, Basics included, following the field mapping in
@@ -82,14 +83,14 @@ export const POOL_COLUMNS: Record<ItemKind, PoolColumn[]> = {
     textColumn("Company", (item) => item.title),
     textColumn("Position", (item) => item.subtitle),
     DATE_RANGE,
-    linesColumn("Lines", ["responsibilities", "highlights"]),
+    linesColumn("Lines", KIND_LINE_KINDS.work ?? []),
     ...TAGS_NOTE,
   ],
   volunteer: [
     textColumn("Organisation", (item) => item.title),
     textColumn("Position", (item) => item.subtitle),
     DATE_RANGE,
-    linesColumn("Lines", ["responsibilities", "highlights"]),
+    linesColumn("Lines", KIND_LINE_KINDS.volunteer ?? []),
     ...TAGS_NOTE,
   ],
   education: [
@@ -98,7 +99,7 @@ export const POOL_COLUMNS: Record<ItemKind, PoolColumn[]> = {
     detailColumn("Study type", "studyType"),
     detailColumn("Score", "score"),
     DATE_RANGE,
-    linesColumn("Courses", ["courses"]),
+    linesColumn("Courses", KIND_LINE_KINDS.education ?? []),
     ...TAGS_NOTE,
   ],
   skill: [
@@ -108,19 +109,19 @@ export const POOL_COLUMNS: Record<ItemKind, PoolColumn[]> = {
     textColumn("Years", (item) =>
       item.yearsExperience === null ? null : String(item.yearsExperience)
     ),
-    linesColumn("Keywords", ["keywords"]),
+    linesColumn("Keywords", KIND_LINE_KINDS.skill ?? []),
     ...TAGS_NOTE,
   ],
   project: [
     textColumn("Project", (item) => item.title),
     textColumn("Description", (item) => item.summary),
     DATE_RANGE,
-    linesColumn("Lines", ["highlights", "keywords", "roles"]),
+    linesColumn("Lines", KIND_LINE_KINDS.project ?? []),
     ...TAGS_NOTE,
   ],
   interest: [
     textColumn("Interest", (item) => item.title),
-    linesColumn("Keywords", ["keywords"]),
+    linesColumn("Keywords", KIND_LINE_KINDS.interest ?? []),
     ...TAGS_NOTE,
   ],
   language: [

@@ -46,6 +46,7 @@ or its responsibility materially changes, update this file in the same change.
 |---|---|
 | `src/lib/inventory.ts` | Core inventory data helpers: `itemsOfKind`, `linesOf`, `skillsOf`, `entriesUsingSkill`, tag/line queries |
 | `src/lib/inventory-store.tsx` | `InventoryStoreProvider` — Supabase CRUD + state for all inventory item kinds |
+| `src/lib/item-kind-config.ts` | Per-`ItemKind` config shared by the item form, detail view, and pool table columns: `KIND_FIELDS`, `KIND_LINE_KINDS`, `SKILL_LINK_KINDS`, `KIND_LABELS` — one source of truth per kind instead of three independently hand-maintained tables |
 | `src/lib/tags.ts` | Tag name validation/normalisation, `listTags`, usage lookup |
 | `src/lib/tag-copy.ts` | Tag copy/duplication helper |
 | `src/lib/skill-categories.ts` | Skill category CRUD helpers, usage counts |
