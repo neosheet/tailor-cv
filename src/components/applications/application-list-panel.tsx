@@ -112,9 +112,9 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
     ALL_STATUSES
   )
 
-  // Set right after a create whose Company + URL match existing
-  // applications — see `findSimilarApplications`. Informational only, so it
-  // lives outside the URL-synced dialog state the rest of this panel uses.
+  // Set right after a create whose Company matches existing applications —
+  // see `findSimilarApplications`. Informational only, so it lives outside
+  // the URL-synced dialog state the rest of this panel uses.
   const [similarApplications, setSimilarApplications] = React.useState<DbApplication[] | null>(null)
 
   // Keyed per tab so List and Archive filters don't collide, and outlive the
@@ -315,7 +315,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
         confirmLabel="Create"
         cvOptions={cvOptions}
         onSubmit={async (fields) => {
-          const duplicates = findSimilarApplications(store, fields.company, fields.sourceUrl)
+          const duplicates = findSimilarApplications(store, fields.company)
           await createApplication(store, fields)
           if (duplicates.length > 0) setSimilarApplications(duplicates)
         }}

@@ -29,7 +29,7 @@ function DayCell({ day }: { day: HeatmapDay }) {
         render={
           <div
             className={cn(
-              "h-3 w-full rounded-sm hover:outline-2 hover:outline-offset-1 hover:outline-ring",
+              "h-5 w-full rounded-xs hover:outline-2 hover:outline-offset-1 hover:outline-ring",
               LEVEL_CLASS[day.level]
             )}
           />
@@ -77,7 +77,7 @@ export function ApplicationsHeatmap({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto pb-2">
+        <div className="overflow-x-auto pb-2 pr-2">
           <div className="flex min-w-[872px] flex-col gap-1">
             <div className="flex gap-1 pl-7">
               {weeks.map((week, i) => (
@@ -92,7 +92,7 @@ export function ApplicationsHeatmap({
             <div className="flex gap-1">
               <div className="flex w-6 shrink-0 flex-col gap-1">
                 {["", "Mon", "", "Wed", "", "Fri", ""].map((label, i) => (
-                  <div key={i} className="h-3 text-[10px] leading-3 text-muted-foreground">
+                  <div key={i} className="h-5 text-[10px] leading-5 text-muted-foreground">
                     {label}
                   </div>
                 ))}

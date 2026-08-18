@@ -4,6 +4,7 @@ import { resolveCv } from "@/lib/cv"
 import { buildCvSnapshot, templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
 import type { CvTemplate } from "@/lib/cv-templates"
 import type { ResumeDocument } from "@/lib/resume-document"
+import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
 import {
   mapApplicationRow,
   type ApplicationData,
@@ -40,26 +41,27 @@ export function findApplication(
 
 /**
  * Existing applications (active or archived — `data.applications` holds
- * both) that share the same Company and URL as the given values. Used to
- * warn about likely duplicates without blocking creation — see spec's
- * duplication-detect note. Both fields must be present and match
- * case-insensitively; a blank Company or URL never matches anything, so
- * applications missing either field don't collide with one another.
+ * both) that share the same Company as the given value. Used to warn about
+ * likely duplicates without blocking creation — see spec's
+ * duplication-detect note. Runs both at create time and on demand (the
+ * detail view's "Check for duplicates" button). Company must be present and
+ * matches case-insensitively; a blank Company never matches anything.
+ * `excludeId` leaves out the application being checked itself, for the
+ * on-demand case where it already exists in `data.applications`.
  */
 export function findSimilarApplications(
   data: ApplicationData,
   company: string | null | undefined,
-  sourceUrl: string | null | undefined
+  excludeId?: string
 ): DbApplication[] {
   const needleCompany = company?.trim().toLowerCase()
-  const needleSourceUrl = sourceUrl?.trim().toLowerCase()
 
-  if (!needleCompany || !needleSourceUrl) return []
+  if (!needleCompany) return []
 
   return data.applications.filter(
     (application) =>
-      application.company?.trim().toLowerCase() === needleCompany &&
-      application.sourceUrl?.trim().toLowerCase() === needleSourceUrl
+      application.id !== excludeId &&
+      application.company?.trim().toLowerCase() === needleCompany
   )
 }
 
@@ -98,6 +100,68 @@ export function resolveApplicationCv(
   }
 
   return undefined
+}
+
+export type SkillsCheckResult =
+  | { status: "no-cv" }
+  | { status: "no-required-skills" }
+  | { status: "checked"; missing: string[] }
+
+export type HeadlineCheckResult =
+  | { status: "no-cv" }
+  | { status: "no-headline" }
+  | { status: "no-position" }
+  | { status: "match"; headline: string; position: string }
+  | { status: "mismatch"; headline: string; position: string }
+
+export type ApplicationCheckResult = {
+  duplicates: DbApplication[]
+  skills: SkillsCheckResult
+  headline: HeadlineCheckResult
+}
+
+/**
+ * The detail view's "Check" button — runs all three on-demand checks in one
+ * pass: duplicate Company matches (`findSimilarApplications`), missing
+ * skills against the already-saved `requiredSkillsInput` (this doesn't
+ * prompt for new input — that's still `SkillsCheckDialog`'s job, reachable
+ * via "Check skills"), and whether `position` matches the attached CV's
+ * `headline`.
+ */
+export function checkApplication(
+  data: ApplicationData,
+  application: DbApplication,
+  resolvedCv: ResolvedApplicationCv | undefined
+): ApplicationCheckResult {
+  const duplicates = findSimilarApplications(data, application.company, application.id)
+
+  const skills: SkillsCheckResult = !resolvedCv
+    ? { status: "no-cv" }
+    : !application.requiredSkillsInput?.trim()
+      ? { status: "no-required-skills" }
+      : {
+          status: "checked",
+          missing: findMissingSkills(
+            application.requiredSkillsInput,
+            skillTitlesOf(resolvedCv.document)
+          ),
+        }
+
+  const headline: HeadlineCheckResult = !resolvedCv
+    ? { status: "no-cv" }
+    : (() => {
+        const headlineValue = resolvedCv.document.headline?.trim()
+        if (!headlineValue) return { status: "no-headline" }
+
+        const position = application.position?.trim()
+        if (!position) return { status: "no-position" }
+
+        return position.toLowerCase() === headlineValue.toLowerCase()
+          ? { status: "match", headline: headlineValue, position }
+          : { status: "mismatch", headline: headlineValue, position }
+      })()
+
+  return { duplicates, skills, headline }
 }
 
 function requireUserId(store: ApplicationStore): string {

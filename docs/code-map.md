@@ -97,7 +97,8 @@ or its responsibility materially changes, update this file in the same change.
 | `src/components/applications/application-list-panel.tsx`, `application-kanban-panel.tsx` | List view / kanban board of applications |
 | `src/components/applications/application-detail-view.tsx`, `application-detail-sheet.tsx` | Full detail page content, and its reuse as a slide-over sheet |
 | `src/components/applications/application-form-dialog.tsx`, `delete-application-dialog.tsx`, `archive-application-dialog.tsx` | Create/edit, delete, archive dialogs |
-| `src/components/applications/similar-applications-dialog.tsx` | Non-blocking "similar applications found" dialog, shown after creating one whose Company + URL match an existing application (`findSimilarApplications`) |
+| `src/components/applications/similar-applications-dialog.tsx` | Non-blocking "similar applications found" dialog (`findSimilarApplications`, matched on Company only) — shown after creating a matching application. Also exports `DuplicateApplicationsList`, the shared row markup reused by `application-check-button.tsx` |
+| `src/components/applications/application-check-button.tsx` | Self-contained top-of-page "Check" button + dialog — runs `checkApplication` (duplicate Company, missing skills vs. saved required-skills input, position vs. CV headline) and shows all three results together |
 | `src/components/applications/vacancy-detail-content.tsx`, `vacancy-detail-editor.tsx` | Job posting/vacancy info display + editor |
 | `src/components/applications/stage-card.tsx`, `stage-form-dialog.tsx`, `stage-name-input.tsx`, `new-stage-template-dialog.tsx` | Stage pipeline UI |
 | `src/components/applications/timeline-tab.tsx` | Application activity/stage timeline |

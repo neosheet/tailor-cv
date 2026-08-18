@@ -44,7 +44,9 @@ const NO_VALUE = "none"
  * for editing an existing one from the detail Sheet (`ApplicationDetailSheet`
  * opens this in edit mode rather than duplicating the field markup inline —
  * see that file's comment for why). Styled to match `CvFormDialog`: an
- * `InputGroup` for the primary/required field, plain `Field`s below.
+ * `InputGroup` for the title (optional — auto-derived from Company/Position
+ * when left blank), plain `Field`s below including the required Company and
+ * Position fields.
  */
 export function ApplicationFormDialog({
   open,
@@ -138,18 +140,22 @@ export function ApplicationFormDialog({
     ...APPLICATION_WORK_TYPES.map((value) => ({ value, label: WORK_TYPE_LABEL[value] })),
   ]
 
-  const canSubmit = applicationTitle.trim() !== ""
+  const canSubmit = company.trim() !== "" && position.trim() !== ""
 
   async function handleSubmit() {
-    const trimmed = applicationTitle.trim()
-    if (!trimmed) return
+    const trimmedCompany = company.trim()
+    const trimmedPosition = position.trim()
+    if (!trimmedCompany || !trimmedPosition) return
+
+    const trimmedTitle =
+      applicationTitle.trim() || `${trimmedPosition} at ${trimmedCompany}`
 
     setSaving(true)
     try {
       await onSubmit({
-        title: trimmed,
-        company: company.trim() || null,
-        position: position.trim() || null,
+        title: trimmedTitle,
+        company: trimmedCompany,
+        position: trimmedPosition,
         location: location.trim() || null,
         jobType: jobType === NO_VALUE ? null : (jobType as ApplicationJobType),
         workType: workType === NO_VALUE ? null : (workType as ApplicationWorkType),
@@ -186,7 +192,7 @@ export function ApplicationFormDialog({
                 </InputGroupAddon>
                 <InputGroupInput
                   id="application-title"
-                  placeholder="Senior Engineer @ Acme"
+                  placeholder="Auto-generated from position and company if left blank"
                   autoFocus
                   value={applicationTitle}
                   onChange={(event) => setApplicationTitle(event.target.value)}
@@ -198,7 +204,9 @@ export function ApplicationFormDialog({
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field>
-                <FieldLabel htmlFor="application-company">Company</FieldLabel>
+                <FieldLabel htmlFor="application-company">
+                  Company <span className="text-destructive">*</span>
+                </FieldLabel>
                 <Input
                   id="application-company"
                   placeholder="Acme Inc."
@@ -207,7 +215,9 @@ export function ApplicationFormDialog({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="application-position">Position</FieldLabel>
+                <FieldLabel htmlFor="application-position">
+                  Position <span className="text-destructive">*</span>
+                </FieldLabel>
                 <Input
                   id="application-position"
                   placeholder="Senior Engineer"

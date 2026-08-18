@@ -13,6 +13,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { useSidebar } from "@/components/ui/sidebar"
+import { ApplicationCheckButton } from "@/components/applications/application-check-button"
 import { ApplicationDetailView } from "@/components/applications/application-detail-view"
 import { ApplicationFormDialog } from "@/components/applications/application-form-dialog"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
@@ -81,10 +82,13 @@ function ApplicationResolved({ application }: { application: DbApplication }) {
           <h1 className="text-xl font-semibold">{application.title}</h1>
           <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
         </div>
-        <Button variant="outline" size="sm" onClick={() => open("edit")}>
-          <PencilIcon data-icon="inline-start" />
-          Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <ApplicationCheckButton application={application} />
+          <Button variant="outline" size="sm" onClick={() => open("edit")}>
+            <PencilIcon data-icon="inline-start" />
+            Edit
+          </Button>
+        </div>
       </div>
 
       <ApplicationDetailView application={application} onEdit={() => open("edit")} variant="page" />

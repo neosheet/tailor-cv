@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExternalLink } from "@/components/external-link"
 import { ResumeRender } from "@/components/cv/resume-render"
 import { SkillsCheckDialog } from "@/components/skills/skills-check-dialog"
+import { ApplicationCheckButton } from "@/components/applications/application-check-button"
 import { TimelineTab } from "@/components/applications/timeline-tab"
 import { VacancyDetailContent } from "@/components/applications/vacancy-detail-content"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
@@ -385,10 +386,13 @@ export function ApplicationDetailView({
         {variant === "sheet" ? (
           <div className="flex items-center justify-between">
             <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
-            <Button variant="outline" size="sm" onClick={() => onEdit(application)}>
-              <PencilIcon data-icon="inline-start" />
-              Edit
-            </Button>
+            <div className="flex items-center gap-2">
+              <ApplicationCheckButton application={application} />
+              <Button variant="outline" size="sm" onClick={() => onEdit(application)}>
+                <PencilIcon data-icon="inline-start" />
+                Edit
+              </Button>
+            </div>
           </div>
         ) : null}
 
