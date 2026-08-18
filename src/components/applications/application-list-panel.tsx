@@ -8,7 +8,7 @@ import {
   Trash2Icon,
 } from "lucide-react"
 import { useSearchParams } from "react-router"
-import { format, parseISO } from "date-fns"
+import { formatDistanceToNow } from "date-fns"
 
 import { ExternalLink } from "@/components/external-link"
 import { Badge } from "@/components/ui/badge"
@@ -196,7 +196,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Company</TableHead>
-              <TableHead>Deadline</TableHead>
+              <TableHead>Applied</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>URL</TableHead>
               <TableHead>CV</TableHead>
@@ -233,7 +233,9 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                     {application.company ?? "—"}
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap text-muted-foreground">
-                    {application.deadline ? format(parseISO(application.deadline), "PP") : "—"}
+                    {application.appliedAt
+                      ? formatDistanceToNow(new Date(application.appliedAt), { addSuffix: true })
+                      : "—"}
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap">
                     <Badge variant="secondary">{GLOBAL_STATUS_LABEL[application.globalStatus]}</Badge>
@@ -252,7 +254,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                     {cv?.name ?? "—"}
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap text-muted-foreground">
-                    {new Date(application.updatedAt).toLocaleString()}
+                    {formatDistanceToNow(new Date(application.updatedAt), { addSuffix: true })}
                   </TableCell>
                   <TableCell className="align-top">
                     <DropdownMenu>

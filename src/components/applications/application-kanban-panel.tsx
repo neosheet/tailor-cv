@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router"
+import { formatDistanceToNow } from "date-fns"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
@@ -75,7 +76,7 @@ export function ApplicationKanbanPanel() {
                         {application.position ?? "—"}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(application.updatedAt).toLocaleString()}
+                        {formatDistanceToNow(new Date(application.updatedAt), { addSuffix: true })}
                       </div>
                     </CardHeader>
                   </Card>
