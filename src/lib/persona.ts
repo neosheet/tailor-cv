@@ -384,6 +384,36 @@ function formatPartialDate(value: string | null): string | null {
 /** Kinds where a null `end_date` means "single date", not "ongoing". */
 const SINGLE_DATE_KINDS: ItemKind[] = ["award", "certificate", "publication"]
 
+/** Kinds a CV orders newest-first by date rather than by selection order. */
+const DATE_SORTED_KINDS: ItemKind[] = [
+  "work",
+  "volunteer",
+  "education",
+  "project",
+  "award",
+  "certificate",
+  "publication",
+]
+
+/**
+ * Newest first. Ongoing entries (`endDate` null, non-single-date kind) sort
+ * as if still running today; single-date kinds sort on `startDate` instead,
+ * since they have no `endDate`. Partial-ISO strings (`"2014"`, `"2014-06"`)
+ * compare correctly as plain strings. Ties (e.g. two ongoing roles) break on
+ * `startDate`, also descending.
+ */
+function byDateDescending(a: DbInventoryItem, b: DbInventoryItem): number {
+  const keyOf = (item: DbInventoryItem) =>
+    SINGLE_DATE_KINDS.includes(item.kind)
+      ? (item.startDate ?? "")
+      : (item.endDate ?? "9999-99-99")
+
+  return (
+    keyOf(b).localeCompare(keyOf(a)) ||
+    (b.startDate ?? "").localeCompare(a.startDate ?? "")
+  )
+}
+
 function formatEntryDates(
   startDate: string | null,
   endDate: string | null,
@@ -468,6 +498,9 @@ export function buildResumeDocument(
     .sort((a, b) => a.position - b.position)
     .map((row) => {
       const items = selectedIn(row.kind)
+      if (DATE_SORTED_KINDS.includes(row.kind)) {
+        items.sort(byDateDescending)
+      }
       return {
         kind: row.kind,
         heading: SECTION_HEADING[row.kind] ?? row.kind,
