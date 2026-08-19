@@ -1,7 +1,7 @@
 import * as React from "react"
-import { PencilIcon, TriangleAlert } from "lucide-react"
-import { Link } from "react-router"
+import { FileDownIcon, PencilIcon, PrinterIcon, TriangleAlert } from "lucide-react"
 import { format, parseISO } from "date-fns"
+import { useReactToPrint } from "react-to-print"
 
 import {
   AlertDialog,
@@ -50,12 +50,17 @@ import {
   allApplications,
   copyApplicationCvSettings,
   resolveApplicationCv,
+  setApplicationCvBase,
   setGlobalApplicationStatus,
   updateApplication,
   type ResolvedApplicationCv,
 } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
+import { buildCvSnapshot } from "@/lib/cv-snapshot"
+import { downloadCvSnapshot } from "@/lib/cv-snapshot-download"
+import { allTemplates } from "@/lib/cv-templates"
 import { useInventoryStore } from "@/lib/inventory-store"
+import { allPersonas } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
 import { skillTitlesOf } from "@/lib/skill-check"
 import { useSkillsCheck } from "@/hooks/use-skills-check"
@@ -300,11 +305,13 @@ function JobDetailTab({
 
 /**
  * Import CV settings dialog — the reworked Import (spec 15): copies the
- * persona/template config from another, live (non-frozen) application onto
- * this one via `copyApplicationCvSettings`. Never touches the target's
- * actual document — it keeps resolving live off whichever persona ends up
- * set. Candidates are other applications with a `cvPersonaId` set and no
- * `cvSnapshot` (frozen applications aren't valid sources).
+ * persona/template config from another application onto this one via
+ * `copyApplicationCvSettings`. Never touches the target's actual document —
+ * it keeps resolving live off whichever persona ends up set. Candidates are
+ * any other application with a `cvPersonaId` set, frozen or not: freezing
+ * never clears `cvPersonaId`/`cvTemplateId`/`cvPersonaSettings`/
+ * `cvTemplateSettings`, so a frozen application's config is just as valid a
+ * source to copy from.
  */
 function ImportCvSettingsDialog({
   open,
@@ -320,12 +327,7 @@ function ImportCvSettingsDialog({
   const [importing, setImporting] = React.useState(false)
 
   const sourceOptions = allApplications(applicationStore)
-    .filter(
-      (candidate) =>
-        candidate.id !== targetApplicationId &&
-        candidate.cvPersonaId !== null &&
-        candidate.cvSnapshot === null
-    )
+    .filter((candidate) => candidate.id !== targetApplicationId && candidate.cvPersonaId !== null)
     .map((candidate) => ({ value: candidate.id, label: candidate.title }))
 
   async function handleImport() {
@@ -348,7 +350,7 @@ function ImportCvSettingsDialog({
         <DialogBody className="pt-2">
           {sourceOptions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No other application has a live CV to copy settings from.
+              No other application has a CV to copy settings from.
             </p>
           ) : (
             <Field>
@@ -421,6 +423,66 @@ export function ApplicationDetailView({
 
   const resolvedCv = resolveApplicationCv(application, personaStore, inventoryStore)
   const [importCvOpen, setImportCvOpen] = React.useState(false)
+
+  const cvContentRef = React.useRef<HTMLDivElement>(null)
+  const cvPageMargin =
+    (resolvedCv
+      ? resolvedCv.kind === "frozen"
+        ? resolvedCv.snapshot.templateSettings.page?.margin
+        : application.cvTemplateSettings.page?.margin
+      : undefined) ?? resolvedCv?.template.definition.page.margin ?? 0
+  const printCv = useReactToPrint({
+    contentRef: cvContentRef,
+    pageStyle: `
+      @page {
+        margin: ${cvPageMargin}pt;
+      }
+    `,
+    documentTitle: resolvedCv
+      ? `${resolvedCv.document.personaName} — ${resolvedCv.template.name}.pdf`
+      : "cv.pdf",
+  })
+
+  function handleExportCv() {
+    if (!resolvedCv) return
+    const snapshot =
+      resolvedCv.kind === "frozen"
+        ? resolvedCv.snapshot
+        : buildCvSnapshot(
+            { name: application.title, note: null, tags: [], templateSettings: application.cvTemplateSettings },
+            resolvedCv.document,
+            resolvedCv.template
+          )
+    downloadCvSnapshot(snapshot)
+  }
+
+  const cvPersonaOptions = allPersonas(personaStore).map((persona) => ({
+    value: persona.id,
+    label: persona.name,
+  }))
+  const cvTemplateOptions = allTemplates(personaStore.cvTemplates).map((template) => ({
+    value: template.id,
+    label: template.name,
+  }))
+  const [changingCvBase, setChangingCvBase] = React.useState(false)
+
+  async function handleCvPersonaChange(personaId: string) {
+    setChangingCvBase(true)
+    try {
+      await setApplicationCvBase(applicationStore, application.id, personaId, application.cvTemplateId ?? "")
+    } finally {
+      setChangingCvBase(false)
+    }
+  }
+
+  async function handleCvTemplateChange(templateId: string) {
+    setChangingCvBase(true)
+    try {
+      await setApplicationCvBase(applicationStore, application.id, application.cvPersonaId ?? "", templateId)
+    } finally {
+      setChangingCvBase(false)
+    }
+  }
 
   const skillsCheckDialog = useDialogSearchParams()
   const skillsCheck = useSkillsCheck()
@@ -530,24 +592,66 @@ export function ApplicationDetailView({
               />
             ) : (
               <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-                  <span>
-                    {resolvedCv.document.personaName} - {resolvedCv.template.name}
-                    {resolvedCv.kind === "frozen" ? " (frozen)" : null}
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {resolvedCv.kind === "frozen" ? (
+                    <span className="text-sm text-muted-foreground">
+                      {resolvedCv.document.personaName} - {resolvedCv.template.name} (frozen)
+                    </span>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Select
+                        items={cvPersonaOptions}
+                        value={application.cvPersonaId ?? ""}
+                        onValueChange={(next) => handleCvPersonaChange(next as string)}
+                        disabled={changingCvBase}
+                      >
+                        <SelectTrigger size="sm" className="w-44">
+                          <SelectValue placeholder="Persona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {cvPersonaOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        items={cvTemplateOptions}
+                        value={application.cvTemplateId ?? ""}
+                        onValueChange={(next) => handleCvTemplateChange(next as string)}
+                        disabled={changingCvBase}
+                      >
+                        <SelectTrigger size="sm" className="w-44">
+                          <SelectValue placeholder="Template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {cvTemplateOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     {resolvedCv.kind === "live" ? (
                       <Button variant="outline" size="sm" onClick={() => setImportCvOpen(true)}>
                         Import CV settings
                       </Button>
                     ) : null}
-                    <Button
-                      variant="link"
-                      className="h-auto p-0"
-                      render={<Link to={`/applications/${application.id}/cv`} />}
-                      nativeButton={false}
-                    >
-                      Open print view
+                    <Button variant="outline" size="sm" onClick={handleExportCv}>
+                      <FileDownIcon data-icon="inline-start" />
+                      Export
+                    </Button>
+                    <Button size="sm" onClick={printCv}>
+                      <PrinterIcon data-icon="inline-start" />
+                      Print
                     </Button>
                   </div>
                 </div>
@@ -556,6 +660,7 @@ export function ApplicationDetailView({
                   <div className="overflow-auto rounded-xl bg-muted p-4">
                     <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
                       <ResumeRender
+                        ref={cvContentRef}
                         document={resolvedCv.document}
                         templateId={resolvedCv.template.id}
                         definition={resolvedCv.template.definition}
@@ -571,6 +676,7 @@ export function ApplicationDetailView({
                     <div className="overflow-auto rounded-xl bg-muted p-4">
                       <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
                         <ResumeRender
+                          ref={cvContentRef}
                           document={resolvedCv.document}
                           templateId={resolvedCv.template.id}
                           definition={resolvedCv.template.definition}

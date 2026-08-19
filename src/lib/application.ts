@@ -402,10 +402,10 @@ export async function setApplicationCvBase(
  * config — `cvPersonaId`, `cvTemplateId`, `cvPersonaSettings`,
  * `cvTemplateSettings` — onto a target application. Settings only, never
  * baked-in content: the target keeps resolving its document live off
- * whichever persona ends up set. The source must itself have a CV
- * configured and must not be frozen (`cvSnapshot === null`) — a frozen
- * application's config is a historical record, not a valid template to copy
- * from.
+ * whichever persona ends up set. The source just needs a CV configured
+ * (`cvPersonaId`/`cvTemplateId` set) — freezing never clears those fields
+ * (see `setGlobalApplicationStatus`'s doc comment), so a frozen source's
+ * config is just as valid to copy from as a live one.
  */
 export async function copyApplicationCvSettings(
   store: ApplicationStore,
@@ -418,9 +418,6 @@ export async function copyApplicationCvSettings(
   }
   if (!source.cvPersonaId || !source.cvTemplateId) {
     throw new Error("Source application has no CV configured.")
-  }
-  if (source.cvSnapshot !== null) {
-    throw new Error("Source application's CV is frozen — choose a live application instead.")
   }
 
   return updateApplication(store, targetApplicationId, {

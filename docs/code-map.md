@@ -36,7 +36,7 @@ or its responsibility materially changes, update this file in the same change.
 | `not-found.tsx` | 404 |
 | `settings.tsx` | Settings hub — tags, skill categories, stage templates panels |
 | `personas.tsx` / `persona-detail.tsx` | Persona list / persona editor (field visibility tree, print settings, save-as-template) |
-| `applications.tsx` / `application-detail.tsx` / `application-cv-print.tsx` | Application list (kanban/list) / detail page / print route for an application's CV |
+| `applications.tsx` / `application-detail.tsx` | Application list (kanban/list) / detail page — the CV tab prints/exports in place, no separate print route |
 | `inventory/index.tsx` | Inventory landing (links to each item-kind page) |
 | `inventory/{basics,work,education,skills,languages,projects,volunteer,awards,certificates,publications,interests,references}.tsx` | One page per inventory item kind — thin wrappers around `pool-page.tsx` |
 | `inventory/import-export.tsx` | Bulk inventory import/export |

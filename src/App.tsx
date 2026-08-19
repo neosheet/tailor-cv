@@ -1,7 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router"
 
 import { AppLayout } from "@/components/layout/app-layout"
-import { ApplicationCvPrintPage } from "@/pages/application-cv-print"
 import { ApplicationDetailPage } from "@/pages/application-detail"
 import { ApplicationsPage } from "@/pages/applications"
 import { DashboardPage } from "@/pages/dashboard"
@@ -82,7 +81,6 @@ export function App() {
             <Route path="personas/:id" element={<PersonaDetailPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="applications/:id" element={<ApplicationDetailPage />} />
-            <Route path="applications/:id/cv" element={<ApplicationCvPrintPage />} />
             <Route path="settings" element={<SettingsPage />} />
 
             <Route path="*" element={<NotFoundPage />} />
