@@ -523,9 +523,12 @@ export function ApplicationDetailView({
           </TabsContent>
 
           <TabsContent value="cv" className="pt-4">
-            {!application.cvPersonaId ? (
-              <ApplicationCvSetup application={application} />
-            ) : resolvedCv ? (
+            {!resolvedCv ? (
+              <ApplicationCvSetup
+                application={application}
+                onImportClick={() => setImportCvOpen(true)}
+              />
+            ) : (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                   <span>
@@ -578,7 +581,7 @@ export function ApplicationDetailView({
                   </div>
                 )}
               </div>
-            ) : null}
+            )}
           </TabsContent>
 
           <TabsContent value="timeline" className="pt-4">

@@ -21,13 +21,23 @@ import type { DbApplication } from "@/mocks/types"
 
 /**
  * The CV tab's lazy-setup empty state (docs/specs/15-cv-embedded-in-applications.md):
- * shown while `application.cvPersonaId`/`cvTemplateId` are unset. The
- * Persona + Template `<Select>` pair is copied from `CvFormDialog`'s picker
- * JSX (L145-186) — that file is deleted in a later phase once nothing else
- * needs it, but this exact control pattern is reused here. Submitting writes
- * straight to the application via `setApplicationCvBase`, no dialog.
+ * shown whenever `resolveApplicationCv` returns nothing — no `cvSnapshot`
+ * and no `cvPersonaId`/`cvTemplateId` yet. The Persona + Template `<Select>`
+ * pair is copied from `CvFormDialog`'s old picker JSX — that file is
+ * deleted once nothing else needs it, but this exact control pattern is
+ * reused here. Submitting writes straight to the application via
+ * `setApplicationCvBase`, no dialog. `onImportClick` opens the caller's
+ * `ImportCvSettingsDialog` instead — copying another application's CV
+ * settings is also a valid way to leave this empty state, not just picking
+ * a Persona/Template from scratch.
  */
-export function ApplicationCvSetup({ application }: { application: DbApplication }) {
+export function ApplicationCvSetup({
+  application,
+  onImportClick,
+}: {
+  application: DbApplication
+  onImportClick: () => void
+}) {
   const applicationStore = useApplicationStore()
   const personaStore = usePersonaStore()
   const [saving, setSaving] = React.useState(false)
@@ -66,9 +76,15 @@ export function ApplicationCvSetup({ application }: { application: DbApplication
           </EmptyMedia>
           <EmptyTitle>No Personas yet</EmptyTitle>
           <EmptyDescription>
-            Create a Persona first — a CV always starts from one.
+            Create a Persona first — a CV always starts from one. Or import CV
+            settings from another application instead.
           </EmptyDescription>
         </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" size="sm" onClick={onImportClick}>
+            Import CV settings
+          </Button>
+        </EmptyContent>
       </Empty>
     )
   }
@@ -129,9 +145,15 @@ export function ApplicationCvSetup({ application }: { application: DbApplication
             </Select>
           </Field>
         </FieldGroup>
-        <Button size="sm" disabled={!canSubmit} onClick={handleSubmit}>
-          {saving ? "Setting up…" : "Set up CV"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" disabled={!canSubmit} onClick={handleSubmit}>
+            {saving ? "Setting up…" : "Set up CV"}
+          </Button>
+          <span className="text-sm text-muted-foreground">or</span>
+          <Button variant="outline" size="sm" onClick={onImportClick}>
+            Import CV settings
+          </Button>
+        </div>
       </EmptyContent>
     </Empty>
   )
