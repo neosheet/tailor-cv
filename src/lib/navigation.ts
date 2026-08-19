@@ -263,18 +263,6 @@ export const sections = {
       action: "Create a Persona",
     },
   },
-  cvs: {
-    path: "/cvs",
-    title: "CV",
-    description:
-      "Saved documents, each pairing a Persona with a Template. Browse what you've saved, or explore layouts in Templates.",
-    icon: FileTextIcon,
-    empty: {
-      title: "No CVs yet",
-      body: "A CV pairs a Persona with a Template so it's ready to print or send. Save one from a Persona.",
-      action: "New CV",
-    },
-  },
   inventory: {
     path: "/inventory",
     title: "Profile Inventory",

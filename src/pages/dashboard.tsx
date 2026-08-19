@@ -1,4 +1,4 @@
-import { FileTextIcon, SendIcon, UsersIcon } from "lucide-react"
+import { SendIcon, UsersIcon } from "lucide-react"
 
 import { PageHeader } from "@/components/layout/page-header"
 import { ApplicationsHeatmap } from "@/components/dashboard/applications-heatmap"
@@ -8,7 +8,7 @@ import { sections } from "@/lib/navigation"
 import { usePersonaStore } from "@/lib/persona-store"
 
 export function DashboardPage() {
-  const { personas, cvs } = usePersonaStore()
+  const { personas } = usePersonaStore()
   const { applications } = useApplicationStore()
 
   return (
@@ -18,13 +18,7 @@ export function DashboardPage() {
         description={sections.dashboard.description}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Total CVs"
-          value={cvs.length}
-          icon={FileTextIcon}
-          href={sections.cvs.path}
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Total personas"
           value={personas.length}

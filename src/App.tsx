@@ -4,8 +4,6 @@ import { AppLayout } from "@/components/layout/app-layout"
 import { ApplicationCvPrintPage } from "@/pages/application-cv-print"
 import { ApplicationDetailPage } from "@/pages/application-detail"
 import { ApplicationsPage } from "@/pages/applications"
-import { CvPage } from "@/pages/cv"
-import { CvPrintPage } from "@/pages/cv-print"
 import { DashboardPage } from "@/pages/dashboard"
 import { LoginPage } from "@/pages/login"
 import { NotFoundPage } from "@/pages/not-found"
@@ -82,8 +80,6 @@ export function App() {
 
             <Route path="personas" element={<PersonasPage />} />
             <Route path="personas/:id" element={<PersonaDetailPage />} />
-            <Route path="cvs" element={<CvPage />} />
-            <Route path="cvs/:cvId/print" element={<CvPrintPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="applications/:id" element={<ApplicationDetailPage />} />
             <Route path="applications/:id/cv" element={<ApplicationCvPrintPage />} />

@@ -1,7 +1,6 @@
 import {
   CopyIcon,
   Ellipsis,
-  FilePlusIcon,
   PencilIcon,
   PlusIcon,
   StarIcon,
@@ -27,12 +26,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { PageHeader } from "@/components/layout/page-header"
-import { CvFormDialog } from "@/components/cv/cv-form-dialog"
 import { DeletePersonaDialog } from "@/components/persona/delete-persona-dialog"
 import { PersonaFormDialog } from "@/components/persona/persona-form-dialog"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
-import { createCv } from "@/lib/cv"
-import { cvTemplates } from "@/lib/cv-templates"
 import { useInventoryStore } from "@/lib/inventory-store"
 import {
   allPersonas,
@@ -64,20 +60,6 @@ export function PersonasPage() {
   const deleteTarget = deleteTargetId
     ? (findPersona(personaStore, deleteTargetId) ?? null)
     : null
-
-  const createCvForId = dialog === "new-cv" ? get("personaId") : null
-  const createCvFor = createCvForId
-    ? (findPersona(personaStore, createCvForId) ?? null)
-    : null
-
-  const personaOptions = allPersonas(personaStore).map((persona) => ({
-    value: persona.id,
-    label: persona.name,
-  }))
-  const templateOptions = cvTemplates.map((template) => ({
-    value: template.id,
-    label: template.name,
-  }))
 
   const rows = allPersonas(personaStore).map((persona) => {
     const document = buildResumeDocument(personaStore, inventoryStore, persona.id)
@@ -201,14 +183,6 @@ export function PersonasPage() {
                           <CopyIcon />
                           Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            open("new-cv", { personaId: persona.id })
-                          }
-                        >
-                          <FilePlusIcon />
-                          Create CV
-                        </DropdownMenuItem>
                       </DropdownMenuGroup>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
@@ -274,21 +248,6 @@ export function PersonasPage() {
           if (!deleteTarget) return
           await deletePersona(personaStore, deleteTarget.id)
           close(["id"])
-        }}
-      />
-
-      <CvFormDialog
-        open={createCvFor !== null}
-        onOpenChange={(next) => !next && close(["personaId"])}
-        title="Create CV"
-        confirmLabel="Create"
-        initialName={createCvFor?.name ?? ""}
-        initialPersonaId={createCvFor?.id}
-        personaOptions={personaOptions}
-        templateOptions={templateOptions}
-        onSubmit={async (fields) => {
-          const cv = await createCv(personaStore, fields)
-          navigate(`/cvs/${cv.id}/print`)
         }}
       />
     </>

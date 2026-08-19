@@ -152,7 +152,6 @@ export function AppSidebar() {
             <SidebarMenu>
               <SectionMenuItem page={sections.dashboard} />
               <SectionMenuItem page={sections.personas} />
-              <SectionMenuItem page={sections.cvs} />
               <InventoryMenu />
               <SectionMenuItem page={sections.applications} />
             </SidebarMenu>
