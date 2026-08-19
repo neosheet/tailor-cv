@@ -35,7 +35,7 @@ or its responsibility materially changes, update this file in the same change.
 | `login.tsx` | Auth login page |
 | `not-found.tsx` | 404 |
 | `settings.tsx` | Settings hub — tags, skill categories, stage templates panels |
-| `personas.tsx` / `persona-detail.tsx` | Persona list / persona editor (field visibility tree, print settings, save-as-template) |
+| `personas.tsx` / `persona-detail.tsx` | Persona list / persona editor route wrapper (`persona-detail.tsx` is now a thin `useParams` + not-found-guard shell — the actual editor content is `components/persona/persona-editor-panel.tsx`, shared with the popup opened from the Applications CV tab) |
 | `applications.tsx` / `application-detail.tsx` | Application list (kanban/list) / detail page — the CV tab prints/exports in place, no separate print route |
 | `inventory/index.tsx` | Inventory landing (links to each item-kind page) |
 | `inventory/{basics,work,education,skills,languages,projects,volunteer,awards,certificates,publications,interests,references}.tsx` | One page per inventory item kind — thin wrappers around `pool-page.tsx` |
@@ -97,7 +97,7 @@ This section covers what's still persona/template-only.
 | `src/lib/application-status.ts`, `application-job-type.ts`, `application-work-type.ts` | Enum labels/options for application metadata |
 | `src/lib/stage-category.ts`, `stage-progress-status.ts`, `stage-templates.ts` | Stage taxonomy + reusable stage template CRUD |
 | `src/components/applications/application-list-panel.tsx`, `application-kanban-panel.tsx` | List view / kanban board of applications |
-| `src/components/applications/application-cv-setup.tsx` | The CV tab's lazy-setup empty state — Persona + Template picker (via `setApplicationCvBase`) or Import CV settings from another application, shown whenever `resolveApplicationCv` returns nothing yet |
+| `src/components/applications/application-cv-setup.tsx` | The CV tab's lazy-setup empty state — Persona + Template picker (via `setApplicationCvBase`) or Import CV settings from another application, shown whenever `resolveApplicationCv` returns nothing yet. The Persona picker's "+ Create new persona…" opens `PersonaEditorDialog` and auto-selects the result (docs/specs/16-inline-persona-editing-in-cv-tab.md) |
 | `src/components/applications/application-detail-view.tsx`, `application-detail-sheet.tsx` | Full detail page content, and its reuse as a slide-over sheet |
 | `src/components/applications/application-form-dialog.tsx`, `delete-application-dialog.tsx`, `archive-application-dialog.tsx` | Create/edit, delete, archive dialogs |
 | `src/components/applications/similar-applications-dialog.tsx` | Non-blocking "similar applications found" dialog (`findSimilarApplications`, matched on Company only) — shown after creating a matching application. Also exports `DuplicateApplicationsList`, the shared row markup reused by `application-check-button.tsx` |
@@ -119,7 +119,9 @@ This section covers what's still persona/template-only.
 
 | File | Purpose |
 |---|---|
-| `src/components/persona/persona-form-dialog.tsx`, `delete-persona-dialog.tsx` | Create/edit and delete persona dialogs (used from `pages/personas.tsx`) |
+| `src/components/persona/persona-form-dialog.tsx`, `delete-persona-dialog.tsx` | Name/note/tags dialog and delete-confirm dialog (used from `pages/personas.tsx` and inside `persona-editor-panel.tsx`) |
+| `src/components/persona/persona-editor-panel.tsx` | The full persona editor content (Basics/Contact/Location/Social cards, per-section pickers, "Used in Applications") — extracted from `pages/persona-detail.tsx` so it can be reused inside a popup. Takes `personaId` + an optional `dialogParamPrefix` (namespaces its internal pool-picker/edit/duplicate/delete/skills-check URL state when nested) |
+| `src/components/persona/persona-editor-dialog.tsx` | Popup wrapper around `persona-editor-panel.tsx` — `mode="edit"` renders it directly for a given persona; `mode="create"` shows an inline name/note/tags step first, then swaps to the panel for the newly created persona. Used by `application-cv-setup.tsx` (create, from the Persona picker) and `cv/persona-field-tree.tsx`'s Data tab ("Edit persona") |
 
 ## Shared UI / hooks
 
