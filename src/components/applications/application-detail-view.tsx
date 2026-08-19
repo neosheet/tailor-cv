@@ -58,7 +58,7 @@ import {
 import { useApplicationStore } from "@/lib/application-store"
 import { buildCvSnapshot } from "@/lib/cv-snapshot"
 import { downloadCvSnapshot } from "@/lib/cv-snapshot-download"
-import { allTemplates } from "@/lib/cv-templates"
+import { allTemplates, findTemplate } from "@/lib/cv-templates"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { allPersonas } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
@@ -478,7 +478,14 @@ export function ApplicationDetailView({
   async function handleCvTemplateChange(templateId: string) {
     setChangingCvBase(true)
     try {
-      await setApplicationCvBase(applicationStore, application.id, application.cvPersonaId ?? "", templateId)
+      const template = findTemplate(templateId, personaStore.cvTemplates)
+      await setApplicationCvBase(
+        applicationStore,
+        application.id,
+        application.cvPersonaId ?? "",
+        templateId,
+        template?.defaultFieldVisibility
+      )
     } finally {
       setChangingCvBase(false)
     }

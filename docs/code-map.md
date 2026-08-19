@@ -76,7 +76,7 @@ This section covers what's still persona/template-only.
 | `src/lib/cv-template-core.ts` | Style resolution (`resolveStyleObject`), template node/block traversal, and `NodeOverride` application (`lookupNodeOverride`, `applyStyleTextOverride`) shared by the renderer and the baker — `Style`/`StyleDef` re-exported from schema.ts, not redeclared |
 | `src/lib/cv-template-schema.ts` | Template type definitions: `TemplateDefinition`, `ElementNode`, `BlockInstanceNode`, `RepeatNode`, `PageConfig`, `NodeOverride` — the format's type source of truth |
 | `src/lib/cv-template-bake.ts` | `bakeTemplateSettings` — flattens style/page/block overrides into a standalone saved template, via the same `applyStyleTextOverride` the renderer uses (except the block-instance clone-on-bake case, which is bake-specific — see the function's docstring) |
-| `src/lib/cv-template-defs/{classic,two-column,batch1-demo}.ts` | Built-in template definitions |
+| `src/lib/cv-template-defs/{classic,classic-compact,two-column,batch1-demo}.ts` | Built-in template definitions — `classic-compact` is Classic's layout with a `cv-templates.ts` `defaultFieldVisibility` that hides Experience's location/workplace type/employment type/description by default |
 | `src/lib/style-property-schema.ts`, `page-property-schema.ts` | Editable style/page property metadata driving the template property editor UI |
 | `src/lib/resume-document.ts` | `ResumeDocument`/`ResumeSection`/`ResumeEntry` types — the rendered-CV data shape |
 | `src/lib/cv-snapshot.ts`, `cv-snapshot-download.ts` | CV snapshot (versioned) serialization/parsing, export/download to PDF — `buildCvSnapshot` takes a narrow `{name, note, tags, templateSettings}` shape, not a table row |

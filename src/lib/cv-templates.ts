@@ -1,8 +1,9 @@
 import { batch1DemoTemplateDefinition } from "@/lib/cv-template-defs/batch1-demo"
 import { classicTemplateDefinition } from "@/lib/cv-template-defs/classic"
+import { classicCompactTemplateDefinition } from "@/lib/cv-template-defs/classic-compact"
 import { twoColumnTemplateDefinition } from "@/lib/cv-template-defs/two-column"
 import type { TemplateDefinition } from "@/lib/cv-template-schema"
-import type { DbCvTemplate } from "@/mocks/types"
+import type { DbCvTemplate, FieldVisibility } from "@/mocks/types"
 
 /**
  * Available print layouts for rendering a CV.
@@ -27,6 +28,14 @@ export type CvTemplate = {
   atsSafe: boolean
   /** Who this layout suits — shown as the "best for" line. */
   bestFor: string
+  /**
+   * This template's starting `cvPersonaSettings.fieldVisibility` — not an
+   * enforced restriction, just where a CV lands right after picking this
+   * template (initial setup or a later "change template" select), replacing
+   * whatever visibility the previous template left behind. Undefined means
+   * "show everything." See `setApplicationCvBase`.
+   */
+  defaultFieldVisibility?: FieldVisibility
 }
 
 export const cvTemplates: CvTemplate[] = [
@@ -39,6 +48,19 @@ export const cvTemplates: CvTemplate[] = [
     density: "Balanced",
     atsSafe: true,
     bestFor: "Most applications, and anything going through a job portal",
+  },
+  {
+    id: "classic-compact",
+    name: "Classic (Compact Experience)",
+    description:
+      "Classic, but Experience entries start with just the job title, company, and dates — location, workplace type, employment type, and description hidden by default.",
+    definition: classicCompactTemplateDefinition,
+    density: "Balanced",
+    atsSafe: true,
+    bestFor: "Roles where a tighter, scan-friendly Experience section matters more than the full detail",
+    defaultFieldVisibility: {
+      work: { fields: ["location", "workplaceType", "employmentType", "summary"] },
+    },
   },
   {
     id: "two-column",

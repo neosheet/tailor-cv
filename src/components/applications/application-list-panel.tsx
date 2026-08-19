@@ -7,7 +7,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react"
-import { useSearchParams } from "react-router"
+import { Link, useSearchParams } from "react-router"
 import { formatDistanceToNow } from "date-fns"
 
 import { ExternalLink } from "@/components/external-link"
@@ -58,8 +58,6 @@ import {
 } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
-import { findPersona } from "@/lib/persona"
-import { usePersonaStore } from "@/lib/persona-store"
 import type { GlobalApplicationStatus, DbApplication } from "@/mocks/types"
 
 const ALL_STATUSES = "all"
@@ -99,7 +97,6 @@ function emptyMessage(archived: boolean, query: string, tags: string[]): string 
 /** Table + status/search/tag filter + New Application — mirrors `CvListPanel`'s shape. */
 export function ApplicationListPanel({ archived = false }: { archived?: boolean }) {
   const store = useApplicationStore()
-  const personaStore = usePersonaStore()
 
   const { dialog, get, open, close } = useDialogSearchParams()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -137,17 +134,11 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
     .filter((application) => statusFilter === ALL_STATUSES || application.globalStatus === statusFilter)
     .filter((application) => !needle || applicationSearchableText(application).includes(needle))
     .filter((application) => tagFilter.every((tag) => application.tags.includes(tag)))
-    .map((application) => ({
-      application,
-      personaName: application.cvPersonaId
-        ? (findPersona(personaStore, application.cvPersonaId)?.name ?? "—")
-        : undefined,
-    }))
 
   // Offered tags come from the rows that survive the current filters, so every
   // suggestion narrows the list instead of emptying it.
   const availableTags = React.useMemo(
-    () => [...new Set(rows.flatMap((row) => row.application.tags))].sort(),
+    () => [...new Set(rows.flatMap((application) => application.tags))].sort(),
     [rows]
   )
 
@@ -199,7 +190,6 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
               <TableHead>Applied</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>URL</TableHead>
-              <TableHead>CV</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -207,27 +197,31 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   {emptyMessage(archived, query, tagFilter)}
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map(({ application, personaName }) => (
-                <TableRow key={application.id}>
+              rows.map((application) => (
+                <TableRow
+                  key={application.id}
+                  className="cursor-pointer"
+                  onClick={() =>
+                    setSearchParams((prev) => {
+                      const next = new URLSearchParams(prev)
+                      next.set("applicationId", application.id)
+                      return next
+                    })
+                  }
+                >
                   <TableCell className="align-top font-medium whitespace-nowrap">
-                    <Button
-                      variant="link"
-                      className="h-auto justify-start p-0 font-medium"
-                      onClick={() =>
-                        setSearchParams((prev) => {
-                          const next = new URLSearchParams(prev)
-                          next.set("applicationId", application.id)
-                          return next
-                        })
-                      }
+                    <Link
+                      to={`/applications/${application.id}`}
+                      className="underline-offset-4 hover:underline"
+                      onClick={(event) => event.stopPropagation()}
                     >
                       {application.title}
-                    </Button>
+                    </Link>
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap text-muted-foreground">
                     {application.company ?? "—"}
@@ -245,18 +239,16 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                       <ExternalLink
                         href={application.sourceUrl}
                         className="underline underline-offset-4 hover:text-primary"
+                        onClick={(event) => event.stopPropagation()}
                       />
                     ) : (
                       "—"
                     )}
                   </TableCell>
-                  <TableCell className="align-top whitespace-nowrap">
-                    {personaName ?? "—"}
-                  </TableCell>
                   <TableCell className="align-top whitespace-nowrap text-muted-foreground">
                     {formatDistanceToNow(new Date(application.updatedAt), { addSuffix: true })}
                   </TableCell>
-                  <TableCell className="align-top">
+                  <TableCell className="align-top" onClick={(event) => event.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={

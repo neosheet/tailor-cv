@@ -10,13 +10,15 @@ export function ExternalLink({
   href,
   className,
   children,
+  onClick,
 }: {
   href: string
   className?: string
   children?: React.ReactNode
+  onClick?: React.MouseEventHandler<HTMLAnchorElement>
 }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className={className}>
+    <a href={href} target="_blank" rel="noreferrer" className={className} onClick={onClick}>
       {children ?? href.replace(/^https?:\/\//, "")}
     </a>
   )

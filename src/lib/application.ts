@@ -380,20 +380,33 @@ export async function restoreApplication(
 // ---------------------------------------------------------------------------
 
 /**
- * Lazy CV setup: picks the Persona + Template for an application whose CV
- * tab hasn't been configured yet. A thin wrapper over `updateApplication` —
- * `cvPersonaSettings`/`cvTemplateSettings` keep their `{}` column default
- * until the Visibility/Style/Page/Block-Settings mutators below touch them.
+ * Sets the Persona + Template for an application — both the CV tab's
+ * initial lazy setup and its later "change template" selects go through
+ * here. A thin wrapper over `updateApplication`, except: whenever `templateId`
+ * actually *changes* (initial setup counts — there's no prior template),
+ * `cvPersonaSettings.fieldVisibility` is reset to the new template's
+ * `defaultFieldVisibility` (or `{}` if it has none), replacing whatever was
+ * there — each template's field visibility is its own starting point, so
+ * switching to Classic after Classic (Compact Experience) un-hides what the
+ * latter hid. Picking the *same* template again, or only changing the
+ * Persona, leaves visibility untouched.
  */
 export async function setApplicationCvBase(
   store: ApplicationStore,
   applicationId: string,
   personaId: string,
-  templateId: string
+  templateId: string,
+  templateDefaultFieldVisibility?: FieldVisibility
 ): Promise<DbApplication> {
+  const application = findApplication(store, applicationId)
+  const templateChanged = templateId !== application?.cvTemplateId
+
   return updateApplication(store, applicationId, {
     cvPersonaId: personaId,
     cvTemplateId: templateId,
+    ...(templateChanged
+      ? { cvPersonaSettings: { fieldVisibility: templateDefaultFieldVisibility ?? {} } }
+      : {}),
   })
 }
 

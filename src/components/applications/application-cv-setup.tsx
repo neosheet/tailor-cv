@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select"
 import { setApplicationCvBase } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
-import { allTemplates } from "@/lib/cv-templates"
+import { allTemplates, findTemplate } from "@/lib/cv-templates"
 import { allPersonas } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
 import type { DbApplication } from "@/mocks/types"
@@ -61,7 +61,14 @@ export function ApplicationCvSetup({
 
     setSaving(true)
     try {
-      await setApplicationCvBase(applicationStore, application.id, personaId, templateId)
+      const template = findTemplate(templateId, personaStore.cvTemplates)
+      await setApplicationCvBase(
+        applicationStore,
+        application.id,
+        personaId,
+        templateId,
+        template?.defaultFieldVisibility
+      )
     } finally {
       setSaving(false)
     }
