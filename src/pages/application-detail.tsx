@@ -94,6 +94,12 @@ function ApplicationResolved({ application }: { application: DbApplication }) {
         title="Edit Application"
         confirmLabel="Save"
         initialTitle={application.title}
+        initialCompany={application.company ?? ""}
+        initialPosition={application.position ?? ""}
+        initialLocation={application.location ?? ""}
+        initialJobType={application.jobType}
+        initialWorkType={application.workType}
+        initialDeadline={application.deadline}
         initialSourceUrl={application.sourceUrl ?? ""}
         initialVacancyDetail={application.vacancyDetail ?? ""}
         initialCoverLetter={application.coverLetter ?? ""}
