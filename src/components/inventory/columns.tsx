@@ -81,13 +81,16 @@ const MONTHS = [
  * Parsed by hand rather than through `Date`, which would shift the value by a
  * timezone and can turn "2014-06" into May for anyone west of UTC.
  */
-export function formatPartialDate(value: string | null): string | null {
+export function formatPartialDate(
+  value: string | null,
+  yearOnly = false
+): string | null {
   if (!value) {
     return null
   }
 
   const [year, month, day] = value.split("-")
-  if (!month) {
+  if (yearOnly || !month) {
     return year
   }
 
@@ -95,14 +98,18 @@ export function formatPartialDate(value: string | null): string | null {
   return day ? `${Number(day)} ${name} ${year}` : `${name} ${year}`
 }
 
-/** Null `end_date` on a ranged kind means the entry is ongoing. */
+/**
+ * Null `end_date` on a ranged kind means the entry is ongoing. Education
+ * dates drop the month — a graduation is remembered by year.
+ */
 function formatRange(item: DbInventoryItem): string | null {
-  const start = formatPartialDate(item.startDate)
+  const yearOnly = item.kind === "education"
+  const start = formatPartialDate(item.startDate, yearOnly)
   if (!start) {
     return null
   }
 
-  return `${start} – ${formatPartialDate(item.endDate) ?? "Present"}`
+  return `${start} – ${formatPartialDate(item.endDate, yearOnly) ?? "Present"}`
 }
 
 /** For Work, Volunteer, Education, Projects — anything with a span. */

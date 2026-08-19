@@ -223,8 +223,9 @@ function DetailsSection({
   const lines = allLinesOf(store, item.id)
   const skills = skillsOf(store, item.id)
 
-  const start = formatPartialDate(item.startDate)
-  const end = formatPartialDate(item.endDate)
+  const yearOnly = item.kind === "education"
+  const start = formatPartialDate(item.startDate, yearOnly)
+  const end = formatPartialDate(item.endDate, yearOnly)
   const dates = start ? `${start} – ${end ?? "Present"}` : null
 
   return (
