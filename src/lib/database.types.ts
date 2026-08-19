@@ -86,8 +86,11 @@ export type Database = {
           cover_letter: string | null
           created_at: string
           current_stage_id: string | null
-          cv_id: string | null
+          cv_persona_id: string | null
+          cv_persona_settings: Json
           cv_snapshot: Json | null
+          cv_template_id: string | null
+          cv_template_settings: Json
           deadline: string | null
           global_status: Database["public"]["Enums"]["global_application_status"]
           id: string
@@ -113,8 +116,11 @@ export type Database = {
           cover_letter?: string | null
           created_at?: string
           current_stage_id?: string | null
-          cv_id?: string | null
+          cv_persona_id?: string | null
+          cv_persona_settings?: Json
           cv_snapshot?: Json | null
+          cv_template_id?: string | null
+          cv_template_settings?: Json
           deadline?: string | null
           global_status?: Database["public"]["Enums"]["global_application_status"]
           id?: string
@@ -142,8 +148,11 @@ export type Database = {
           cover_letter?: string | null
           created_at?: string
           current_stage_id?: string | null
-          cv_id?: string | null
+          cv_persona_id?: string | null
+          cv_persona_settings?: Json
           cv_snapshot?: Json | null
+          cv_template_id?: string | null
+          cv_template_settings?: Json
           deadline?: string | null
           global_status?: Database["public"]["Enums"]["global_application_status"]
           id?: string
@@ -172,10 +181,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "applications_cv_id_fkey"
-            columns: ["cv_id"]
+            foreignKeyName: "applications_cv_persona_id_fkey"
+            columns: ["cv_persona_id"]
             isOneToOne: false
-            referencedRelation: "cvs"
+            referencedRelation: "personas"
             referencedColumns: ["id"]
           },
           {
@@ -221,69 +230,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "cv_templates_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cvs: {
-        Row: {
-          created_at: string
-          favorite: boolean
-          id: string
-          name: string
-          note: string | null
-          persona_id: string | null
-          persona_settings: Json
-          snapshot: Json | null
-          tags: string[]
-          template_id: string | null
-          template_settings: Json
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          favorite?: boolean
-          id?: string
-          name: string
-          note?: string | null
-          persona_id?: string | null
-          persona_settings?: Json
-          snapshot?: Json | null
-          tags?: string[]
-          template_id?: string | null
-          template_settings?: Json
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          favorite?: boolean
-          id?: string
-          name?: string
-          note?: string | null
-          persona_id?: string | null
-          persona_settings?: Json
-          snapshot?: Json | null
-          tags?: string[]
-          template_id?: string | null
-          template_settings?: Json
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cvs_persona_id_fkey"
-            columns: ["persona_id"]
-            isOneToOne: false
-            referencedRelation: "personas"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cvs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
