@@ -8,7 +8,6 @@ import {
 } from "@/lib/cv-template-schema"
 import type { ResumeDocument } from "@/lib/resume-document"
 import type { CvTemplate } from "@/lib/cv-templates"
-import type { DbCv } from "@/mocks/types"
 
 /**
  * A CV rendered down to data — see docs/specs/09-cv-export-import.md. Used
@@ -44,7 +43,7 @@ export const cvSnapshotV1Schema = z.object({
 })
 
 export function buildCvSnapshot(
-  cv: DbCv,
+  cv: { name: string; note: string | null; tags: string[]; templateSettings: TemplateSettings },
   document: ResumeDocument,
   template: CvTemplate
 ): CvSnapshotV1 {

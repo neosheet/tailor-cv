@@ -5,12 +5,8 @@ import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
 import { toError, useRefetchVersion, useStoreContext } from "@/lib/store-context"
 import type { Tables } from "@/lib/database.types"
-import type { TemplateSettings } from "@/lib/cv-template-schema"
 import { parseTemplateDefinition } from "@/lib/cv-template-schema"
-import { parseCvSnapshot } from "@/lib/cv-snapshot"
 import type {
-  CvPersonaSettings,
-  DbCv,
   DbCvTemplate,
   DbPersonaItem,
   DbPersonaLine,
@@ -19,23 +15,25 @@ import type {
 
 /**
  * Fetches `personas`, `persona_sections`, `persona_items`, `persona_lines`,
- * and `cvs` for the signed-in user once per session and holds them in React
- * state. Mirrors `src/lib/inventory-store.tsx` exactly — see that file for
- * why the selectors that read this store stay synchronous.
+ * and `cv_templates` for the signed-in user once per session and holds them
+ * in React state. Mirrors `src/lib/inventory-store.tsx` exactly — see that
+ * file for why the selectors that read this store stay synchronous.
  *
- * One combined store rather than a separate `CvStore`: a Persona and its
- * saved CVs are read together everywhere that matters ("Used in CVs",
- * `resolveCv`, `buildResumeDocument`), so splitting them would just mean
- * every CV-facing page mounts two contexts for no benefit — the same reason
- * `InventoryStore` already bundles four unrelated tables into one.
+ * One combined store rather than a separate `CvTemplateStore`: templates are
+ * read together with Personas everywhere that matters (`resolveApplicationCv`,
+ * `buildResumeDocument`), so splitting them would just mean every CV-facing
+ * page mounts two contexts for no benefit — the same reason `InventoryStore`
+ * already bundles four unrelated tables into one. A CV itself is no longer a
+ * table this store fetches — see `docs/specs/15-cv-embedded-in-applications.md`;
+ * CV config now lives directly on `applications` (`lib/application-store.tsx`).
  */
 
 /**
  * Schema-accurate — deliberately not `mocks/types.ts`'s `DbPersona`, which
  * carries a `deletedAt` field with no backing column (soft delete isn't
  * implemented for Personas). `DbPersonaSection`/`DbPersonaItem`/
- * `DbPersonaLine`/`DbCv` from `mocks/types.ts` are schema-accurate already
- * and reused as-is.
+ * `DbPersonaLine` from `mocks/types.ts` are schema-accurate already and
+ * reused as-is.
  */
 export type DbPersona = {
   id: string
@@ -53,7 +51,6 @@ export type PersonaData = {
   personaSections: DbPersonaSection[]
   personaItems: DbPersonaItem[]
   personaLines: DbPersonaLine[]
-  cvs: DbCv[]
   cvTemplates: DbCvTemplate[]
 }
 
@@ -66,7 +63,6 @@ export type PersonaStore = PersonaData & {
   setPersonaSections: React.Dispatch<React.SetStateAction<DbPersonaSection[]>>
   setPersonaItems: React.Dispatch<React.SetStateAction<DbPersonaItem[]>>
   setPersonaLines: React.Dispatch<React.SetStateAction<DbPersonaLine[]>>
-  setCvs: React.Dispatch<React.SetStateAction<DbCv[]>>
   setCvTemplates: React.Dispatch<React.SetStateAction<DbCvTemplate[]>>
 }
 
@@ -112,24 +108,6 @@ export function mapPersonaLineRow(row: Tables<"persona_lines">): DbPersonaLine {
   }
 }
 
-export function mapCvRow(row: Tables<"cvs">): DbCv {
-  return {
-    id: row.id,
-    userId: row.user_id,
-    personaId: row.persona_id,
-    templateId: row.template_id,
-    name: row.name,
-    note: row.note,
-    tags: row.tags,
-    favorite: row.favorite,
-    templateSettings: (row.template_settings ?? {}) as unknown as TemplateSettings,
-    personaSettings: (row.persona_settings ?? {}) as unknown as CvPersonaSettings,
-    snapshot: row.snapshot ? parseCvSnapshot(row.snapshot) : null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  }
-}
-
 export function mapCvTemplateRow(row: Tables<"cv_templates">): DbCvTemplate {
   return {
     id: row.id,
@@ -172,7 +150,6 @@ export function PersonaStoreProvider({
   >([])
   const [personaItems, setPersonaItems] = React.useState<DbPersonaItem[]>([])
   const [personaLines, setPersonaLines] = React.useState<DbPersonaLine[]>([])
-  const [cvs, setCvs] = React.useState<DbCv[]>([])
   const [cvTemplates, setCvTemplates] = React.useState<DbCvTemplate[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<Error | null>(null)
@@ -201,7 +178,7 @@ export function PersonaStoreProvider({
 
         const personaIds = (personaRows ?? []).map((row) => row.id)
 
-        const [sectionsResult, itemsResult, linesResult, cvsResult, cvTemplatesResult] =
+        const [sectionsResult, itemsResult, linesResult, cvTemplatesResult] =
           await Promise.all([
             fetchByPersonaIds<Tables<"persona_sections">>(
               "persona_sections",
@@ -216,11 +193,6 @@ export function PersonaStoreProvider({
               personaIds
             ),
             supabase
-              .from("cvs")
-              .select("*")
-              .eq("user_id", userId as string)
-              .order("created_at"),
-            supabase
               .from("cv_templates")
               .select("*")
               .eq("user_id", userId as string)
@@ -230,7 +202,6 @@ export function PersonaStoreProvider({
         if (sectionsResult.error) throw sectionsResult.error
         if (itemsResult.error) throw itemsResult.error
         if (linesResult.error) throw linesResult.error
-        if (cvsResult.error) throw cvsResult.error
         if (cvTemplatesResult.error) throw cvTemplatesResult.error
 
         if (cancelled) return
@@ -239,7 +210,6 @@ export function PersonaStoreProvider({
         setPersonaSections((sectionsResult.data ?? []).map(mapPersonaSectionRow))
         setPersonaItems((itemsResult.data ?? []).map(mapPersonaItemRow))
         setPersonaLines((linesResult.data ?? []).map(mapPersonaLineRow))
-        setCvs((cvsResult.data ?? []).map(mapCvRow))
         setCvTemplates((cvTemplatesResult.data ?? []).map(mapCvTemplateRow))
       } catch (caught) {
         if (!cancelled) {
@@ -265,7 +235,6 @@ export function PersonaStoreProvider({
       personaSections,
       personaItems,
       personaLines,
-      cvs,
       cvTemplates,
       userId,
       loading,
@@ -275,7 +244,6 @@ export function PersonaStoreProvider({
       setPersonaSections,
       setPersonaItems,
       setPersonaLines,
-      setCvs,
       setCvTemplates,
     }),
     [
@@ -283,7 +251,6 @@ export function PersonaStoreProvider({
       personaSections,
       personaItems,
       personaLines,
-      cvs,
       cvTemplates,
       userId,
       loading,

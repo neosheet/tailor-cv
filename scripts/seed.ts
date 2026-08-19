@@ -9,8 +9,8 @@
  * one transaction, and by the time a later step fails, earlier ones already
  * committed. A failed run is expected to be cleaned up by hand — truncate
  * `tags`, `inventory_items`, `inventory_lines`, `item_skills`, `personas`,
- * `persona_sections`, `persona_items`, `persona_lines`, `cvs` for this user —
- * then re-run.
+ * `persona_sections`, `persona_items`, `persona_lines` for this user — then
+ * re-run.
  */
 
 import { randomUUID } from "node:crypto"
@@ -39,7 +39,6 @@ import { projects } from "../src/mocks/data/projects"
 import { skills } from "../src/mocks/data/skills"
 import { work } from "../src/mocks/data/work"
 import { personas as sourcePersonas } from "../src/mocks/data/personas"
-import { cvs as sourceCvs } from "../src/mocks/data/cvs"
 import { flatten } from "../src/mocks/flatten"
 import type { DbInventoryLine, SourcePersonaLines, SourcePool } from "../src/mocks/types"
 
@@ -277,27 +276,12 @@ async function main() {
     }
   }
 
-  // Saved (Persona, Template) pairings — the new meaning of `cvs`. Each row
-  // just points at a persona already inserted above, by its mock slug.
-  const { error: cvsError } = await supabase.from("cvs").insert(
-    sourceCvs.map((sourceCv) => ({
-      id: randomUUID(),
-      user_id: userId,
-      persona_id: resolvePersonaId(sourceCv.personaId),
-      template_id: sourceCv.templateId,
-      name: sourceCv.name,
-      note: sourceCv.note ?? null,
-    }))
-  )
-  if (cvsError) fail("cvs", cvsError)
-
   const expected = {
     items: 68,
     lines: 165,
     itemSkills: 45,
     tags: 47,
     personas: 2,
-    cvs: 2,
   }
   const actual = {
     items: items.length,
@@ -305,7 +289,6 @@ async function main() {
     itemSkills: itemSkills.length,
     tags: tagNames.size,
     personas: sourcePersonas.length,
-    cvs: sourceCvs.length,
   }
 
   console.log("Seed complete. Row counts:")

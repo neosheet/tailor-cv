@@ -6,7 +6,13 @@ import { supabase } from "@/lib/supabase"
 import { toError, useRefetchVersion, useStoreContext } from "@/lib/store-context"
 import type { Tables } from "@/lib/database.types"
 import { parseCvSnapshot } from "@/lib/cv-snapshot"
-import type { DbApplication, DbApplicationStage, DbStageTemplate } from "@/mocks/types"
+import type {
+  CvPersonaSettings,
+  DbApplication,
+  DbApplicationStage,
+  DbStageTemplate,
+} from "@/mocks/types"
+import type { TemplateSettings } from "@/lib/cv-template-schema"
 
 /**
  * Fetches `applications`, `application_stages`, and `stage_templates` for the
@@ -50,7 +56,10 @@ export function mapApplicationRow(row: Tables<"applications">): DbApplication {
     vacancyDetail: row.vacancy_detail,
     coverLetter: row.cover_letter,
     applyVia: row.apply_via,
-    cvId: row.cv_id,
+    cvPersonaId: row.cv_persona_id,
+    cvTemplateId: row.cv_template_id,
+    cvPersonaSettings: (row.cv_persona_settings ?? {}) as unknown as CvPersonaSettings,
+    cvTemplateSettings: (row.cv_template_settings ?? {}) as unknown as TemplateSettings,
     globalStatus: row.global_status,
     currentStageId: row.current_stage_id,
     cvSnapshot: row.cv_snapshot ? parseCvSnapshot(row.cv_snapshot) : null,

@@ -63,7 +63,7 @@ export type DbProfile = DbTimestamps & {
  * exactly what was there before. Sparse — a kind/field/item absent from this
  * map is visible.
  *
- * Lives on `cvs.persona_settings`, not `personas` (Batch 3,
+ * Lives on `applications.cv_persona_settings`, not `personas` (Batch 3,
  * docs/user-request.md) — visibility is a per-CV presentation choice, not
  * Persona content, so two CVs built from the same Persona can diverge.
  */
@@ -202,30 +202,6 @@ export type SourcePersona = {
 // ---------------------------------------------------------------------------
 
 /**
- * `templateId` matches an id in `src/lib/cv-templates.ts` — not a real FK yet.
- * A row is either **live** (`personaId`/`templateId` set, `snapshot` null) or
- * **frozen** (`personaId`/`templateId` null, `snapshot` set) — never neither,
- * never both, enforced by a DB check constraint. See
- * docs/specs/09-cv-export-import.md.
- */
-export type DbCv = DbTimestamps & {
-  id: string
-  userId: string
-  personaId: string | null
-  templateId: string | null
-  name: string
-  note: string | null
-  tags: string[]
-  favorite: boolean
-  /** Per-CV style/page/node overrides — see `TemplateSettings`. */
-  templateSettings: TemplateSettings
-  /** Per-CV persona-content overrides (field visibility) — see `CvPersonaSettings`. */
-  personaSettings: CvPersonaSettings
-  /** Set only on a frozen (imported) CV — see `personaId`'s doc comment above. */
-  snapshot: CvSnapshotV1 | null
-}
-
-/**
  * A user-saved, standalone `TemplateDefinition` produced by "Save as new
  * template" (docs/specs/13-save-as-new-template.md) — never a delta on top
  * of a built-in, always a complete definition on its own.
@@ -237,16 +213,6 @@ export type DbCvTemplate = DbTimestamps & {
   description: string
   schemaVersion: number
   definition: TemplateDefinition
-}
-
-export type SourceCv = {
-  id: string
-  name: string
-  personaId: string
-  templateId: string
-  note?: string
-  tags?: string[]
-  favorite?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -313,9 +279,11 @@ export type ApplicationWorkType = "remote" | "hybrid" | "on_site"
 /**
  * `cvSnapshot` is set once, on the first transition away from `draft`, and
  * never changes again on later status changes — "one honest record of what
- * was actually sent." `cvId` stays as a link back to the source CV for
- * display/navigation even after freezing; rendering prefers `cvSnapshot`
- * once it's set. See docs/specs/10-applications-tracking.md's "The freeze".
+ * was actually sent." `cvPersonaId`/`cvTemplateId`/`cvPersonaSettings`/
+ * `cvTemplateSettings` stay as a link back to the config that produced it,
+ * even after freezing (never cleared); rendering prefers `cvSnapshot` once
+ * it's set. See docs/specs/10-applications-tracking.md's "The freeze" and
+ * docs/specs/15-cv-embedded-in-applications.md.
  */
 export type DbApplication = DbTimestamps & {
   id: string
@@ -331,7 +299,10 @@ export type DbApplication = DbTimestamps & {
   vacancyDetail: string | null
   coverLetter: string | null
   applyVia: string | null
-  cvId: string | null
+  cvPersonaId: string | null
+  cvTemplateId: string | null
+  cvPersonaSettings: CvPersonaSettings
+  cvTemplateSettings: TemplateSettings
   globalStatus: GlobalApplicationStatus
   currentStageId: string | null
   cvSnapshot: CvSnapshotV1 | null

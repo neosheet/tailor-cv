@@ -848,10 +848,12 @@ export async function duplicatePersona(
 }
 
 /**
- * Deletes a Persona. Cascades in the database to its sections/items/lines
- * and any CVs built from it (`cvs.persona_id references personas(id) on
- * delete cascade`) — mirrored here in local state so the UI doesn't wait on
- * a refetch to reflect it.
+ * Deletes a Persona. Cascades in the database to its sections/items/lines —
+ * mirrored here in local state so the UI doesn't wait on a refetch to
+ * reflect it. Any application whose `cv_persona_id` pointed at this Persona
+ * has it nulled server-side (`on delete set null`); that's not mirrored into
+ * `ApplicationStore` here since this function only has `PersonaStore` — the
+ * next Applications fetch picks it up, same as any other cross-store change.
  */
 export async function deletePersona(
   store: PersonaStore,
@@ -870,7 +872,6 @@ export async function deletePersona(
   store.setPersonaLines((current) =>
     current.filter((row) => row.personaId !== personaId)
   )
-  store.setCvs((current) => current.filter((row) => row.personaId !== personaId))
 }
 
 /**

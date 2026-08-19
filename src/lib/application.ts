@@ -1,8 +1,10 @@
 import type { InventoryStore } from "@/lib/inventory-store"
+import { buildResumeDocument, requireUserId as requirePersonaUserId } from "@/lib/persona"
 import type { PersonaData, PersonaStore } from "@/lib/persona-store"
-import { resolveCv } from "@/lib/cv"
+import { mapCvTemplateRow } from "@/lib/persona-store"
 import { buildCvSnapshot, templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
-import type { CvTemplate } from "@/lib/cv-templates"
+import { cvTemplates, findTemplate, type CvTemplate } from "@/lib/cv-templates"
+import { bakeTemplateSettings } from "@/lib/cv-template-bake"
 import type { ResumeDocument } from "@/lib/resume-document"
 import { findMissingSkills, skillTitlesOf } from "@/lib/skill-check"
 import {
@@ -12,20 +14,30 @@ import {
 } from "@/lib/application-store"
 import { supabase } from "@/lib/supabase"
 import type { Json } from "@/lib/database.types"
+import type { PageConfig, TemplateDefinition, TemplateSettings } from "@/lib/cv-template-schema"
 import type {
   ApplicationJobType,
   ApplicationWorkType,
+  CvPersonaSettings,
   DbApplication,
-  DbCv,
+  DbCvTemplate,
+  FieldVisibility,
   GlobalApplicationStatus,
+  ItemKind,
 } from "@/mocks/types"
 
 /**
  * The Applications layer — job tracker built on top of the CV snapshot
- * format. See docs/specs/10-applications-tracking.md. Selectors, the New/
- * Edit/Delete mutators, and `setGlobalApplicationStatus` — the freeze mutator
- * that writes a `CvSnapshotV1` to `applications.cv_snapshot` once, on the
- * first transition away from `draft`, and never touches it again afterward.
+ * format. See docs/specs/10-applications-tracking.md and
+ * docs/specs/15-cv-embedded-in-applications.md. Selectors, the New/Edit/
+ * Delete mutators, `setGlobalApplicationStatus` — the freeze mutator that
+ * writes a `CvSnapshotV1` to `applications.cv_snapshot` once, on the first
+ * transition away from `draft`, and never touches it again afterward — plus
+ * (since spec 15) the CV config living directly on the application: the
+ * lazy-setup mutator, the "copy CV settings" mutator, the Visibility/Style/
+ * Page/Block-Settings tabs' per-application override mutators (formerly
+ * `lib/cv.ts`, keyed by `cvId` against the now-gone `cvs` table), and
+ * "Save as new template".
  */
 
 export function allApplications(data: ApplicationData): DbApplication[] {
@@ -68,15 +80,17 @@ export function findSimilarApplications(
 /**
  * Everything the `/applications/:id/cv` route needs to render the CV
  * attached to one application. Prefers `cvSnapshot` (frozen, once status has
- * left `draft`) over `cvId` (still live, while in `draft`) — see spec 10's
- * "The freeze". The `kind` discriminant tells the caller how to re-export:
- * a frozen CV's `snapshot` is already a complete `CvSnapshotV1` and can be
- * downloaded as-is, while a live CV's document/template must still be run
- * through `buildCvSnapshot`.
+ * left `draft`) over the application's own live `cvPersonaId`/`cvTemplateId`
+ * (still unset or live, while in `draft`) — see spec 10's "The freeze". The
+ * `kind` discriminant tells the caller how to re-export: a frozen CV's
+ * `snapshot` is already a complete `CvSnapshotV1` and can be downloaded
+ * as-is, while a live CV's document/template must still be run through
+ * `buildCvSnapshot`. The `live` variant carries no `application`/`cv` copy —
+ * every call site already has the `application` it passed in.
  */
 export type ResolvedApplicationCv =
   | { kind: "frozen"; snapshot: CvSnapshotV1; document: ResumeDocument; template: CvTemplate }
-  | { kind: "live"; cv: DbCv; document: ResumeDocument; template: CvTemplate }
+  | { kind: "live"; document: ResumeDocument; template: CvTemplate }
 
 export function resolveApplicationCv(
   application: DbApplication,
@@ -92,11 +106,17 @@ export function resolveApplicationCv(
     }
   }
 
-  if (application.cvId) {
-    const resolved = resolveCv(persona, inventory, application.cvId)
-    if (resolved) {
-      return { kind: "live", cv: resolved.cv, document: resolved.document, template: resolved.template }
-    }
+  if (application.cvPersonaId && application.cvTemplateId) {
+    const document = buildResumeDocument(
+      persona,
+      inventory,
+      application.cvPersonaId,
+      application.cvPersonaSettings.fieldVisibility ?? {}
+    )
+    const template =
+      findTemplate(application.cvTemplateId, persona.cvTemplates) ?? cvTemplates[0]
+
+    return { kind: "live", document, template }
   }
 
   return undefined
@@ -187,7 +207,12 @@ export type ApplicationFormFields = {
   vacancyDetail?: string | null
   coverLetter?: string | null
   applyVia?: string | null
-  cvId?: string | null
+  /** Lazy CV setup / "copy CV settings" — never a general form field on the New/Edit dialog. */
+  cvPersonaId?: string | null
+  cvTemplateId?: string | null
+  /** Written only by `copyApplicationCvSettings` — see its doc comment. */
+  cvPersonaSettings?: CvPersonaSettings
+  cvTemplateSettings?: TemplateSettings
   note?: string | null
   tags?: string[]
   requiredSkillsInput?: string | null
@@ -221,7 +246,8 @@ export async function createApplication(
       vacancy_detail: fields.vacancyDetail ?? null,
       cover_letter: fields.coverLetter ?? null,
       apply_via: fields.applyVia ?? null,
-      cv_id: fields.cvId ?? null,
+      cv_persona_id: fields.cvPersonaId ?? null,
+      cv_template_id: fields.cvTemplateId ?? null,
       note: fields.note ?? null,
       tags: fields.tags ?? [],
       global_status: "draft",
@@ -260,7 +286,14 @@ export async function updateApplication(
         : {}),
       ...(patch.coverLetter !== undefined ? { cover_letter: patch.coverLetter } : {}),
       ...(patch.applyVia !== undefined ? { apply_via: patch.applyVia } : {}),
-      ...(patch.cvId !== undefined ? { cv_id: patch.cvId } : {}),
+      ...(patch.cvPersonaId !== undefined ? { cv_persona_id: patch.cvPersonaId } : {}),
+      ...(patch.cvTemplateId !== undefined ? { cv_template_id: patch.cvTemplateId } : {}),
+      ...(patch.cvPersonaSettings !== undefined
+        ? { cv_persona_settings: patch.cvPersonaSettings as unknown as Json }
+        : {}),
+      ...(patch.cvTemplateSettings !== undefined
+        ? { cv_template_settings: patch.cvTemplateSettings as unknown as Json }
+        : {}),
       ...(patch.note !== undefined ? { note: patch.note } : {}),
       ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
       ...(patch.requiredSkillsInput !== undefined
@@ -343,6 +376,62 @@ export async function restoreApplication(
 }
 
 // ---------------------------------------------------------------------------
+// Mutators — lazy CV setup + "copy CV settings" (spec 15)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lazy CV setup: picks the Persona + Template for an application whose CV
+ * tab hasn't been configured yet. A thin wrapper over `updateApplication` —
+ * `cvPersonaSettings`/`cvTemplateSettings` keep their `{}` column default
+ * until the Visibility/Style/Page/Block-Settings mutators below touch them.
+ */
+export async function setApplicationCvBase(
+  store: ApplicationStore,
+  applicationId: string,
+  personaId: string,
+  templateId: string
+): Promise<DbApplication> {
+  return updateApplication(store, applicationId, {
+    cvPersonaId: personaId,
+    cvTemplateId: templateId,
+  })
+}
+
+/**
+ * The reworked Import (spec 15): copies a source application's CV
+ * config — `cvPersonaId`, `cvTemplateId`, `cvPersonaSettings`,
+ * `cvTemplateSettings` — onto a target application. Settings only, never
+ * baked-in content: the target keeps resolving its document live off
+ * whichever persona ends up set. The source must itself have a CV
+ * configured and must not be frozen (`cvSnapshot === null`) — a frozen
+ * application's config is a historical record, not a valid template to copy
+ * from.
+ */
+export async function copyApplicationCvSettings(
+  store: ApplicationStore,
+  sourceApplicationId: string,
+  targetApplicationId: string
+): Promise<DbApplication> {
+  const source = findApplication(store, sourceApplicationId)
+  if (!source) {
+    throw new Error(`No application "${sourceApplicationId}".`)
+  }
+  if (!source.cvPersonaId || !source.cvTemplateId) {
+    throw new Error("Source application has no CV configured.")
+  }
+  if (source.cvSnapshot !== null) {
+    throw new Error("Source application's CV is frozen — choose a live application instead.")
+  }
+
+  return updateApplication(store, targetApplicationId, {
+    cvPersonaId: source.cvPersonaId,
+    cvTemplateId: source.cvTemplateId,
+    cvPersonaSettings: source.cvPersonaSettings,
+    cvTemplateSettings: source.cvTemplateSettings,
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Mutator — status changes + the freeze
 // ---------------------------------------------------------------------------
 
@@ -350,17 +439,18 @@ export async function restoreApplication(
  * Moves an application to a new `global_status`.
  *
  * The freeze: on the *first* transition away from `draft` (i.e.
- * `current.globalStatus === "draft" && next !== "draft"`), this resolves the
- * attached CV (live or already-frozen) via `resolveCv` and writes a fresh
- * `CvSnapshotV1` to `applications.cv_snapshot` — "one honest record of what
- * was actually sent." Every later status change — including bouncing back
- * through `draft` again — leaves `cv_snapshot` completely untouched: the
+ * `current.globalStatus === "draft" && next !== "draft"`), this builds the
+ * document/template live from the application's own `cvPersonaId`/
+ * `cvTemplateId`/`cvPersonaSettings` and writes a fresh `CvSnapshotV1` to
+ * `applications.cv_snapshot` — "one honest record of what was actually
+ * sent." Every later status change — including bouncing back through
+ * `draft` again — leaves `cv_snapshot` completely untouched: the
  * `cv_snapshot` key is simply omitted from the update payload whenever
  * `current.globalStatus !== "draft"`, so nothing ever overwrites the
- * original freeze. This never inserts a `cvs` row and never calls
- * `importCvSnapshot` — the frozen copy lives only in
- * `applications.cv_snapshot`, a column on the application itself; the
- * original CV in the `cvs` table is untouched and stays fully live/editable.
+ * original freeze. `cvPersonaId`/`cvTemplateId`/`cvPersonaSettings`/
+ * `cvTemplateSettings` are never cleared by freezing — they stay a
+ * permanent record of which persona/template/settings produced the
+ * snapshot (see spec 15's "Used in Applications").
  *
  * The same freeze also stamps `applied_at` once, the dashboard's source of
  * truth for "the day this application was actually applied to" — there's no
@@ -389,7 +479,7 @@ export async function setGlobalApplicationStatus(
     | Record<string, never> = {}
 
   if (current.globalStatus === "draft" && next !== "draft") {
-    if (!current.cvId) {
+    if (!current.cvPersonaId || !current.cvTemplateId) {
       throw new Error("Cannot leave draft without an attached CV.")
     }
 
@@ -400,12 +490,20 @@ export async function setGlobalApplicationStatus(
       throw new Error("Still loading your CVs — try again in a moment.")
     }
 
-    const resolved = resolveCv(persona, inventory, current.cvId)
-    if (!resolved) {
-      throw new Error(`Attached CV "${current.cvId}" no longer exists.`)
-    }
+    const document = buildResumeDocument(
+      persona,
+      inventory,
+      current.cvPersonaId,
+      current.cvPersonaSettings.fieldVisibility ?? {}
+    )
+    const template =
+      findTemplate(current.cvTemplateId, persona.cvTemplates) ?? cvTemplates[0]
 
-    const snapshot = buildCvSnapshot(resolved.cv, resolved.document, resolved.template)
+    const snapshot = buildCvSnapshot(
+      { name: current.title, note: null, tags: [], templateSettings: current.cvTemplateSettings },
+      document,
+      template
+    )
     snapshotPatch = {
       cv_snapshot: snapshot as unknown as Json,
       applied_at: new Date().toISOString(),
@@ -433,4 +531,348 @@ export async function setGlobalApplicationStatus(
   )
 
   return updated
+}
+
+// ---------------------------------------------------------------------------
+// Mutators — the Visibility tab's per-application field visibility
+// (formerly `lib/cv.ts`, keyed by `cvId` against the `cvs` table — spec 15
+// moves this state onto `applications.cv_persona_settings`.)
+// ---------------------------------------------------------------------------
+
+async function saveApplicationCvPersonaSettings(
+  store: ApplicationStore,
+  applicationId: string,
+  next: CvPersonaSettings
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("applications")
+    .update({ cv_persona_settings: next as unknown as Json })
+    .eq("id", applicationId)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const updated = mapApplicationRow(data)
+  store.setApplications((current) =>
+    current.map((existing) => (existing.id === applicationId ? updated : existing))
+  )
+}
+
+/** Merges a `fieldVisibility` patch for one kind and saves the whole map. */
+async function saveKindVisibility(
+  store: ApplicationStore,
+  applicationId: string,
+  kind: ItemKind,
+  patch: { hidden?: boolean; fields?: string[]; items?: Record<string, boolean> }
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const fieldVisibility = application.cvPersonaSettings.fieldVisibility ?? {}
+  const nextFieldVisibility: FieldVisibility = {
+    ...fieldVisibility,
+    [kind]: { ...fieldVisibility[kind], ...patch },
+  }
+
+  await saveApplicationCvPersonaSettings(store, applicationId, {
+    ...application.cvPersonaSettings,
+    fieldVisibility: nextFieldVisibility,
+  })
+}
+
+/** Hides (or reveals) an entire kind, for this application's CV only. */
+export async function setKindHidden(
+  store: ApplicationStore,
+  applicationId: string,
+  kind: ItemKind,
+  hidden: boolean
+): Promise<void> {
+  await saveKindVisibility(store, applicationId, kind, { hidden })
+}
+
+/** Hides (or reveals) one field of a kind — e.g. Work's "Company name" — for this application's CV only. */
+export async function setFieldHidden(
+  store: ApplicationStore,
+  applicationId: string,
+  kind: ItemKind,
+  fieldKey: string,
+  hidden: boolean
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const fields = new Set(
+    application.cvPersonaSettings.fieldVisibility?.[kind]?.fields ?? []
+  )
+  if (hidden) {
+    fields.add(fieldKey)
+  } else {
+    fields.delete(fieldKey)
+  }
+
+  await saveKindVisibility(store, applicationId, kind, { fields: [...fields] })
+}
+
+/**
+ * Hides (or reveals) one already-selected entry — e.g. one Skill, one Social
+ * link, one Work entry — without touching its `persona_items`/`persona_lines`
+ * selection, and without touching the Persona at all. See
+ * `FieldVisibility.items`'s doc comment (`mocks/types.ts`) for why.
+ */
+export async function setItemHidden(
+  store: ApplicationStore,
+  applicationId: string,
+  kind: ItemKind,
+  itemId: string,
+  hidden: boolean
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const items = { ...application.cvPersonaSettings.fieldVisibility?.[kind]?.items }
+  if (hidden) {
+    items[itemId] = true
+  } else {
+    delete items[itemId]
+  }
+
+  await saveKindVisibility(store, applicationId, kind, { items })
+}
+
+// ---------------------------------------------------------------------------
+// Mutators — the Style tab's per-application overrides
+// ---------------------------------------------------------------------------
+
+async function saveApplicationCvTemplateSettings(
+  store: ApplicationStore,
+  applicationId: string,
+  next: TemplateSettings
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("applications")
+    .update({ cv_template_settings: next as unknown as Json })
+    .eq("id", applicationId)
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const updated = mapApplicationRow(data)
+  store.setApplications((current) =>
+    current.map((existing) => (existing.id === applicationId ? updated : existing))
+  )
+}
+
+/**
+ * Sets one property on one named style, for this application's CV only —
+ * e.g. Classic's `headerName.fontSize`. Shallow-merged onto the template's
+ * own style at render time (`cv-template-core.ts`'s `resolveStyleObject`),
+ * so this writes only the override, never the template's base value.
+ */
+export async function setCvStyleProperty(
+  store: ApplicationStore,
+  applicationId: string,
+  styleName: string,
+  key: string,
+  value: string | number
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const nextStyles = {
+    ...application.cvTemplateSettings.styles,
+    [styleName]: { ...application.cvTemplateSettings.styles?.[styleName], [key]: value },
+  }
+
+  await saveApplicationCvTemplateSettings(store, applicationId, {
+    ...application.cvTemplateSettings,
+    styles: nextStyles,
+  })
+}
+
+/** Clears one property override, reverting it to the template's own value. */
+export async function resetCvStyleProperty(
+  store: ApplicationStore,
+  applicationId: string,
+  styleName: string,
+  key: string
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const nextStyle = { ...application.cvTemplateSettings.styles?.[styleName] }
+  delete nextStyle[key]
+
+  const nextStyles = { ...application.cvTemplateSettings.styles, [styleName]: nextStyle }
+
+  await saveApplicationCvTemplateSettings(store, applicationId, {
+    ...application.cvTemplateSettings,
+    styles: nextStyles,
+  })
+}
+
+/**
+ * Sets one property on the template's page config, for this application's CV
+ * only — e.g. margin or paper size. Same shallow-merge-onto-the-template-base
+ * idea as `setCvStyleProperty`, applied to `TemplateDefinition.page` instead
+ * of a named style — see `TemplateNodeRenderer`'s `page` merge.
+ */
+export async function setCvPageProperty(
+  store: ApplicationStore,
+  applicationId: string,
+  key: keyof PageConfig,
+  value: string | number
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const nextPage = { ...application.cvTemplateSettings.page, [key]: value }
+
+  await saveApplicationCvTemplateSettings(store, applicationId, {
+    ...application.cvTemplateSettings,
+    page: nextPage,
+  })
+}
+
+/** Clears one page property override, reverting it to the template's own value. */
+export async function resetCvPageProperty(
+  store: ApplicationStore,
+  applicationId: string,
+  key: keyof PageConfig
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const nextPage = { ...application.cvTemplateSettings.page }
+  delete nextPage[key]
+
+  await saveApplicationCvTemplateSettings(store, applicationId, {
+    ...application.cvTemplateSettings,
+    page: nextPage,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutators — the Block Settings tab's per-application, per-node-id overrides
+// ---------------------------------------------------------------------------
+
+/**
+ * Sets one property (`hidden`/`styles`/`text`) on one addressable node, for
+ * this application's CV only — e.g. Classic's `bulletMarker` node's `text`.
+ * Node ids are authored into the template itself (`TemplateNode.id`); see
+ * `TemplateNodeRenderer`'s `nodeOverride`/`applyNodeOverride` for how this
+ * shallow-merges onto that node at render time.
+ */
+export async function setCvNodeOverride(
+  store: ApplicationStore,
+  applicationId: string,
+  nodeId: string,
+  patch: { hidden?: boolean; styles?: string | string[]; text?: string }
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const nextNodes = {
+    ...application.cvTemplateSettings.nodes,
+    [nodeId]: { ...application.cvTemplateSettings.nodes?.[nodeId], ...patch },
+  }
+
+  await saveApplicationCvTemplateSettings(store, applicationId, {
+    ...application.cvTemplateSettings,
+    nodes: nextNodes,
+  })
+}
+
+/** Clears one property override on a node, reverting it to the template's own value. */
+export async function resetCvNodeOverride(
+  store: ApplicationStore,
+  applicationId: string,
+  nodeId: string,
+  key: "hidden" | "styles" | "text"
+): Promise<void> {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+
+  const nextNode = { ...application.cvTemplateSettings.nodes?.[nodeId] }
+  delete nextNode[key]
+
+  const nextNodes = { ...application.cvTemplateSettings.nodes, [nodeId]: nextNode }
+
+  await saveApplicationCvTemplateSettings(store, applicationId, {
+    ...application.cvTemplateSettings,
+    nodes: nextNodes,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// "Save as new template" — see docs/specs/13-save-as-new-template.md
+// ---------------------------------------------------------------------------
+
+export type SaveAsNewTemplateFields = {
+  name: string
+  description: string
+}
+
+/**
+ * Bakes `application`'s current `cvTemplateSettings` onto `base`'s
+ * definition and inserts the result as a new, standalone `cv_templates` row.
+ * Does not modify `application` itself — it stays on its original base
+ * template id with its own `cvTemplateSettings` intact, still further
+ * editable.
+ */
+export async function saveAsNewTemplate(
+  store: PersonaStore,
+  application: DbApplication,
+  base: CvTemplate,
+  fields: SaveAsNewTemplateFields
+): Promise<DbCvTemplate> {
+  const userId = requirePersonaUserId(store)
+  const baked = bakeTemplateSettings(base.definition, application.cvTemplateSettings)
+  const definition: TemplateDefinition = {
+    ...baked,
+    id: crypto.randomUUID(),
+    name: fields.name,
+    description: fields.description,
+    density: "Balanced",
+    atsSafe: false,
+    bestFor: "",
+  }
+
+  const { data, error } = await supabase
+    .from("cv_templates")
+    .insert({
+      user_id: userId,
+      name: fields.name,
+      description: fields.description,
+      schema_version: definition.schemaVersion,
+      definition: definition as unknown as Json,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  const saved = mapCvTemplateRow(data)
+  store.setCvTemplates((current) => [...current, saved])
+
+  return saved
 }
