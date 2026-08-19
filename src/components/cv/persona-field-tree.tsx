@@ -48,6 +48,7 @@ import { linesOf } from "@/lib/inventory"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { inventoryPages } from "@/lib/navigation"
 import { SaveAsNewTemplateDialog } from "@/components/cv/save-as-new-template-dialog"
+import { PersonaEditorDialog } from "@/components/persona/persona-editor-dialog"
 import {
   FIELD_REGISTRY,
   hiddenFieldsOf,
@@ -463,6 +464,7 @@ function ItemRow({
 function DataTab({ application }: { application: DbApplication }) {
   const personaStore = usePersonaStore()
   const inventoryStore = useInventoryStore()
+  const [editOpen, setEditOpen] = React.useState(false)
   if (!application.cvPersonaId) {
     return null
   }
@@ -477,34 +479,48 @@ function DataTab({ application }: { application: DbApplication }) {
     return items.length > 0 ? [{ kind, items }] : []
   })
 
-  if (groups.length === 0) {
-    return (
-      <p className="px-2 py-4 text-sm text-muted-foreground">
-        No entries selected yet — pick some from the Persona page first.
-      </p>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-3">
-      {groups.map(({ kind, items }) => (
-        <div key={kind}>
-          <p className="px-2 pt-1 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {titleFor(kind)}
-          </p>
-          <div className="flex flex-col">
-            {items.map((item) => (
-              <ItemRow
-                key={item.id}
-                application={application}
-                personaId={personaId}
-                kind={kind}
-                item={item}
-              />
-            ))}
-          </div>
+      {groups.length === 0 ? (
+        <div className="flex flex-col items-start gap-2 px-2 py-4">
+          <p className="text-sm text-muted-foreground">No entries selected yet.</p>
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            Edit persona
+          </Button>
         </div>
-      ))}
+      ) : (
+        <>
+          <div className="flex justify-end px-2">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              Edit persona
+            </Button>
+          </div>
+          {groups.map(({ kind, items }) => (
+            <div key={kind}>
+              <p className="px-2 pt-1 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {titleFor(kind)}
+              </p>
+              <div className="flex flex-col">
+                {items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    application={application}
+                    personaId={personaId}
+                    kind={kind}
+                    item={item}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+      <PersonaEditorDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        mode="edit"
+        personaId={personaId}
+      />
     </div>
   )
 }
