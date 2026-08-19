@@ -367,13 +367,13 @@ const MONTHS = [
  * since that module imports `personaUsageCount` from here — importing back
  * would be a circular value dependency between the two.
  */
-function formatPartialDate(value: string | null): string | null {
+function formatPartialDate(value: string | null, yearOnly = false): string | null {
   if (!value) {
     return null
   }
 
   const [year, month, day] = value.split("-")
-  if (!month) {
+  if (yearOnly || !month) {
     return year
   }
 
@@ -419,7 +419,8 @@ function formatEntryDates(
   endDate: string | null,
   kind: ItemKind
 ): string | null {
-  const start = formatPartialDate(startDate)
+  const yearOnly = kind === "education"
+  const start = formatPartialDate(startDate, yearOnly)
   if (!start) {
     return null
   }
@@ -428,7 +429,7 @@ function formatEntryDates(
     return start
   }
 
-  return `${start} – ${formatPartialDate(endDate) ?? "Present"}`
+  return `${start} – ${formatPartialDate(endDate, yearOnly) ?? "Present"}`
 }
 
 /**
@@ -549,11 +550,21 @@ export function buildResumeDocument(
   }
 }
 
-/** Groups already-visibility-filtered skill items by `categoryId`, category-`position` order, uncategorized items collected last under "Other". */
-function buildSkillGroups(
+/** One category's items — a display name (or "Other") plus the items filed under it. */
+export type ItemCategoryGroup = {
+  category: string
+  items: DbInventoryItem[]
+}
+
+/**
+ * Groups items by `categoryId`, category-`position` order, uncategorized
+ * items collected last under "Other". Shared by resume-document skill
+ * rendering (`buildSkillGroups`) and the CV Data tab's skill grouping.
+ */
+export function groupItemsByCategory(
   inventory: InventoryStore,
   items: DbInventoryItem[]
-): ResumeSkillGroup[] {
+): ItemCategoryGroup[] {
   const byCategory = new Map<string | null, DbInventoryItem[]>()
   for (const item of items) {
     const key = item.categoryId
@@ -568,18 +579,29 @@ function buildSkillGroups(
   const categories = [...inventory.skillCategories].sort(
     (a, b) => a.position - b.position
   )
-  const groups: ResumeSkillGroup[] = []
+  const groups: ItemCategoryGroup[] = []
   for (const category of categories) {
     const catItems = byCategory.get(category.id)
     if (catItems?.length) {
-      groups.push({ category: category.name, skills: catItems.map((i) => i.title) })
+      groups.push({ category: category.name, items: catItems })
     }
   }
   const uncategorized = byCategory.get(null)
   if (uncategorized?.length) {
-    groups.push({ category: "Other", skills: uncategorized.map((i) => i.title) })
+    groups.push({ category: "Other", items: uncategorized })
   }
   return groups
+}
+
+/** Groups already-visibility-filtered skill items by category for the resume document. */
+function buildSkillGroups(
+  inventory: InventoryStore,
+  items: DbInventoryItem[]
+): ResumeSkillGroup[] {
+  return groupItemsByCategory(inventory, items).map((group) => ({
+    category: group.category,
+    skills: group.items.map((item) => item.title),
+  }))
 }
 
 function toEntry(

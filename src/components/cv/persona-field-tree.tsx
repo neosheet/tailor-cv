@@ -51,6 +51,7 @@ import { SaveAsNewTemplateDialog } from "@/components/cv/save-as-new-template-di
 import { PersonaEditorDialog } from "@/components/persona/persona-editor-dialog"
 import {
   FIELD_REGISTRY,
+  groupItemsByCategory,
   hiddenFieldsOf,
   isItemHidden,
   isKindHidden,
@@ -461,6 +462,33 @@ function ItemRow({
   )
 }
 
+/** A run of `ItemRow`s for one kind (or one skill category within the Skills kind). */
+function ItemRowList({
+  application,
+  personaId,
+  kind,
+  items,
+}: {
+  application: DbApplication
+  personaId: string
+  kind: ItemKind
+  items: DbInventoryItem[]
+}) {
+  return (
+    <div className="flex flex-col">
+      {items.map((item) => (
+        <ItemRow
+          key={item.id}
+          application={application}
+          personaId={personaId}
+          kind={kind}
+          item={item}
+        />
+      ))}
+    </div>
+  )
+}
+
 function DataTab({ application }: { application: DbApplication }) {
   const personaStore = usePersonaStore()
   const inventoryStore = useInventoryStore()
@@ -500,17 +528,30 @@ function DataTab({ application }: { application: DbApplication }) {
               <p className="px-2 pt-1 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                 {titleFor(kind)}
               </p>
-              <div className="flex flex-col">
-                {items.map((item) => (
-                  <ItemRow
-                    key={item.id}
-                    application={application}
-                    personaId={personaId}
-                    kind={kind}
-                    item={item}
-                  />
-                ))}
-              </div>
+              {kind === "skill" ? (
+                <div className="flex flex-col gap-2">
+                  {groupItemsByCategory(inventoryStore, items).map((group) => (
+                    <div key={group.category}>
+                      <p className="px-2 pb-0.5 text-[10px] font-medium tracking-wide text-muted-foreground/80 uppercase">
+                        {group.category}
+                      </p>
+                      <ItemRowList
+                        application={application}
+                        personaId={personaId}
+                        kind={kind}
+                        items={group.items}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ItemRowList
+                  application={application}
+                  personaId={personaId}
+                  kind={kind}
+                  items={items}
+                />
+              )}
             </div>
           ))}
         </>
