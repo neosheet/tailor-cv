@@ -36,7 +36,6 @@ or its responsibility materially changes, update this file in the same change.
 | `not-found.tsx` | 404 |
 | `settings.tsx` | Settings hub — tags, skill categories, stage templates panels |
 | `personas.tsx` / `persona-detail.tsx` | Persona list / persona editor (field visibility tree, print settings, save-as-template) |
-| `cv.tsx` / `cv-print.tsx` | CV list & builder / standalone print-render route |
 | `applications.tsx` / `application-detail.tsx` / `application-cv-print.tsx` | Application list (kanban/list) / detail page / print route for an application's CV |
 | `inventory/index.tsx` | Inventory landing (links to each item-kind page) |
 | `inventory/{basics,work,education,skills,languages,projects,volunteer,awards,certificates,publications,interests,references}.tsx` | One page per inventory item kind — thin wrappers around `pool-page.tsx` |
@@ -64,11 +63,15 @@ or its responsibility materially changes, update this file in the same change.
 
 ## Domain: Persona & CV (tailoring + templates)
 
+CV ownership (persona/template + overrides) lives directly on `applications`
+now, not a standalone `cvs` table/page — see the Applications domain below
+for the mutators and `persona-field-tree.tsx`'s application-facing editor.
+This section covers what's still persona/template-only.
+
 | File | Purpose |
 |---|---|
 | `src/lib/persona.ts` | Persona/CV data helpers: field visibility, item usage across personas |
-| `src/lib/persona-store.tsx` | `PersonaStoreProvider` — Supabase CRUD + state for personas, CVs, and saved `cv_templates` |
-| `src/lib/cv.ts` | CV CRUD, `resolveCv` (persona + template + overrides → renderable CV), `saveAsNewTemplate` |
+| `src/lib/persona-store.tsx` | `PersonaStoreProvider` — Supabase CRUD + state for personas and saved `cv_templates` |
 | `src/lib/cv-templates.ts` | Built-in + saved template registry: `cvTemplates`, `findTemplate`, `allTemplates` |
 | `src/lib/cv-template-core.ts` | Style resolution (`resolveStyleObject`), template node/block traversal, and `NodeOverride` application (`lookupNodeOverride`, `applyStyleTextOverride`) shared by the renderer and the baker — `Style`/`StyleDef` re-exported from schema.ts, not redeclared |
 | `src/lib/cv-template-schema.ts` | Template type definitions: `TemplateDefinition`, `ElementNode`, `BlockInstanceNode`, `RepeatNode`, `PageConfig`, `NodeOverride` — the format's type source of truth |
@@ -76,12 +79,11 @@ or its responsibility materially changes, update this file in the same change.
 | `src/lib/cv-template-defs/{classic,two-column,batch1-demo}.ts` | Built-in template definitions |
 | `src/lib/style-property-schema.ts`, `page-property-schema.ts` | Editable style/page property metadata driving the template property editor UI |
 | `src/lib/resume-document.ts` | `ResumeDocument`/`ResumeSection`/`ResumeEntry` types — the rendered-CV data shape |
-| `src/lib/cv-snapshot.ts`, `cv-snapshot-download.ts` | CV snapshot (versioned) serialization/parsing, export/download to PDF |
+| `src/lib/cv-snapshot.ts`, `cv-snapshot-download.ts` | CV snapshot (versioned) serialization/parsing, export/download to PDF — `buildCvSnapshot` takes a narrow `{name, note, tags, templateSettings}` shape, not a table row |
 | `src/lib/quill-html.ts`, `sanitize-html.ts` | Rich-text (Quill) HTML conversion + sanitization |
-| `src/components/cv/cv-list-panel.tsx`, `cv-form-dialog.tsx`, `delete-cv-dialog.tsx` | CV list, create/edit dialog, delete confirm |
-| `src/components/cv/persona-field-tree.tsx` | Field-visibility tree editor for a persona (used on `persona-detail.tsx`) |
-| `src/components/cv/save-as-new-template-dialog.tsx` | "Save as new template" dialog, calls `saveAsNewTemplate` |
-| `src/components/cv/template-card.tsx`, `templates-panel.tsx`, `template-view-dialog.tsx` | Template gallery, picker panel, preview dialog |
+| `src/components/cv/persona-field-tree.tsx` | Field-visibility/style/page/node override editor for one application's CV (used on the Applications detail view's CV tab, not persona-detail — takes `application: DbApplication`, not a `cvs` row) |
+| `src/components/cv/save-as-new-template-dialog.tsx` | "Save as new template" dialog, calls `saveAsNewTemplate` (`lib/application.ts`) |
+| `src/components/cv/template-card.tsx`, `template-view-dialog.tsx` | Template-agnostic preview card + full-preview dialog, reused from the CV tab (no more standalone Templates gallery page) |
 | `src/components/cv/template-node-renderer.tsx`, `templates/index.tsx`, `resume-render.tsx` | Template tree → DOM rendering (`resume-render.tsx` is the print/preview renderer) |
 | `src/components/cv/preview-select.tsx` | Preview mode/zoom selector |
 
@@ -89,12 +91,13 @@ or its responsibility materially changes, update this file in the same change.
 
 | File | Purpose |
 |---|---|
-| `src/lib/application.ts` | Application CRUD helpers, `resolveApplicationCv` |
+| `src/lib/application.ts` | Application CRUD helpers, `resolveApplicationCv`/`setGlobalApplicationStatus` (the freeze). Also owns CV ownership now (docs/specs/15-cv-embedded-in-applications.md): the field-visibility/style/page/node override mutators (`setKindHidden`, `setFieldHidden`, `setItemHidden`, `setCvStyleProperty`/`resetCvStyleProperty`, `setCvPageProperty`/`resetCvPageProperty`, `setCvNodeOverride`/`resetCvNodeOverride`), `setApplicationCvBase` (lazy CV setup), `copyApplicationCvSettings` (Import), and `saveAsNewTemplate` — all formerly on the deleted `lib/cv.ts`, retargeted at `applications` |
 | `src/lib/application-store.tsx` | `ApplicationStoreProvider` — Supabase CRUD + state for applications/stages |
 | `src/lib/application-stage.ts` | Stage tree helpers: `stagesForApplication`, stage form/update field types |
 | `src/lib/application-status.ts`, `application-job-type.ts`, `application-work-type.ts` | Enum labels/options for application metadata |
 | `src/lib/stage-category.ts`, `stage-progress-status.ts`, `stage-templates.ts` | Stage taxonomy + reusable stage template CRUD |
 | `src/components/applications/application-list-panel.tsx`, `application-kanban-panel.tsx` | List view / kanban board of applications |
+| `src/components/applications/application-cv-setup.tsx` | The CV tab's lazy-setup empty state — Persona + Template picker (via `setApplicationCvBase`) or Import CV settings from another application, shown whenever `resolveApplicationCv` returns nothing yet |
 | `src/components/applications/application-detail-view.tsx`, `application-detail-sheet.tsx` | Full detail page content, and its reuse as a slide-over sheet |
 | `src/components/applications/application-form-dialog.tsx`, `delete-application-dialog.tsx`, `archive-application-dialog.tsx` | Create/edit, delete, archive dialogs |
 | `src/components/applications/similar-applications-dialog.tsx` | Non-blocking "similar applications found" dialog (`findSimilarApplications`, matched on Company only) — shown after creating a matching application. Also exports `DuplicateApplicationsList`, the shared row markup reused by `application-check-button.tsx` |
@@ -124,8 +127,8 @@ or its responsibility materially changes, update this file in the same change.
 |---|---|
 | `src/components/ui/*` | shadcn/ui primitives — extend via the `shadcn` skill, don't hand-build |
 | `src/components/search-input.tsx`, `external-link.tsx`, `theme-provider.tsx` | Small shared building blocks |
-| `src/components/skills/skills-check-dialog.tsx` | Reusable "paste required skills, see what's missing" dialog — controlled, no fetch/persist of its own. Used by Application detail (persisted), CV page, and Persona detail (both ephemeral) |
-| `src/lib/skill-check.ts` | `findMissingSkills` (case-insensitive line-diff) and `skillTitlesOf` (flattens a resolved `ResumeDocument`'s skill section) — shared by the three `SkillsCheckDialog` call sites |
+| `src/components/skills/skills-check-dialog.tsx` | Reusable "paste required skills, see what's missing" dialog — controlled, no fetch/persist of its own. Used by Application detail (persisted) and Persona detail (ephemeral) |
+| `src/lib/skill-check.ts` | `findMissingSkills` (case-insensitive line-diff) and `skillTitlesOf` (flattens a resolved `ResumeDocument`'s skill section) — shared by the two `SkillsCheckDialog` call sites |
 | `src/hooks/use-dialog-search-params.ts`, `use-tab-search-param.ts` | URL-synced UI state (open dialogs, active tab) |
 | `src/hooks/use-skills-check.ts` | `useSkillsCheck` — shared `value`/`result`/`onCheck`/`reset` state for the three `SkillsCheckDialog` callers; dialog open/close and persistence stay with each caller |
 | `src/hooks/use-session-state.ts`, `use-mobile.ts` | sessionStorage-backed state, mobile breakpoint detection |
@@ -138,7 +141,7 @@ or its responsibility materially changes, update this file in the same change.
 | `src/lib/store-context.ts` | Shared scaffold for the three `*-store.tsx` providers: `toError`, `useRefetchVersion`, `useStoreContext` — the fetch-effect body and per-field state stay in each store, only the identical wrapper pieces are shared |
 | `src/lib/database.types.ts` | Generated Supabase types — regenerate via Supabase MCP, never hand-edit |
 | `supabase/migrations/*.sql` | Schema history, chronological by timestamp filename |
-| `src/mocks/*` | Dev/seed mock data (personas, work, education, skills, projects, cvs, misc), `flatten.ts`, `types.ts` |
+| `src/mocks/*` | Dev/seed mock data (personas, work, education, skills, projects, misc), `flatten.ts`, `types.ts` |
 
 ## Docs (`docs/`)
 
