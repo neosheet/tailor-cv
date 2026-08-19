@@ -40,7 +40,8 @@ import {
   setFieldHidden,
   setItemHidden,
   setKindHidden,
-} from "@/lib/cv"
+} from "@/lib/application"
+import { useApplicationStore } from "@/lib/application-store"
 import type { CvTemplate } from "@/lib/cv-templates"
 import { collectBlockNodeIds, resolveStyleObject } from "@/lib/cv-template-core"
 import { linesOf } from "@/lib/inventory"
@@ -73,7 +74,7 @@ import {
 } from "@/lib/style-property-schema"
 import { EDITABLE_PAGE_KEYS, PAGE_PROPERTY_SCHEMA } from "@/lib/page-property-schema"
 import { cn } from "@/lib/utils"
-import type { DbCv, DbInventoryItem, ItemKind } from "@/mocks/types"
+import type { DbApplication, DbInventoryItem, ItemKind } from "@/mocks/types"
 
 /** The Basics kinds, header order — never reorderable (fixed template layout). */
 const BASICS_KINDS: ItemKind[] = [
@@ -251,19 +252,19 @@ function ParentRow({
 
 /** One kind — Basics field or Section — as a tree row. Expands into field rows when the kind has more than one togglable field. */
 function KindRow({
-  cv,
+  application,
   kind,
   hidden,
   hiddenFields,
   reorder,
 }: {
-  cv: DbCv
+  application: DbApplication
   kind: ItemKind
   hidden: boolean
   hiddenFields: Set<string>
   reorder?: Reorder
 }) {
-  const personaStore = usePersonaStore()
+  const applicationStore = useApplicationStore()
   const [open, setOpen] = React.useState(false)
 
   const label = titleFor(kind)
@@ -277,7 +278,7 @@ function KindRow({
       open={open}
       expandable={Boolean(fields)}
       onToggleHidden={() =>
-        void setKindHidden(personaStore, cv.id, kind, !hidden)
+        void setKindHidden(applicationStore, application.id, kind, !hidden)
       }
       reorder={reorder}
     />
@@ -298,8 +299,8 @@ function KindRow({
             hidden={hiddenFields.has(field.key)}
             onToggle={() =>
               void setFieldHidden(
-                personaStore,
-                cv.id,
+                applicationStore,
+                application.id,
                 kind,
                 field.key,
                 !hiddenFields.has(field.key)
@@ -312,18 +313,18 @@ function KindRow({
   )
 }
 
-function VisibilityTab({ cv }: { cv: DbCv }) {
+function VisibilityTab({ application }: { application: DbApplication }) {
   const personaStore = usePersonaStore()
-  if (!cv.personaId) {
+  if (!application.cvPersonaId) {
     return null
   }
-  const personaId = cv.personaId
+  const personaId = application.cvPersonaId
   const persona = personaStore.personas.find((row) => row.id === personaId)
   if (!persona) {
     return null
   }
 
-  const fieldVisibility = cv.personaSettings.fieldVisibility ?? {}
+  const fieldVisibility = application.cvPersonaSettings.fieldVisibility ?? {}
   const sectionOrder = orderedSectionKinds(personaStore, personaId)
 
   return (
@@ -335,7 +336,7 @@ function VisibilityTab({ cv }: { cv: DbCv }) {
         {BASICS_KINDS.map((kind) => (
           <KindRow
             key={kind}
-            cv={cv}
+            application={application}
             kind={kind}
             hidden={isKindHidden(fieldVisibility, kind)}
             hiddenFields={hiddenFieldsOf(fieldVisibility, kind)}
@@ -352,7 +353,7 @@ function VisibilityTab({ cv }: { cv: DbCv }) {
         {sectionOrder.map((kind, index) => (
           <KindRow
             key={kind}
-            cv={cv}
+            application={application}
             kind={kind}
             hidden={isKindHidden(fieldVisibility, kind)}
             hiddenFields={hiddenFieldsOf(fieldVisibility, kind)}
@@ -383,21 +384,22 @@ function VisibilityTab({ cv }: { cv: DbCv }) {
 
 /** One selected entry (a job, a skill, a social link, ...) with its bullets, if any. */
 function ItemRow({
-  cv,
+  application,
   personaId,
   kind,
   item,
 }: {
-  cv: DbCv
+  application: DbApplication
   personaId: string
   kind: ItemKind
   item: DbInventoryItem
 }) {
   const personaStore = usePersonaStore()
+  const applicationStore = useApplicationStore()
   const inventoryStore = useInventoryStore()
   const [open, setOpen] = React.useState(false)
 
-  const fieldVisibility = cv.personaSettings.fieldVisibility ?? {}
+  const fieldVisibility = application.cvPersonaSettings.fieldVisibility ?? {}
   const hidden = isItemHidden(fieldVisibility, kind, item.id)
   const chosenLineIds = selectedLineIdsOf(personaStore, personaId, item.id)
 
@@ -416,7 +418,7 @@ function ItemRow({
       open={open}
       expandable={lineGroups.length > 0}
       onToggleHidden={() =>
-        void setItemHidden(personaStore, cv.id, kind, item.id, !hidden)
+        void setItemHidden(applicationStore, application.id, kind, item.id, !hidden)
       }
     />
   )
@@ -458,13 +460,13 @@ function ItemRow({
   )
 }
 
-function DataTab({ cv }: { cv: DbCv }) {
+function DataTab({ application }: { application: DbApplication }) {
   const personaStore = usePersonaStore()
   const inventoryStore = useInventoryStore()
-  if (!cv.personaId) {
+  if (!application.cvPersonaId) {
     return null
   }
-  const personaId = cv.personaId
+  const personaId = application.cvPersonaId
   const dataKinds: ItemKind[] = [
     "social",
     ...orderedSectionKinds(personaStore, personaId),
@@ -492,7 +494,13 @@ function DataTab({ cv }: { cv: DbCv }) {
           </p>
           <div className="flex flex-col">
             {items.map((item) => (
-              <ItemRow key={item.id} cv={cv} personaId={personaId} kind={kind} item={item} />
+              <ItemRow
+                key={item.id}
+                application={application}
+                personaId={personaId}
+                kind={kind}
+                item={item}
+              />
             ))}
           </div>
         </div>
@@ -673,8 +681,8 @@ function AddStyleProperty({
   )
 }
 
-function StyleTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
-  const personaStore = usePersonaStore()
+function StyleTab({ application, template }: { application: DbApplication; template: CvTemplate }) {
+  const applicationStore = useApplicationStore()
   const styleNames = Object.keys(template.definition.styles)
   const [selected, setSelected] = React.useState(styleNames[0] ?? "")
 
@@ -688,7 +696,7 @@ function StyleTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
 
   const cur = styleNames.includes(selected) ? selected : styleNames[0]
   const baseStyle = resolveStyleObject(cur, template.definition.styles, undefined, undefined)
-  const override = cv.templateSettings.styles?.[cur] ?? {}
+  const override = application.cvTemplateSettings.styles?.[cur] ?? {}
   const effective: Record<string, string | number> = { ...baseStyle, ...override }
   const keys = Object.keys(effective)
 
@@ -746,9 +754,11 @@ function StyleTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
                 value={effective[propKey]}
                 overridden={propKey in override}
                 onChange={(next) =>
-                  void setCvStyleProperty(personaStore, cv.id, cur, propKey, next)
+                  void setCvStyleProperty(applicationStore, application.id, cur, propKey, next)
                 }
-                onReset={() => void resetCvStyleProperty(personaStore, cv.id, cur, propKey)}
+                onReset={() =>
+                  void resetCvStyleProperty(applicationStore, application.id, cur, propKey)
+                }
               />
             ))}
           </div>
@@ -759,8 +769,8 @@ function StyleTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
         present={new Set(keys)}
         onAdd={(propKey) =>
           void setCvStyleProperty(
-            personaStore,
-            cv.id,
+            applicationStore,
+            application.id,
             cur,
             propKey,
             defaultStyleValue(propKey)
@@ -775,10 +785,10 @@ function StyleTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
 // Page tab — per-CV overrides on the template's page config
 // ---------------------------------------------------------------------------
 
-function PageTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
-  const personaStore = usePersonaStore()
+function PageTab({ application, template }: { application: DbApplication; template: CvTemplate }) {
+  const applicationStore = useApplicationStore()
   const page = template.definition.page
-  const override = cv.templateSettings.page ?? {}
+  const override = application.cvTemplateSettings.page ?? {}
 
   // Only the scalar fields `page-property-schema.ts` knows how to edit —
   // `page`/`override` also carry `header`/`footer` (structured TemplateNode
@@ -812,8 +822,10 @@ function PageTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
                 def={PAGE_PROPERTY_SCHEMA[key]!}
                 value={effective[key]}
                 overridden={key in override}
-                onChange={(next) => void setCvPageProperty(personaStore, cv.id, key, next)}
-                onReset={() => void resetCvPageProperty(personaStore, cv.id, key)}
+                onChange={(next) =>
+                  void setCvPageProperty(applicationStore, application.id, key, next)
+                }
+                onReset={() => void resetCvPageProperty(applicationStore, application.id, key)}
               />
             ))}
           </div>
@@ -827,8 +839,8 @@ function PageTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
 // Block Settings tab — per-CV overrides on one specific node instance
 // ---------------------------------------------------------------------------
 
-function BlockTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
-  const personaStore = usePersonaStore()
+function BlockTab({ application, template }: { application: DbApplication; template: CvTemplate }) {
+  const applicationStore = useApplicationStore()
   const blockMeta = template.definition.blocksSchema
 
   const nodeIds = React.useMemo(
@@ -874,7 +886,7 @@ function BlockTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
     })),
   ]
 
-  const override = cv.templateSettings.nodes?.[current.id] ?? {}
+  const override = application.cvTemplateSettings.nodes?.[current.id] ?? {}
   const overriddenStyle = Array.isArray(override.styles)
     ? (override.styles[0] ?? "")
     : (override.styles ?? "")
@@ -929,12 +941,14 @@ function BlockTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
           overridden={override.styles !== undefined}
           onChange={(next) =>
             next === ""
-              ? void resetCvNodeOverride(personaStore, cv.id, current.id, "styles")
-              : void setCvNodeOverride(personaStore, cv.id, current.id, {
+              ? void resetCvNodeOverride(applicationStore, application.id, current.id, "styles")
+              : void setCvNodeOverride(applicationStore, application.id, current.id, {
                   styles: String(next),
                 })
           }
-          onReset={() => void resetCvNodeOverride(personaStore, cv.id, current.id, "styles")}
+          onReset={() =>
+            void resetCvNodeOverride(applicationStore, application.id, current.id, "styles")
+          }
         />
 
         {current.hasText ? (
@@ -944,9 +958,13 @@ function BlockTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
             value={overriddenText}
             overridden={overriddenText !== undefined}
             onChange={(next) =>
-              void setCvNodeOverride(personaStore, cv.id, current.id, { text: String(next) })
+              void setCvNodeOverride(applicationStore, application.id, current.id, {
+                text: String(next),
+              })
             }
-            onReset={() => void resetCvNodeOverride(personaStore, cv.id, current.id, "text")}
+            onReset={() =>
+              void resetCvNodeOverride(applicationStore, application.id, current.id, "text")
+            }
           />
         ) : null}
       </div>
@@ -957,7 +975,7 @@ function BlockTab({ cv, template }: { cv: DbCv; template: CvTemplate }) {
 // ---------------------------------------------------------------------------
 
 export type PersonaFieldTreeProps = {
-  cv: DbCv
+  application: DbApplication
   template: CvTemplate
 }
 
@@ -983,23 +1001,23 @@ export type PersonaFieldTreeProps = {
  *   heading uses, ...) for this CV only — see `lib/cv-template-core.ts`'s
  *   `collectBlockNodeIds`.
  *
- * Every toggle writes straight through — see `lib/cv.ts`'s
+ * Every toggle writes straight through — see `lib/application.ts`'s
  * `setKindHidden`/`setFieldHidden`/`setItemHidden`/`setCvStyleProperty`/
  * `resetCvStyleProperty`/`setCvPageProperty`/`resetCvPageProperty`/
  * `setCvNodeOverride`/`resetCvNodeOverride`, and `lib/persona.ts`'s
  * `setLineSelected`/`reorderPersonaSections` (genuine Persona content,
  * unaffected by the visibility move).
  */
-export function PersonaFieldTree({ cv, template }: PersonaFieldTreeProps) {
-  const isFrozen = cv.personaId === null
+export function PersonaFieldTree({ application, template }: PersonaFieldTreeProps) {
+  const isFrozen = application.cvSnapshot !== null
   const [tab, setTab] = useTabSearchParam("tab", isFrozen ? "style" : "visibility")
   const personaStore = usePersonaStore()
   const [saveTemplateOpen, setSaveTemplateOpen] = React.useState(false)
 
   const hasOverrides =
-    Object.keys(cv.templateSettings.styles ?? {}).length > 0 ||
-    Object.keys(cv.templateSettings.page ?? {}).length > 0 ||
-    Object.keys(cv.templateSettings.nodes ?? {}).length > 0
+    Object.keys(application.cvTemplateSettings.styles ?? {}).length > 0 ||
+    Object.keys(application.cvTemplateSettings.page ?? {}).length > 0 ||
+    Object.keys(application.cvTemplateSettings.nodes ?? {}).length > 0
 
   return (
     <Card className="flex h-full flex-col gap-0 overflow-hidden py-0">
@@ -1033,21 +1051,21 @@ export function PersonaFieldTree({ cv, template }: PersonaFieldTreeProps) {
                 value="visibility"
                 className="min-h-0 flex-1 overflow-y-auto px-2 py-2"
               >
-                <VisibilityTab cv={cv} />
+                <VisibilityTab application={application} />
               </TabsContent>
               <TabsContent value="data" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-                <DataTab cv={cv} />
+                <DataTab application={application} />
               </TabsContent>
             </>
           )}
           <TabsContent value="style" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-            <StyleTab cv={cv} template={template} />
+            <StyleTab application={application} template={template} />
           </TabsContent>
           <TabsContent value="page" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-            <PageTab cv={cv} template={template} />
+            <PageTab application={application} template={template} />
           </TabsContent>
           <TabsContent value="blocks" className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-            <BlockTab cv={cv} template={template} />
+            <BlockTab application={application} template={template} />
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -1055,7 +1073,7 @@ export function PersonaFieldTree({ cv, template }: PersonaFieldTreeProps) {
         open={saveTemplateOpen}
         onOpenChange={setSaveTemplateOpen}
         onSubmit={async (fields) => {
-          await saveAsNewTemplate(personaStore, cv, template, fields)
+          await saveAsNewTemplate(personaStore, application, template, fields)
         }}
       />
     </Card>

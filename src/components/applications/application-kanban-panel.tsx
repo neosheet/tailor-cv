@@ -9,8 +9,6 @@ import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { allApplications, findApplication, updateApplication } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
-import { allCvs } from "@/lib/cv"
-import { usePersonaStore } from "@/lib/persona-store"
 
 /**
  * View-only pipeline board: one column per `GlobalApplicationStatus` (always
@@ -21,7 +19,6 @@ import { usePersonaStore } from "@/lib/persona-store"
  */
 export function ApplicationKanbanPanel() {
   const store = useApplicationStore()
-  const personaStore = usePersonaStore()
 
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedId = searchParams.get("applicationId")
@@ -32,8 +29,6 @@ export function ApplicationKanbanPanel() {
   // Re-derived from the store on every render (rather than held in state
   // directly), same reasoning as `ApplicationListPanel`.
   const selectedApplication = selectedId ? findApplication(store, selectedId) ?? null : null
-
-  const cvOptions = allCvs(personaStore).map((cv) => ({ value: cv.id, label: cv.name }))
 
   const visible = allApplications(store).filter((application) => application.archivedAt === null)
 
@@ -103,10 +98,8 @@ export function ApplicationKanbanPanel() {
         initialVacancyDetail={editTarget?.vacancyDetail ?? ""}
         initialCoverLetter={editTarget?.coverLetter ?? ""}
         initialApplyVia={editTarget?.applyVia ?? ""}
-        initialCvId={editTarget?.cvId ?? null}
         initialNote={editTarget?.note ?? null}
         initialTags={editTarget?.tags ?? []}
-        cvOptions={cvOptions}
         onSubmit={async (fields) => {
           if (!editTarget) return
           await updateApplication(store, editTarget.id, fields)

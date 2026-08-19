@@ -20,8 +20,6 @@ import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
 import { findApplication, updateApplication } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
 import { GLOBAL_STATUS_LABEL } from "@/lib/application-status"
-import { allCvs } from "@/lib/cv"
-import { usePersonaStore } from "@/lib/persona-store"
 import type { DbApplication } from "@/mocks/types"
 
 /**
@@ -58,11 +56,8 @@ function ApplicationUnresolved() {
 
 function ApplicationResolved({ application }: { application: DbApplication }) {
   const store = useApplicationStore()
-  const personaStore = usePersonaStore()
   const { dialog, open, close } = useDialogSearchParams()
   const editing = dialog === "edit"
-
-  const cvOptions = allCvs(personaStore).map((cv) => ({ value: cv.id, label: cv.name }))
 
   return (
     <div className="flex flex-col gap-4">
@@ -103,10 +98,8 @@ function ApplicationResolved({ application }: { application: DbApplication }) {
         initialVacancyDetail={application.vacancyDetail ?? ""}
         initialCoverLetter={application.coverLetter ?? ""}
         initialApplyVia={application.applyVia ?? ""}
-        initialCvId={application.cvId}
         initialNote={application.note}
         initialTags={application.tags}
-        cvOptions={cvOptions}
         onSubmit={async (fields) => {
           await updateApplication(store, application.id, fields)
         }}

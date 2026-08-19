@@ -1,5 +1,5 @@
 import * as React from "react"
-import { FileTextIcon, PencilIcon, TriangleAlert } from "lucide-react"
+import { PencilIcon, TriangleAlert } from "lucide-react"
 import { Link } from "react-router"
 import { format, parseISO } from "date-fns"
 
@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Field, FieldLabel } from "@/components/ui/field"
 import {
   Select,
@@ -27,9 +34,11 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExternalLink } from "@/components/external-link"
+import { PersonaFieldTree } from "@/components/cv/persona-field-tree"
 import { ResumeRender } from "@/components/cv/resume-render"
 import { SkillsCheckDialog } from "@/components/skills/skills-check-dialog"
 import { ApplicationCheckButton } from "@/components/applications/application-check-button"
+import { ApplicationCvSetup } from "@/components/applications/application-cv-setup"
 import { TimelineTab } from "@/components/applications/timeline-tab"
 import { VacancyDetailContent } from "@/components/applications/vacancy-detail-content"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
@@ -37,14 +46,20 @@ import { useTabSearchParam } from "@/hooks/use-tab-search-param"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
 import { JOB_TYPE_LABEL } from "@/lib/application-job-type"
 import { WORK_TYPE_LABEL } from "@/lib/application-work-type"
-import { resolveApplicationCv, setGlobalApplicationStatus, updateApplication } from "@/lib/application"
+import {
+  allApplications,
+  copyApplicationCvSettings,
+  resolveApplicationCv,
+  setGlobalApplicationStatus,
+  updateApplication,
+  type ResolvedApplicationCv,
+} from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
-import { findCv } from "@/lib/cv"
 import { useInventoryStore } from "@/lib/inventory-store"
 import { usePersonaStore } from "@/lib/persona-store"
 import { skillTitlesOf } from "@/lib/skill-check"
 import { useSkillsCheck } from "@/hooks/use-skills-check"
-import type { GlobalApplicationStatus, DbApplication, DbCv } from "@/mocks/types"
+import type { GlobalApplicationStatus, DbApplication } from "@/mocks/types"
 
 function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -105,7 +120,7 @@ function MissingSkillsField({
         <Button
           variant="outline"
           size="sm"
-          disabled={!application.cvId}
+          disabled={!application.cvPersonaId}
           onClick={onOpenCheck}
         >
           Check skills
@@ -210,19 +225,23 @@ function StatusSelectField({
  */
 function JobDetailTab({
   application,
-  cv,
+  resolvedCv,
   gateReason,
   onStatusChange,
   onOpenSkillsCheck,
   variant,
 }: {
   application: DbApplication
-  cv: DbCv | undefined
+  resolvedCv: ResolvedApplicationCv | undefined
   gateReason: "missing-cv" | "loading" | null
   onStatusChange: (next: GlobalApplicationStatus) => void
   onOpenSkillsCheck: () => void
   variant: "sheet" | "page"
 }) {
+  const cvLabel = resolvedCv
+    ? `${resolvedCv.document.personaName} — ${resolvedCv.template.name}`
+    : "—"
+
   if (variant === "page") {
     return (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
@@ -240,7 +259,7 @@ function JobDetailTab({
             <JobMetaFields application={application} />
             <SourceUrlField application={application} />
             <DetailField label="Apply via">{application.applyVia ?? "—"}</DetailField>
-            <DetailField label="CV">{cv?.name ?? "—"}</DetailField>
+            <DetailField label="CV">{cvLabel}</DetailField>
             <MissingSkillsField application={application} onOpenCheck={onOpenSkillsCheck} />
             <NoteAndTagsFields application={application} />
           </dl>
@@ -266,7 +285,7 @@ function JobDetailTab({
           <VacancyDetailContent html={application.coverLetter} />
         </DetailField>
         <DetailField label="Apply via">{application.applyVia ?? "—"}</DetailField>
-        <DetailField label="CV">{cv?.name ?? "—"}</DetailField>
+        <DetailField label="CV">{cvLabel}</DetailField>
         <MissingSkillsField application={application} onOpenCheck={onOpenSkillsCheck} />
         <NoteAndTagsFields application={application} />
       </dl>
@@ -280,7 +299,96 @@ function JobDetailTab({
 }
 
 /**
- * Job Detail / CV Preview / Timeline tabs, plus the status `Select` (with
+ * Import CV settings dialog — the reworked Import (spec 15): copies the
+ * persona/template config from another, live (non-frozen) application onto
+ * this one via `copyApplicationCvSettings`. Never touches the target's
+ * actual document — it keeps resolving live off whichever persona ends up
+ * set. Candidates are other applications with a `cvPersonaId` set and no
+ * `cvSnapshot` (frozen applications aren't valid sources).
+ */
+function ImportCvSettingsDialog({
+  open,
+  onOpenChange,
+  targetApplicationId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  targetApplicationId: string
+}) {
+  const applicationStore = useApplicationStore()
+  const [sourceId, setSourceId] = React.useState("")
+  const [importing, setImporting] = React.useState(false)
+
+  const sourceOptions = allApplications(applicationStore)
+    .filter(
+      (candidate) =>
+        candidate.id !== targetApplicationId &&
+        candidate.cvPersonaId !== null &&
+        candidate.cvSnapshot === null
+    )
+    .map((candidate) => ({ value: candidate.id, label: candidate.title }))
+
+  async function handleImport() {
+    if (!sourceId) return
+    setImporting(true)
+    try {
+      await copyApplicationCvSettings(applicationStore, sourceId, targetApplicationId)
+      onOpenChange(false)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !importing && onOpenChange(next)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Import CV settings</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="pt-2">
+          {sourceOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No other application has a live CV to copy settings from.
+            </p>
+          ) : (
+            <Field>
+              <FieldLabel htmlFor="import-cv-source">From application</FieldLabel>
+              <Select
+                items={sourceOptions}
+                value={sourceId}
+                onValueChange={(next) => setSourceId(next as string)}
+              >
+                <SelectTrigger id="import-cv-source" className="w-full">
+                  <SelectValue placeholder="Select an application…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {sourceOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" size="sm" disabled={importing} onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" disabled={importing || !sourceId} onClick={handleImport}>
+            {importing ? "Importing…" : "Import"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * Job Detail / CV / Timeline tabs, plus the status `Select` (with
  * the once-only freeze confirmation). Shared by the drawer
  * (`ApplicationDetailSheet`, `variant="sheet"`) and the full-page view
  * (`ApplicationDetailPage`, `variant="page"`) so the two never drift apart —
@@ -311,8 +419,8 @@ export function ApplicationDetailView({
   // `/applications`) so the Sheet's nested tabs don't collide with it.
   const [detailTab, setDetailTab] = useTabSearchParam("detailTab", "job-detail")
 
-  const cv = application.cvId ? findCv(personaStore, application.cvId) : undefined
   const resolvedCv = resolveApplicationCv(application, personaStore, inventoryStore)
+  const [importCvOpen, setImportCvOpen] = React.useState(false)
 
   const skillsCheckDialog = useDialogSearchParams()
   const skillsCheck = useSkillsCheck()
@@ -374,7 +482,7 @@ export function ApplicationDetailView({
   const gateReason: "missing-cv" | "loading" | null =
     application.globalStatus !== "draft"
       ? null
-      : !application.cvId
+      : !application.cvPersonaId
         ? "missing-cv"
         : storesLoading
           ? "loading"
@@ -399,14 +507,14 @@ export function ApplicationDetailView({
         <Tabs value={detailTab} onValueChange={setDetailTab}>
           <TabsList variant="line" className="w-fit">
             <TabsTrigger value="job-detail">Job Detail</TabsTrigger>
-            <TabsTrigger value="cv-preview">CV Preview</TabsTrigger>
+            <TabsTrigger value="cv">CV</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
           </TabsList>
 
           <TabsContent value="job-detail" className="pt-4">
             <JobDetailTab
               application={application}
-              cv={cv}
+              resolvedCv={resolvedCv}
               gateReason={gateReason}
               onStatusChange={handleStatusChange}
               onOpenSkillsCheck={openSkillsCheck}
@@ -414,51 +522,63 @@ export function ApplicationDetailView({
             />
           </TabsContent>
 
-          <TabsContent value="cv-preview" className="pt-4">
-            {resolvedCv ? (
+          <TabsContent value="cv" className="pt-4">
+            {!application.cvPersonaId ? (
+              <ApplicationCvSetup application={application} />
+            ) : resolvedCv ? (
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                   <span>
                     {resolvedCv.document.personaName} - {resolvedCv.template.name}
                     {resolvedCv.kind === "frozen" ? " (frozen)" : null}
                   </span>
-                  <Button
-                    variant="link"
-                    className="h-auto p-0"
-                    render={<Link to={`/applications/${application.id}/cv`} />}
-                    nativeButton={false}
-                  >
-                    Open print view
-                  </Button>
-                </div>
-                <div className="overflow-auto rounded-xl bg-muted p-4">
-                  <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
-                    <ResumeRender
-                      document={resolvedCv.document}
-                      templateId={resolvedCv.template.id}
-                      definition={resolvedCv.template.definition}
-                      settings={
-                        resolvedCv.kind === "frozen"
-                          ? resolvedCv.snapshot.templateSettings
-                          : resolvedCv.cv.templateSettings
-                      }
-                    />
+                  <div className="flex flex-wrap items-center gap-2">
+                    {resolvedCv.kind === "live" ? (
+                      <Button variant="outline" size="sm" onClick={() => setImportCvOpen(true)}>
+                        Import CV settings
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="link"
+                      className="h-auto p-0"
+                      render={<Link to={`/applications/${application.id}/cv`} />}
+                      nativeButton={false}
+                    >
+                      Open print view
+                    </Button>
                   </div>
                 </div>
+
+                {resolvedCv.kind === "frozen" ? (
+                  <div className="overflow-auto rounded-xl bg-muted p-4">
+                    <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
+                      <ResumeRender
+                        document={resolvedCv.document}
+                        templateId={resolvedCv.template.id}
+                        definition={resolvedCv.template.definition}
+                        settings={resolvedCv.snapshot.templateSettings}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+                    <div className="min-h-[480px] lg:h-[720px]">
+                      <PersonaFieldTree application={application} template={resolvedCv.template} />
+                    </div>
+                    <div className="overflow-auto rounded-xl bg-muted p-4">
+                      <div className="mx-auto w-fit overflow-hidden rounded-md shadow-lg ring-1 ring-foreground/10">
+                        <ResumeRender
+                          document={resolvedCv.document}
+                          templateId={resolvedCv.template.id}
+                          definition={resolvedCv.template.definition}
+                          settings={application.cvTemplateSettings}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <Empty className="min-h-72 border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <FileTextIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>No CV attached</EmptyTitle>
-                  <EmptyDescription>
-                    Attach a CV to this application to preview it here.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            )}
+            ) : null}
           </TabsContent>
 
           <TabsContent value="timeline" className="pt-4">
@@ -501,6 +621,12 @@ export function ApplicationDetailView({
             {savingSkillsCheck ? "Saving…" : "Save"}
           </Button>
         }
+      />
+
+      <ImportCvSettingsDialog
+        open={importCvOpen}
+        onOpenChange={setImportCvOpen}
+        targetApplicationId={application.id}
       />
     </>
   )

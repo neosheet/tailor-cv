@@ -31,22 +31,21 @@ import { APPLICATION_WORK_TYPES, WORK_TYPE_LABEL } from "@/lib/application-work-
 import { isEmptyHtml } from "@/lib/quill-html"
 import type { ApplicationJobType, ApplicationWorkType } from "@/mocks/types"
 
-/** Sentinel for the CV select's "no CV" option — `Select` needs a string value, `cvId` is `string | null`. */
-const NO_CV = "none"
-
-/** Sentinel for the job/work type selects' unset option — same reasoning as `NO_CV`. */
+/** Sentinel for the job/work type selects' unset option. */
 const NO_VALUE = "none"
 
 /**
  * Title, Company/Position/Location, Job type/Working type/Deadline, URL,
- * Vacancy detail, Cover letter, Apply via, and a CV picker — the fields an application
- * itself owns. One component, used both for New Application and
- * for editing an existing one from the detail Sheet (`ApplicationDetailSheet`
+ * Vacancy detail, Cover letter, and Apply via — the fields an application
+ * itself owns. CV setup is lazy and lives on the application detail view's
+ * CV tab instead (docs/specs/15-cv-embedded-in-applications.md), so there's
+ * no CV picker here. One component, used both for New Application and for
+ * editing an existing one from the detail Sheet (`ApplicationDetailSheet`
  * opens this in edit mode rather than duplicating the field markup inline —
- * see that file's comment for why). Styled to match `CvFormDialog`: an
- * `InputGroup` for the title (optional — auto-derived from Company/Position
- * when left blank), plain `Field`s below including the required Company and
- * Position fields.
+ * see that file's comment for why). Styled to match the rest of the
+ * dialogs: an `InputGroup` for the title (optional — auto-derived from
+ * Company/Position when left blank), plain `Field`s below including the
+ * required Company and Position fields.
  */
 export function ApplicationFormDialog({
   open,
@@ -64,10 +63,8 @@ export function ApplicationFormDialog({
   initialVacancyDetail = "",
   initialCoverLetter = "",
   initialApplyVia = "",
-  initialCvId = null,
   initialNote = null,
   initialTags = [],
-  cvOptions,
   onSubmit,
 }: {
   open: boolean
@@ -85,10 +82,8 @@ export function ApplicationFormDialog({
   initialVacancyDetail?: string
   initialCoverLetter?: string
   initialApplyVia?: string
-  initialCvId?: string | null
   initialNote?: string | null
   initialTags?: string[]
-  cvOptions: { value: string; label: string }[]
   onSubmit: (fields: ApplicationFormFields) => Promise<void>
 }) {
   const [applicationTitle, setApplicationTitle] = React.useState(initialTitle)
@@ -102,7 +97,6 @@ export function ApplicationFormDialog({
   const [vacancyDetail, setVacancyDetail] = React.useState(initialVacancyDetail)
   const [coverLetter, setCoverLetter] = React.useState(initialCoverLetter)
   const [applyVia, setApplyVia] = React.useState(initialApplyVia)
-  const [cvId, setCvId] = React.useState(initialCvId ?? NO_CV)
   const [note, setNote] = React.useState(initialNote)
   const [tags, setTags] = React.useState(initialTags)
   const [saving, setSaving] = React.useState(false)
@@ -124,13 +118,11 @@ export function ApplicationFormDialog({
       setVacancyDetail(initialVacancyDetail)
       setCoverLetter(initialCoverLetter)
       setApplyVia(initialApplyVia)
-      setCvId(initialCvId ?? NO_CV)
       setNote(initialNote)
       setTags(initialTags)
     }
   }
 
-  const cvSelectOptions = [{ value: NO_CV, label: "No CV" }, ...cvOptions]
   const jobTypeOptions = [
     { value: NO_VALUE, label: "Not specified" },
     ...APPLICATION_JOB_TYPES.map((value) => ({ value, label: JOB_TYPE_LABEL[value] })),
@@ -164,7 +156,6 @@ export function ApplicationFormDialog({
         vacancyDetail: isEmptyHtml(vacancyDetail) ? null : vacancyDetail,
         coverLetter: isEmptyHtml(coverLetter) ? null : coverLetter,
         applyVia: applyVia.trim() || null,
-        cvId: cvId === NO_CV ? null : cvId,
         note,
         tags,
       })
@@ -325,27 +316,6 @@ export function ApplicationFormDialog({
                 value={applyVia}
                 onChange={(event) => setApplyVia(event.target.value)}
               />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="application-cv">CV</FieldLabel>
-              <Select
-                items={cvSelectOptions}
-                value={cvId}
-                onValueChange={(next) => setCvId(next as string)}
-              >
-                <SelectTrigger id="application-cv" className="w-full">
-                  <SelectValue placeholder="Select a CV…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {cvSelectOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
             </Field>
           </FieldGroup>
 

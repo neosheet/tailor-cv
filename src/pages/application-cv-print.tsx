@@ -61,7 +61,7 @@ function ApplicationCvResolved({
 }) {
   const { document, template } = resolved
   const templateSettings =
-    resolved.kind === "frozen" ? resolved.snapshot.templateSettings : resolved.cv.templateSettings
+    resolved.kind === "frozen" ? resolved.snapshot.templateSettings : application.cvTemplateSettings
   const fileName = `${document.personaName} — ${template.name}.pdf`
   const contentRef = useRef<HTMLDivElement>(null)
   const pageMargin = templateSettings.page?.margin ?? template.definition.page.margin ?? 0
@@ -79,7 +79,11 @@ function ApplicationCvResolved({
     const snapshot =
       resolved.kind === "frozen"
         ? resolved.snapshot
-        : buildCvSnapshot(resolved.cv, resolved.document, resolved.template)
+        : buildCvSnapshot(
+            { name: application.title, note: null, tags: [], templateSettings: application.cvTemplateSettings },
+            resolved.document,
+            resolved.template
+          )
     downloadCvSnapshot(snapshot)
   }
 

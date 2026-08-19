@@ -58,7 +58,7 @@ import {
 } from "@/lib/application"
 import { useApplicationStore } from "@/lib/application-store"
 import { GLOBAL_APPLICATION_STATUSES, GLOBAL_STATUS_LABEL } from "@/lib/application-status"
-import { allCvs, findCv } from "@/lib/cv"
+import { findPersona } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
 import type { GlobalApplicationStatus, DbApplication } from "@/mocks/types"
 
@@ -130,8 +130,6 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
   // status changes without a stale copy.
   const selectedApplication = selectedId ? findApplication(store, selectedId) ?? null : null
 
-  const cvOptions = allCvs(personaStore).map((cv) => ({ value: cv.id, label: cv.name }))
-
   const needle = query.trim().toLowerCase()
 
   const rows = allApplications(store)
@@ -141,7 +139,9 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
     .filter((application) => tagFilter.every((tag) => application.tags.includes(tag)))
     .map((application) => ({
       application,
-      cv: application.cvId ? findCv(personaStore, application.cvId) : undefined,
+      personaName: application.cvPersonaId
+        ? (findPersona(personaStore, application.cvPersonaId)?.name ?? "—")
+        : undefined,
     }))
 
   // Offered tags come from the rows that survive the current filters, so every
@@ -212,7 +212,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map(({ application, cv }) => (
+              rows.map(({ application, personaName }) => (
                 <TableRow key={application.id}>
                   <TableCell className="align-top font-medium whitespace-nowrap">
                     <Button
@@ -251,7 +251,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
                     )}
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap">
-                    {cv?.name ?? "—"}
+                    {personaName ?? "—"}
                   </TableCell>
                   <TableCell className="align-top whitespace-nowrap text-muted-foreground">
                     {formatDistanceToNow(new Date(application.updatedAt), { addSuffix: true })}
@@ -315,7 +315,6 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
         onOpenChange={(next) => !next && close()}
         title="New Application"
         confirmLabel="Create"
-        cvOptions={cvOptions}
         onSubmit={async (fields) => {
           const duplicates = findSimilarApplications(store, fields.company)
           await createApplication(store, fields)
@@ -339,10 +338,8 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
         initialVacancyDetail={editTarget?.vacancyDetail ?? ""}
         initialCoverLetter={editTarget?.coverLetter ?? ""}
         initialApplyVia={editTarget?.applyVia ?? ""}
-        initialCvId={editTarget?.cvId ?? null}
         initialNote={editTarget?.note ?? null}
         initialTags={editTarget?.tags ?? []}
-        cvOptions={cvOptions}
         onSubmit={async (fields) => {
           if (!editTarget) return
           await updateApplication(store, editTarget.id, fields)
