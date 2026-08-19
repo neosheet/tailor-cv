@@ -52,8 +52,9 @@ import { DeletePersonaDialog } from "@/components/persona/delete-persona-dialog"
 import { PersonaFormDialog } from "@/components/persona/persona-form-dialog"
 import { SkillsCheckDialog } from "@/components/skills/skills-check-dialog"
 import { useDialogSearchParams } from "@/hooks/use-dialog-search-params"
-import { cvTemplates } from "@/lib/cv-templates"
-import { allCvs } from "@/lib/cv"
+import { findTemplate } from "@/lib/cv-templates"
+import { allApplications } from "@/lib/application"
+import { useApplicationStore } from "@/lib/application-store"
 import { useInventoryStore } from "@/lib/inventory-store"
 import {
   buildResumeDocument,
@@ -89,6 +90,7 @@ export function PersonaDetailPage() {
   const navigate = useNavigate()
   const inventoryStore = useInventoryStore()
   const personaStore = usePersonaStore()
+  const applicationStore = useApplicationStore()
   const { dialog, get, open, close } = useDialogSearchParams()
   const openKind =
     dialog === "pool-picker" ? (get("kind") as ItemKind | null) : null
@@ -129,8 +131,8 @@ export function PersonaDetailPage() {
 
   const document = buildResumeDocument(personaStore, inventoryStore, persona.id)
   const availableSkills = skillTitlesOf(document)
-  const usedByCvs = allCvs(personaStore).filter(
-    (cv) => cv.personaId === persona.id
+  const usedByApplications = allApplications(applicationStore).filter(
+    (a) => a.cvPersonaId === persona.id
   )
   const sectionByKind = new Map(
     document.sections.map((section) => [section.kind, section])
@@ -357,28 +359,29 @@ export function PersonaDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Used in CVs</CardTitle>
+              <CardTitle>Used in Applications</CardTitle>
             </CardHeader>
             <CardContent>
-              {usedByCvs.length === 0 ? (
+              {usedByApplications.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Not saved into any CV yet.
+                  Not used by any application yet.
                 </p>
               ) : (
                 <ItemGroup className="gap-1">
-                  {usedByCvs.map((cv) => {
-                    const template = cvTemplates.find(
-                      (candidate) => candidate.id === cv.templateId
+                  {usedByApplications.map((application) => {
+                    const template = findTemplate(
+                      application.cvTemplateId ?? "",
+                      personaStore.cvTemplates
                     )
                     return (
-                      <Item key={cv.id} variant="outline">
+                      <Item key={application.id} variant="outline">
                         <ItemContent>
                           <ItemTitle>
                             <Link
-                              to={`/cvs/${cv.id}/print`}
+                              to={`/applications/${application.id}`}
                               className="hover:underline hover:underline-offset-4"
                             >
-                              {cv.name}
+                              {application.title}
                             </Link>
                           </ItemTitle>
                           {template ? (
@@ -440,7 +443,7 @@ export function PersonaDetailPage() {
 
       <DeletePersonaDialog
         persona={deleting ? persona : null}
-        cvCount={usedByCvs.length}
+        applicationCount={usedByApplications.length}
         onCancel={() => close()}
         onConfirm={async () => {
           await deletePersona(personaStore, persona.id)

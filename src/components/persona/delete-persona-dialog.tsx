@@ -10,19 +10,22 @@ import {
 } from "@/components/ui/alert-dialog"
 
 /**
- * Deleting a Persona cascades in the database to any CVs built from it
- * (`cvs.persona_id references personas(id) on delete cascade`) — the
- * confirmation says so, since that's not obvious from the button alone.
+ * Deleting a Persona does NOT delete any application — `applications.
+ * cv_persona_id references personas(id) on delete set null`, so an
+ * application using this Persona for its CV just loses that attachment
+ * (its CV tab reverts to the lazy-setup empty state) rather than the
+ * application itself disappearing. The confirmation says so, since that's
+ * not obvious from the button alone.
  */
 export function DeletePersonaDialog({
   persona,
-  cvCount,
+  applicationCount,
   onCancel,
   onConfirm,
 }: {
   persona: { name: string } | null
-  /** How many saved CVs are built from this Persona, if known. */
-  cvCount?: number
+  /** How many applications use this Persona, if known. */
+  applicationCount?: number
   onCancel: () => void
   onConfirm: () => void
 }) {
@@ -33,7 +36,9 @@ export function DeletePersonaDialog({
           <AlertDialogTitle>Delete “{persona?.name}”?</AlertDialogTitle>
           <AlertDialogDescription>
             This permanently removes the Persona
-            {cvCount ? ` and the ${cvCount} CV${cvCount === 1 ? "" : "s"} built from it` : " and any CVs built from it"}
+            {applicationCount
+              ? `. ${applicationCount} application${applicationCount === 1 ? "" : "s"} using it for its CV will lose that attachment`
+              : ""}
             . This can't be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
