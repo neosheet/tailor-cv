@@ -408,8 +408,17 @@ export function PoolPanel({
           item={dialogItem}
           open={dialogOpen}
           onOpenChange={(next) => !next && close(["id"])}
-          onSaved={() => {
+          onSaved={(savedItem) => {
             onDataChanged?.()
+            // In the Persona picker, an item you just added or edited should
+            // land checked in the table — no separate step to select it.
+            if (mode === "pick") {
+              updateSelected(
+                selectionMode === "single"
+                  ? new Set([savedItem.id])
+                  : new Set([...selected, savedItem.id])
+              )
+            }
             close(["id"])
           }}
         />

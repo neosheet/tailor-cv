@@ -19,11 +19,13 @@ import {
   Dialog,
   DialogBody,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Field, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -417,6 +419,10 @@ export function ApplicationDetailView({
       ? (freezeDialog.get("status") as GlobalApplicationStatus | null)
       : null
   const [freezing, setFreezing] = React.useState(false)
+
+  const appliedViaDialog = useDialogSearchParams("appliedVia")
+  const [appliedVia, setAppliedVia] = React.useState("")
+  const [savingAppliedVia, setSavingAppliedVia] = React.useState(false)
   // Distinct from the page-level `tab` param (List/Kanban/Archive on
   // `/applications`) so the Sheet's nested tabs don't collide with it.
   const [detailTab, setDetailTab] = useTabSearchParam("detailTab", "job-detail")
@@ -518,6 +524,12 @@ export function ApplicationDetailView({
   async function handleStatusChange(next: GlobalApplicationStatus) {
     if (next === application.globalStatus) return
 
+    if (next === "applied") {
+      setAppliedVia(application.applyVia ?? "")
+      appliedViaDialog.open("applied-via")
+      return
+    }
+
     // Mirrors `setGlobalApplicationStatus`'s own once-only freeze condition
     // exactly — only this specific transition shows the confirmation.
     if (application.globalStatus === "draft" && next !== "draft") {
@@ -526,6 +538,25 @@ export function ApplicationDetailView({
     }
 
     await setGlobalApplicationStatus(applicationStore, personaStore, inventoryStore, application.id, next)
+  }
+
+  async function confirmAppliedVia() {
+    setSavingAppliedVia(true)
+    try {
+      await setGlobalApplicationStatus(
+        applicationStore,
+        personaStore,
+        inventoryStore,
+        application.id,
+        "applied"
+      )
+      await updateApplication(applicationStore, application.id, {
+        applyVia: appliedVia.trim() || null,
+      })
+      appliedViaDialog.close()
+    } finally {
+      setSavingAppliedVia(false)
+    }
   }
 
   async function confirmFreeze() {
@@ -723,6 +754,47 @@ export function ApplicationDetailView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={appliedViaDialog.dialog === "applied-via"}
+        onOpenChange={(next) => !next && !savingAppliedVia && appliedViaDialog.close()}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark as applied</DialogTitle>
+            {application.globalStatus === "draft" ? (
+              <DialogDescription>
+                This freezes a copy of the attached CV as it looks right now. Later edits to the
+                CV won&apos;t affect this application.
+              </DialogDescription>
+            ) : null}
+          </DialogHeader>
+          <DialogBody className="pt-2">
+            <Field>
+              <FieldLabel htmlFor="applied-via-input">Applied via</FieldLabel>
+              <Input
+                id="applied-via-input"
+                placeholder="Email, URL, referral…"
+                value={appliedVia}
+                onChange={(event) => setAppliedVia(event.target.value)}
+              />
+            </Field>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={savingAppliedVia}
+              onClick={() => appliedViaDialog.close()}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" disabled={savingAppliedVia} onClick={confirmAppliedVia}>
+              {savingAppliedVia ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SkillsCheckDialog
         open={skillsCheckDialog.dialog === "skills-check"}
