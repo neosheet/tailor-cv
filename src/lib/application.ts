@@ -543,14 +543,30 @@ export async function setGlobalApplicationStatus(
 // moves this state onto `applications.cv_persona_settings`.)
 // ---------------------------------------------------------------------------
 
-async function saveApplicationCvPersonaSettings(
+/** Looks up an application by id or throws — every CV-override mutator's first step. */
+function getApplicationOrThrow(store: ApplicationStore, applicationId: string): DbApplication {
+  const application = findApplication(store, applicationId)
+  if (!application) {
+    throw new Error(`No application "${applicationId}".`)
+  }
+  return application
+}
+
+/** Shallow-merges `next` onto one `applications` JSON column and re-syncs the store. */
+async function saveApplicationCvColumn(
   store: ApplicationStore,
   applicationId: string,
-  next: CvPersonaSettings
+  column: "cv_persona_settings" | "cv_template_settings",
+  next: CvPersonaSettings | TemplateSettings
 ): Promise<void> {
+  const patch: { cv_persona_settings: Json } | { cv_template_settings: Json } =
+    column === "cv_persona_settings"
+      ? { cv_persona_settings: next as unknown as Json }
+      : { cv_template_settings: next as unknown as Json }
+
   const { data, error } = await supabase
     .from("applications")
-    .update({ cv_persona_settings: next as unknown as Json })
+    .update(patch)
     .eq("id", applicationId)
     .select()
     .single()
@@ -563,6 +579,14 @@ async function saveApplicationCvPersonaSettings(
   )
 }
 
+async function saveApplicationCvPersonaSettings(
+  store: ApplicationStore,
+  applicationId: string,
+  next: CvPersonaSettings
+): Promise<void> {
+  await saveApplicationCvColumn(store, applicationId, "cv_persona_settings", next)
+}
+
 /** Merges a `fieldVisibility` patch for one kind and saves the whole map. */
 async function saveKindVisibility(
   store: ApplicationStore,
@@ -570,10 +594,7 @@ async function saveKindVisibility(
   kind: ItemKind,
   patch: { hidden?: boolean; fields?: string[]; items?: Record<string, boolean> }
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const fieldVisibility = application.cvPersonaSettings.fieldVisibility ?? {}
   const nextFieldVisibility: FieldVisibility = {
@@ -605,10 +626,7 @@ export async function setFieldHidden(
   fieldKey: string,
   hidden: boolean
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const fields = new Set(
     application.cvPersonaSettings.fieldVisibility?.[kind]?.fields ?? []
@@ -635,10 +653,7 @@ export async function setItemHidden(
   itemId: string,
   hidden: boolean
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const items = { ...application.cvPersonaSettings.fieldVisibility?.[kind]?.items }
   if (hidden) {
@@ -659,19 +674,7 @@ async function saveApplicationCvTemplateSettings(
   applicationId: string,
   next: TemplateSettings
 ): Promise<void> {
-  const { data, error } = await supabase
-    .from("applications")
-    .update({ cv_template_settings: next as unknown as Json })
-    .eq("id", applicationId)
-    .select()
-    .single()
-
-  if (error) throw error
-
-  const updated = mapApplicationRow(data)
-  store.setApplications((current) =>
-    current.map((existing) => (existing.id === applicationId ? updated : existing))
-  )
+  await saveApplicationCvColumn(store, applicationId, "cv_template_settings", next)
 }
 
 /**
@@ -687,10 +690,7 @@ export async function setCvStyleProperty(
   key: string,
   value: string | number
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const nextStyles = {
     ...application.cvTemplateSettings.styles,
@@ -710,10 +710,7 @@ export async function resetCvStyleProperty(
   styleName: string,
   key: string
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const nextStyle = { ...application.cvTemplateSettings.styles?.[styleName] }
   delete nextStyle[key]
@@ -738,10 +735,7 @@ export async function setCvPageProperty(
   key: keyof PageConfig,
   value: string | number
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const nextPage = { ...application.cvTemplateSettings.page, [key]: value }
 
@@ -757,10 +751,7 @@ export async function resetCvPageProperty(
   applicationId: string,
   key: keyof PageConfig
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const nextPage = { ...application.cvTemplateSettings.page }
   delete nextPage[key]
@@ -788,10 +779,7 @@ export async function setCvNodeOverride(
   nodeId: string,
   patch: { hidden?: boolean; styles?: string | string[]; text?: string }
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const nextNodes = {
     ...application.cvTemplateSettings.nodes,
@@ -811,10 +799,7 @@ export async function resetCvNodeOverride(
   nodeId: string,
   key: "hidden" | "styles" | "text"
 ): Promise<void> {
-  const application = findApplication(store, applicationId)
-  if (!application) {
-    throw new Error(`No application "${applicationId}".`)
-  }
+  const application = getApplicationOrThrow(store, applicationId)
 
   const nextNode = { ...application.cvTemplateSettings.nodes?.[nodeId] }
   delete nextNode[key]
