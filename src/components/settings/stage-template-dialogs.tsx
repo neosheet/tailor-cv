@@ -1,24 +1,5 @@
 import * as React from "react"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -29,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DeleteConfirmDialogShell, RenameDialogShell } from "@/components/settings/entity-dialog-shells"
 import { BUILT_IN_STAGE_CATEGORIES, STAGE_CATEGORY_LABEL } from "@/lib/stage-category"
 import { validateStageTemplateName } from "@/lib/stage-templates"
 import { useApplicationStore } from "@/lib/application-store"
@@ -74,70 +56,55 @@ export function RenameStageTemplateDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle>Rename stage template</DialogTitle>
-            <DialogDescription>
-              Stages already added to applications keep their own name and
-              category exactly as recorded — this only changes what gets
-              suggested going forward.
-            </DialogDescription>
-          </DialogHeader>
+    <RenameDialogShell
+      open={open}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title="Rename stage template"
+      description="Stages already added to applications keep their own name and category exactly as recorded — this only changes what gets suggested going forward."
+      submitDisabled={Boolean(problem)}
+    >
+      <div className="my-4 flex flex-col gap-4">
+        <Field data-invalid={problem ? true : undefined}>
+          <FieldLabel htmlFor="rename-stage-template-name">Name</FieldLabel>
+          <Input
+            id="rename-stage-template-name"
+            value={name}
+            autoFocus
+            onChange={(event) => setName(event.target.value)}
+            aria-invalid={problem ? true : undefined}
+          />
+          {problem ? <FieldError>{problem}</FieldError> : null}
+        </Field>
 
-          <div className="my-4 flex flex-col gap-4">
-            <Field data-invalid={problem ? true : undefined}>
-              <FieldLabel htmlFor="rename-stage-template-name">Name</FieldLabel>
-              <Input
-                id="rename-stage-template-name"
-                value={name}
-                autoFocus
-                onChange={(event) => setName(event.target.value)}
-                aria-invalid={problem ? true : undefined}
-              />
-              {problem ? <FieldError>{problem}</FieldError> : null}
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="rename-stage-template-category">
-                Category
-              </FieldLabel>
-              <Select
-                items={BUILT_IN_STAGE_CATEGORIES.map((value) => ({
-                  value,
-                  label: STAGE_CATEGORY_LABEL[value],
-                }))}
-                value={category}
-                onValueChange={(next) => setCategory(next as BuiltInStageCategory)}
-              >
-                <SelectTrigger id="rename-stage-template-category" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {BUILT_IN_STAGE_CATEGORIES.map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {STAGE_CATEGORY_LABEL[value]}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={Boolean(problem)}>
-              Rename
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <Field>
+          <FieldLabel htmlFor="rename-stage-template-category">
+            Category
+          </FieldLabel>
+          <Select
+            items={BUILT_IN_STAGE_CATEGORIES.map((value) => ({
+              value,
+              label: STAGE_CATEGORY_LABEL[value],
+            }))}
+            value={category}
+            onValueChange={(next) => setCategory(next as BuiltInStageCategory)}
+          >
+            <SelectTrigger id="rename-stage-template-category" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {BUILT_IN_STAGE_CATEGORIES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {STAGE_CATEGORY_LABEL[value]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+    </RenameDialogShell>
   )
 }
 
@@ -161,24 +128,13 @@ export function DeleteStageTemplateDialog({
   onDelete: () => void
 }) {
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete “{template.name}”?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This only removes it from the autocomplete list — stages already
-            added to applications keep their name and category exactly as
-            recorded.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onDelete}>
-            Delete template
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DeleteConfirmDialogShell
+      open={open}
+      onCancel={onCancel}
+      onDelete={onDelete}
+      title={`Delete “${template.name}”?`}
+      description="This only removes it from the autocomplete list — stages already added to applications keep their name and category exactly as recorded."
+      actionLabel="Delete template"
+    />
   )
 }

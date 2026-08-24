@@ -1,26 +1,8 @@
 import * as React from "react"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { DeleteConfirmDialogShell, RenameDialogShell } from "@/components/settings/entity-dialog-shells"
 import {
   categoryUsageLabel,
   validateCategoryName,
@@ -59,40 +41,31 @@ export function RenameSkillCategoryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle>Rename category</DialogTitle>
-            <DialogDescription>
-              “{category.name}” is {categoryUsageLabel(category).toLowerCase()}.
-              Renaming updates every one of them.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Field className="my-4" data-invalid={problem ? true : undefined}>
-            <FieldLabel htmlFor="rename-category">New name</FieldLabel>
-            <Input
-              id="rename-category"
-              value={value}
-              autoFocus
-              onChange={(event) => setValue(event.target.value)}
-              aria-invalid={problem ? true : undefined}
-            />
-            {problem ? <FieldError>{problem}</FieldError> : null}
-          </Field>
-
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={Boolean(problem)}>
-              Rename
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <RenameDialogShell
+      open={open}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title="Rename category"
+      description={
+        <>
+          “{category.name}” is {categoryUsageLabel(category).toLowerCase()}.
+          Renaming updates every one of them.
+        </>
+      }
+      submitDisabled={Boolean(problem)}
+    >
+      <Field className="my-4" data-invalid={problem ? true : undefined}>
+        <FieldLabel htmlFor="rename-category">New name</FieldLabel>
+        <Input
+          id="rename-category"
+          value={value}
+          autoFocus
+          onChange={(event) => setValue(event.target.value)}
+          aria-invalid={problem ? true : undefined}
+        />
+        {problem ? <FieldError>{problem}</FieldError> : null}
+      </Field>
+    </RenameDialogShell>
   )
 }
 
@@ -115,24 +88,17 @@ export function DeleteSkillCategoryDialog({
   const inUse = category.itemCount > 0
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete “{category.name}”?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {inUse
-              ? `It is on ${categoryUsageLabel(category).toLowerCase()}. Deleting leaves them uncategorized.`
-              : "Nothing is categorized with it, so nothing else changes."}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onDelete}>
-            Delete category
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DeleteConfirmDialogShell
+      open={open}
+      onCancel={onCancel}
+      onDelete={onDelete}
+      title={`Delete “${category.name}”?`}
+      description={
+        inUse
+          ? `It is on ${categoryUsageLabel(category).toLowerCase()}. Deleting leaves them uncategorized.`
+          : "Nothing is categorized with it, so nothing else changes."
+      }
+      actionLabel="Delete category"
+    />
   )
 }

@@ -1,16 +1,6 @@
 import * as React from "react"
 
 import { Badge } from "@/components/ui/badge"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Combobox,
@@ -31,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { DeleteConfirmDialogShell, RenameDialogShell } from "@/components/settings/entity-dialog-shells"
 import { usageSentence } from "@/lib/tag-copy"
 import {
   normaliseTagName,
@@ -72,40 +63,31 @@ export function RenameTagDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle>Rename tag</DialogTitle>
-            <DialogDescription>
-              “{tag.name}” is {usageSentence(tag)}. Renaming updates every one
-              of them.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Field className="my-4" data-invalid={problem ? true : undefined}>
-            <FieldLabel htmlFor="rename-tag">New name</FieldLabel>
-            <Input
-              id="rename-tag"
-              value={value}
-              autoFocus
-              onChange={(event) => setValue(event.target.value)}
-              aria-invalid={problem ? true : undefined}
-            />
-            {problem ? <FieldError>{problem}</FieldError> : null}
-          </Field>
-
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={Boolean(problem)}>
-              Rename
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <RenameDialogShell
+      open={open}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title="Rename tag"
+      description={
+        <>
+          “{tag.name}” is {usageSentence(tag)}. Renaming updates every one of
+          them.
+        </>
+      }
+      submitDisabled={Boolean(problem)}
+    >
+      <Field className="my-4" data-invalid={problem ? true : undefined}>
+        <FieldLabel htmlFor="rename-tag">New name</FieldLabel>
+        <Input
+          id="rename-tag"
+          value={value}
+          autoFocus
+          onChange={(event) => setValue(event.target.value)}
+          aria-invalid={problem ? true : undefined}
+        />
+        {problem ? <FieldError>{problem}</FieldError> : null}
+      </Field>
+    </RenameDialogShell>
   )
 }
 
@@ -264,36 +246,27 @@ export function DeleteTagDialog({
   const inUse = usage.itemCount + usage.lineCount > 0
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {batch ? `Delete ${tags.length} tags?` : `Delete “${usage.name}”?`}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {inUse
-              ? `${batch ? "Between them they are" : "It is"} ${usageSentence(usage)}. Deleting removes ${batch ? "them" : "it"} from all of them.`
-              : `Nothing is tagged with ${batch ? "any of them" : "it"}, so nothing else changes.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        {batch ? (
-          <div className="flex flex-wrap gap-1">
-            {tags.map((tag) => (
-              <Badge key={tag.name} variant="secondary">
-                {tag.name}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
-
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onDelete}>
-            Delete {batch ? `${tags.length} tags` : "tag"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <DeleteConfirmDialogShell
+      open={open}
+      onCancel={onCancel}
+      onDelete={onDelete}
+      title={batch ? `Delete ${tags.length} tags?` : `Delete “${usage.name}”?`}
+      description={
+        inUse
+          ? `${batch ? "Between them they are" : "It is"} ${usageSentence(usage)}. Deleting removes ${batch ? "them" : "it"} from all of them.`
+          : `Nothing is tagged with ${batch ? "any of them" : "it"}, so nothing else changes.`
+      }
+      actionLabel={`Delete ${batch ? `${tags.length} tags` : "tag"}`}
+    >
+      {batch ? (
+        <div className="flex flex-wrap gap-1">
+          {tags.map((tag) => (
+            <Badge key={tag.name} variant="secondary">
+              {tag.name}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+    </DeleteConfirmDialogShell>
   )
 }
