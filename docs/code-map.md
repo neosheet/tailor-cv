@@ -65,7 +65,7 @@ or its responsibility materially changes, update this file in the same change.
 
 CV ownership (persona/template + overrides) lives directly on `applications`
 now, not a standalone `cvs` table/page — see the Applications domain below
-for the mutators and `persona-field-tree.tsx`'s application-facing editor.
+for the mutators and `persona-field-tree/`'s application-facing editor.
 This section covers what's still persona/template-only.
 
 | File | Purpose |
@@ -81,7 +81,7 @@ This section covers what's still persona/template-only.
 | `src/lib/resume-document.ts` | `ResumeDocument`/`ResumeSection`/`ResumeEntry` types — the rendered-CV data shape |
 | `src/lib/cv-snapshot.ts`, `cv-snapshot-download.ts` | CV snapshot (versioned) serialization/parsing, export/download to PDF — `buildCvSnapshot` takes a narrow `{name, note, tags, templateSettings}` shape, not a table row |
 | `src/lib/quill-html.ts`, `sanitize-html.ts` | Rich-text (Quill) HTML conversion + sanitization |
-| `src/components/cv/persona-field-tree.tsx` | Field-visibility/style/page/node override editor for one application's CV (used on the Applications detail view's CV tab, not persona-detail — takes `application: DbApplication`, not a `cvs` row) |
+| `src/components/cv/persona-field-tree/` | Field-visibility/style/page/node override editor for one application's CV (used on the Applications detail view's CV tab, not persona-detail — takes `application: DbApplication`, not a `cvs` row). `index.tsx` is the `Tabs` shell (`PersonaFieldTree` export); `visibility-tab.tsx`/`data-tab.tsx`/`style-tab.tsx`/`page-tab.tsx`/`block-tab.tsx` are one file per tab; `shared.tsx` holds row primitives (`ParentRow`/`LeafRow`/`EyeToggle`/`ReorderButtons`) and `PropertyRow`, used by 2+ tabs |
 | `src/components/cv/save-as-new-template-dialog.tsx` | "Save as new template" dialog, calls `saveAsNewTemplate` (`lib/application.ts`) |
 | `src/components/cv/template-card.tsx`, `template-view-dialog.tsx` | Template-agnostic preview card + full-preview dialog, reused from the CV tab (no more standalone Templates gallery page) |
 | `src/components/cv/template-node-renderer.tsx`, `templates/index.tsx`, `resume-render.tsx` | Template tree → DOM rendering (`resume-render.tsx` is the print/preview renderer) |
@@ -121,7 +121,7 @@ This section covers what's still persona/template-only.
 |---|---|
 | `src/components/persona/persona-form-dialog.tsx`, `delete-persona-dialog.tsx` | Name/note/tags dialog and delete-confirm dialog (used from `pages/personas.tsx` and inside `persona-editor-panel.tsx`) |
 | `src/components/persona/persona-editor-panel.tsx` | The full persona editor content (Basics/Contact/Location/Social cards, per-section pickers, "Used in Applications") — extracted from `pages/persona-detail.tsx` so it can be reused inside a popup. Takes `personaId` + an optional `dialogParamPrefix` (namespaces its internal pool-picker/edit/duplicate/delete/skills-check URL state when nested) |
-| `src/components/persona/persona-editor-dialog.tsx` | Popup wrapper around `persona-editor-panel.tsx` — `mode="edit"` renders it directly for a given persona; `mode="create"` shows an inline name/note/tags step first, then swaps to the panel for the newly created persona. Used by `application-cv-setup.tsx` (create, from the Persona picker) and `cv/persona-field-tree.tsx`'s Data tab ("Edit persona") |
+| `src/components/persona/persona-editor-dialog.tsx` | Popup wrapper around `persona-editor-panel.tsx` — `mode="edit"` renders it directly for a given persona; `mode="create"` shows an inline name/note/tags step first, then swaps to the panel for the newly created persona. Used by `application-cv-setup.tsx` (create, from the Persona picker) and `cv/persona-field-tree/data-tab.tsx` ("Edit persona") |
 
 ## Shared UI / hooks
 

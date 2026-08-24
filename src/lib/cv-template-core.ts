@@ -207,7 +207,7 @@ function hasLiteralText(node: TemplateNode | undefined): boolean {
  * block, for a plain node inside one — e.g. `bulletMarker` inside
  * `bulletItem`), and whether that node has literal text worth a Text
  * override control. Static per template — call once, not per render. Powers
- * the Block Settings tab's grouped picker (`persona-field-tree.tsx`).
+ * the Block Settings tab's grouped picker (`persona-field-tree/block-tab.tsx`).
  */
 export function collectBlockNodeIds(definition: TemplateDefinition): BlockNodeId[] {
   const out: BlockNodeId[] = []
