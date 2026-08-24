@@ -1,4 +1,5 @@
 import type { InventoryStore } from "@/lib/inventory-store"
+import { requireUserId } from "@/lib/store-context"
 import { supabase } from "@/lib/supabase"
 
 /**
@@ -96,13 +97,6 @@ function assertValid(raw: string, registry: string[], except?: string): string {
   }
 
   return normaliseTagName(raw)
-}
-
-function requireUserId(store: InventoryStore): string {
-  if (!store.userId) {
-    throw new Error("No signed-in user.")
-  }
-  return store.userId
 }
 
 /** A registry row and nothing else — a new tag is on no rows yet. */

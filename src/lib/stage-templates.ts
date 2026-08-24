@@ -1,5 +1,6 @@
 import type { ApplicationData, ApplicationStore } from "@/lib/application-store"
 import { mapStageTemplateRow } from "@/lib/application-store"
+import { requireUserId } from "@/lib/store-context"
 import { supabase } from "@/lib/supabase"
 import type { BuiltInStageCategory, DbStageTemplate } from "@/mocks/types"
 
@@ -51,13 +52,6 @@ export function validateStageTemplateName(
 /** Every stage template, alphabetical — what the management screen lists. */
 export function listStageTemplates(data: ApplicationData): DbStageTemplate[] {
   return [...data.stageTemplates].sort((a, b) => a.name.localeCompare(b.name))
-}
-
-function requireUserId(store: ApplicationStore): string {
-  if (!store.userId) {
-    throw new Error("No signed-in user.")
-  }
-  return store.userId
 }
 
 /** Inserts a new stage template and adds it to the registry. */

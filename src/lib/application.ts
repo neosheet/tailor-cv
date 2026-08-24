@@ -1,5 +1,5 @@
 import type { InventoryStore } from "@/lib/inventory-store"
-import { buildResumeDocument, requireUserId as requirePersonaUserId } from "@/lib/persona"
+import { buildResumeDocument } from "@/lib/persona"
 import type { PersonaData, PersonaStore } from "@/lib/persona-store"
 import { mapCvTemplateRow } from "@/lib/persona-store"
 import { buildCvSnapshot, templateFromSnapshot, type CvSnapshotV1 } from "@/lib/cv-snapshot"
@@ -12,6 +12,7 @@ import {
   type ApplicationData,
   type ApplicationStore,
 } from "@/lib/application-store"
+import { requireUserId } from "@/lib/store-context"
 import { supabase } from "@/lib/supabase"
 import type { Json } from "@/lib/database.types"
 import type { PageConfig, TemplateDefinition, TemplateSettings } from "@/lib/cv-template-schema"
@@ -182,13 +183,6 @@ export function checkApplication(
       })()
 
   return { duplicates, skills, headline }
-}
-
-function requireUserId(store: ApplicationStore): string {
-  if (!store.userId) {
-    throw new Error("No signed-in user.")
-  }
-  return store.userId
 }
 
 // ---------------------------------------------------------------------------
@@ -855,7 +849,7 @@ export async function saveAsNewTemplate(
   base: CvTemplate,
   fields: SaveAsNewTemplateFields
 ): Promise<DbCvTemplate> {
-  const userId = requirePersonaUserId(store)
+  const userId = requireUserId(store)
   const baked = bakeTemplateSettings(base.definition, application.cvTemplateSettings)
   const definition: TemplateDefinition = {
     ...baked,

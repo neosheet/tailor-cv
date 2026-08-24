@@ -6,6 +6,7 @@ import {
   type PersonaData,
   type PersonaStore,
 } from "@/lib/persona-store"
+import { requireUserId } from "@/lib/store-context"
 import { supabase } from "@/lib/supabase"
 import type { ResumeEntry, ResumeSkillGroup, ResumeDocument } from "@/lib/resume-document"
 import type { DbInventoryItem, FieldVisibility, ItemKind, LineKind } from "@/mocks/types"
@@ -697,13 +698,6 @@ function buildMetaLine(details: Record<string, unknown>): string | null {
 // ---------------------------------------------------------------------------
 // Mutators
 // ---------------------------------------------------------------------------
-
-export function requireUserId(store: PersonaStore): string {
-  if (!store.userId) {
-    throw new Error("No signed-in user.")
-  }
-  return store.userId
-}
 
 /** Creates a new Persona and returns it. */
 export async function createPersona(

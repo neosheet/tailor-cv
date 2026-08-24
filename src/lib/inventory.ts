@@ -2,6 +2,7 @@ import { Constants } from "@/lib/database.types"
 import type { Json } from "@/lib/database.types"
 import { mapItemRow, mapLineRow, mapItemSkillRow } from "@/lib/inventory-store"
 import type { InventoryData, InventoryStore } from "@/lib/inventory-store"
+import { requireUserId } from "@/lib/store-context"
 import { supabase } from "@/lib/supabase"
 import type {
   DbInventoryItem,
@@ -236,13 +237,6 @@ function assertTagsRegistered(store: InventoryStore, tags: string[]): void {
   if (unknown.length > 0) {
     throw new Error(`Unknown tag(s): ${unknown.join(", ")}.`)
   }
-}
-
-function requireUserId(store: InventoryStore): string {
-  if (!store.userId) {
-    throw new Error("No signed-in user.")
-  }
-  return store.userId
 }
 
 /** Adds a new row to a pool and returns it. */

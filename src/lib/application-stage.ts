@@ -1,5 +1,6 @@
 import type { ApplicationData, ApplicationStore } from "@/lib/application-store"
 import { mapApplicationStageRow } from "@/lib/application-store"
+import { requireUserId } from "@/lib/store-context"
 import { supabase } from "@/lib/supabase"
 import type {
   BuiltInStageCategory,
@@ -39,13 +40,6 @@ export function stagesForApplication(
       .filter((child) => child.parentStageId === stage.id)
       .sort((a, b) => a.position - b.position),
   }))
-}
-
-function requireUserId(store: ApplicationStore): string {
-  if (!store.userId) {
-    throw new Error("No signed-in user.")
-  }
-  return store.userId
 }
 
 export type StageFormFields = {

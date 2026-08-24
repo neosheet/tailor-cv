@@ -33,3 +33,11 @@ export function useStoreContext<T>(
   }
   return value
 }
+
+/** Every mutator's first line: get the signed-in user's id or throw. */
+export function requireUserId<T extends { userId: string | null }>(store: T): string {
+  if (!store.userId) {
+    throw new Error("No signed-in user.")
+  }
+  return store.userId
+}

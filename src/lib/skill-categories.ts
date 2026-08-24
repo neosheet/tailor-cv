@@ -1,4 +1,5 @@
 import type { InventoryStore, SkillCategory } from "@/lib/inventory-store"
+import { requireUserId } from "@/lib/store-context"
 import { supabase } from "@/lib/supabase"
 
 /**
@@ -55,13 +56,6 @@ export function listSkillCategories(store: InventoryStore): SkillCategoryUsage[]
     ...category,
     itemCount: store.items.filter((item) => item.categoryId === category.id).length,
   }))
-}
-
-function requireUserId(store: InventoryStore): string {
-  if (!store.userId) {
-    throw new Error("No signed-in user.")
-  }
-  return store.userId
 }
 
 /** A registry row and nothing else — a new category is on no skills yet. */
