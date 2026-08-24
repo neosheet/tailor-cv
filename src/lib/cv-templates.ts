@@ -38,7 +38,7 @@ export type CvTemplate = {
   defaultFieldVisibility?: FieldVisibility
 }
 
-export const cvTemplates: CvTemplate[] = [
+const builtInTemplates: CvTemplate[] = [
   {
     id: "classic",
     name: "Classic",
@@ -72,17 +72,26 @@ export const cvTemplates: CvTemplate[] = [
     atsSafe: false,
     bestFor: "Design-forward applications reviewed by a person rather than parsed by a bot",
   },
-  {
-    id: "batch1-demo",
-    name: "Batch 1 Demo (interpolation + merge)",
-    description:
-      "Classic, but the intro line uses string interpolation and the Skills section renders as one merged, comma-separated sentence instead of a list — a live test surface for the two new template-engine capabilities, not a real layout choice.",
-    definition: batch1DemoTemplateDefinition,
-    density: "Balanced",
-    atsSafe: false,
-    bestFor: "Trying out Batch 1's template-engine changes against real data",
-  },
 ]
+
+/**
+ * Not a real layout choice — a live test surface for the template engine's
+ * interpolation/merge capabilities. Kept out of `cvTemplates` (and so out of
+ * the picker and `findTemplate`) so real users never see it; import
+ * `batch1DemoTemplateDefinition` directly for ad hoc testing instead.
+ */
+export const batch1DemoTemplate: CvTemplate = {
+  id: "batch1-demo",
+  name: "Batch 1 Demo (interpolation + merge)",
+  description:
+    "Classic, but the intro line uses string interpolation and the Skills section renders as one merged, comma-separated sentence instead of a list — a live test surface for the two new template-engine capabilities, not a real layout choice.",
+  definition: batch1DemoTemplateDefinition,
+  density: "Balanced",
+  atsSafe: false,
+  bestFor: "Trying out Batch 1's template-engine changes against real data",
+}
+
+export const cvTemplates: CvTemplate[] = builtInTemplates
 
 /**
  * Resolves a template id against the built-in registry first, then a
