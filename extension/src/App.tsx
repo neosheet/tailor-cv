@@ -1,3 +1,4 @@
+import { AddApplicationView } from "@/components/add-application-view"
 import { LoginView } from "@/components/login-view"
 import { Button } from "@/components/ui/button"
 import { AuthProvider, useAuth } from "@/lib/auth-context"
@@ -8,18 +9,20 @@ function SignedInView() {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">
-        Signed in as {session?.user.email}
-      </p>
-      {/* The add-application form is Phase 3 — this placeholder just
-          proves auth works end to end. */}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => supabase.auth.signOut()}
-      >
-        Sign out
-      </Button>
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-sm text-muted-foreground">
+          Signed in as {session?.user.email}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => supabase.auth.signOut()}
+        >
+          Sign out
+        </Button>
+      </div>
+      <AddApplicationView />
     </div>
   )
 }
