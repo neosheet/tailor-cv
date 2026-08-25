@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ListChecksIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { ListChecksIcon, PlusIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,15 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { SearchInput } from "@/components/search-input"
+import { RegistryTable } from "@/components/settings/registry-table"
 import {
   DeleteStageTemplateDialog,
   RenameStageTemplateDialog,
@@ -120,65 +113,30 @@ export function StageTemplatesPanel() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="w-0">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={3}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    No stage templates match “{query}”.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-              {visible.map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell className="font-medium">{template.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {stageCategoryLabel(template.category)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() =>
-                          open("rename-stage-template", { id: template.id })
-                        }
-                        aria-label={`Rename ${template.name}`}
-                      >
-                        <PencilIcon />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() =>
-                          open("delete-stage-template", { id: template.id })
-                        }
-                        aria-label={`Delete ${template.name}`}
-                      >
-                        <Trash2Icon />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <RegistryTable
+          items={visible}
+          query={query}
+          itemNounPlural="stage templates"
+          getRowKey={(template) => template.id}
+          getRowLabel={(template) => template.name}
+          onRename={(template) => open("rename-stage-template", { id: template.id })}
+          onDelete={(template) => open("delete-stage-template", { id: template.id })}
+          columns={[
+            {
+              header: "Name",
+              className: "font-medium",
+              render: (template) => template.name,
+            },
+            {
+              header: "Category",
+              render: (template) => (
+                <Badge variant="outline">
+                  {stageCategoryLabel(template.category)}
+                </Badge>
+              ),
+            },
+          ]}
+        />
       )}
 
       {renaming ? (

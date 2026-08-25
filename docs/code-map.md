@@ -115,6 +115,7 @@ This section covers what's still persona/template-only.
 | `src/components/settings/skill-categories-panel.tsx`, `skill-category-dialogs.tsx` | Skill category management |
 | `src/components/settings/stage-templates-panel.tsx`, `stage-template-dialogs.tsx` | Reusable stage template management |
 | `src/components/settings/entity-dialog-shells.tsx` | `RenameDialogShell`/`DeleteConfirmDialogShell` — the Dialog/AlertDialog layout skeleton shared by the three registries' rename/delete dialogs above. Each registry keeps its own validation, field set, and copy; only the wrapper markup is shared |
+| `src/components/settings/registry-table.tsx` | `RegistryTable` — the search-filtered table + hover rename/delete actions shared by Skill Categories and Stage Templates. Tags keeps its own bespoke table (checkbox column, bulk-selection bar, merge flow don't compose cleanly here) |
 
 ## Persona (dialogs, top-level list page uses these)
 

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { PencilIcon, PlusIcon, Trash2Icon, WrenchIcon } from "lucide-react"
+import { PlusIcon, WrenchIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,15 +15,8 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { SearchInput } from "@/components/search-input"
+import { RegistryTable } from "@/components/settings/registry-table"
 import {
   DeleteSkillCategoryDialog,
   RenameSkillCategoryDialog,
@@ -95,63 +88,27 @@ export function SkillCategoriesPanel() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Category</TableHead>
-                <TableHead>Used on</TableHead>
-                <TableHead className="w-0">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={3}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    No categories match “{query}”.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-              {visible.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {categoryUsageLabel(category)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() =>
-                          open("rename-skill-category", { id: category.id })
-                        }
-                        aria-label={`Rename ${category.name}`}
-                      >
-                        <PencilIcon />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() =>
-                          open("delete-skill-category", { id: category.id })
-                        }
-                        aria-label={`Delete ${category.name}`}
-                      >
-                        <Trash2Icon />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <RegistryTable
+          items={visible}
+          query={query}
+          itemNounPlural="categories"
+          getRowKey={(category) => category.id}
+          getRowLabel={(category) => category.name}
+          onRename={(category) => open("rename-skill-category", { id: category.id })}
+          onDelete={(category) => open("delete-skill-category", { id: category.id })}
+          columns={[
+            {
+              header: "Category",
+              className: "font-medium",
+              render: (category) => category.name,
+            },
+            {
+              header: "Used on",
+              className: "text-muted-foreground",
+              render: (category) => categoryUsageLabel(category),
+            },
+          ]}
+        />
       )}
 
       {renaming ? (
