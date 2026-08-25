@@ -155,18 +155,29 @@ Standalone MV3 popup-only extension (docs/specs/18-chrome-quick-add-extension.md
 docs/plans/20-chrome-quick-add-extension.md) for quick-adding an application row
 from the active tab. Own `package.json`/`npm install`/build — doesn't touch the
 root app's `node_modules` or lockfile. Root `eslint.config.js` ignores this
-folder; root `tsconfig.json` does not reference it. Scaffolded in Phase 1 only
-(placeholder popup) — auth, the add-application form, and reused imports from
-`../src/` land in later phases.
+folder; root `tsconfig.json` does not reference it. Reuses `VacancyDetailEditor`,
+`cleanLinkedInJobUrl`, `isEmptyHtml`, and the `Database` type directly from
+`../src/` via relative import rather than duplicating them. Needs
+`extension/.env.local` (`VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY`,
+gitignored, same values as the root app's `.env.local`) before building — see
+`extension/README.md`.
 
 | File | Purpose |
 |---|---|
 | `extension/manifest.json` | MV3 manifest — `activeTab` + `storage` permissions only, no `host_permissions`/`background` |
-| `extension/vite.config.ts` | `@crxjs/vite-plugin` + `@vitejs/plugin-react` + `@tailwindcss/vite`; sets `server.fs.allow` so the dev server can read files imported (in later phases) from `../src/` outside this project root |
+| `extension/vite.config.ts` | `@crxjs/vite-plugin` + `@vitejs/plugin-react` + `@tailwindcss/vite`; sets `server.fs.allow` so the dev server can read files imported from `../src/` outside this project root |
 | `extension/tsconfig.json` / `tsconfig.app.json` / `tsconfig.node.json` | Solution/app/node split mirroring the root project's pattern (a merged single-file config errors under `tsc -b` project references — the referenced project must be `composite`, which a "real" referencing project with its own `include` can't satisfy) |
-| `extension/src/popup.html`, `main.tsx`, `App.tsx` | Popup entry — placeholder-only content in this phase |
+| `extension/src/popup.html`, `main.tsx`, `App.tsx` | Popup entry — `App.tsx` renders `LoginView` when signed out, `AddApplicationView` + sign-out button when signed in |
 | `extension/src/index.css` | Verbatim copy of root `src/index.css` (theme tokens/imports must match) |
 | `extension/src/icons/icon-{16,48,128}.png` | Placeholder toolbar icons |
+| `extension/src/lib/chrome-storage-adapter.ts` | `getItem`/`setItem`/`removeItem` wrapper around `chrome.storage.local`, passed to `createClient` as `auth.storage` |
+| `extension/src/lib/supabase.ts` | This extension's own `supabase-js` client (`Database`-typed), backed by the chrome-storage adapter; client/session init wrapped in try/catch, treating a throw as signed-out |
+| `extension/src/lib/auth-context.tsx` | Session provider (`session`, `loading`) mirroring `src/lib/auth-context.tsx`'s shape but backed by the extension's own client |
+| `extension/src/lib/draft-storage.ts` | `chrome.storage.local`-backed draft get/save/clear for the add-application form's autosave |
+| `extension/src/lib/utils.ts` | `cn` helper, copied from root `src/lib/utils.ts` |
+| `extension/src/components/login-view.tsx` | Email/password sign-in form, structurally copied from `src/pages/login.tsx`; no sign-up flow |
+| `extension/src/components/add-application-view.tsx` | Signed-in main view — reduced add-application form (Company/Position/Post date/URL/Vacancy detail), URL preseed from the active tab, draft autosave/restore, non-blocking duplicate-URL warning, direct `applications` insert |
+| `extension/src/components/ui/*` | shadcn/ui primitives copied verbatim from `src/components/ui/` (button, input, field, label, separator, card) — extend via the `shadcn` skill on the root app's copies, then re-copy, don't hand-edit here |
 
 ## Docs (`docs/`)
 

@@ -275,7 +275,13 @@ export function AddApplicationView() {
       {error && <FieldError>{error}</FieldError>}
 
       <div className="flex items-center justify-between gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={handleClearDraft}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={saveState === "saving"}
+          onClick={handleClearDraft}
+        >
           Clear draft
         </Button>
         <Button
