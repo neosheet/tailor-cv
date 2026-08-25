@@ -59,7 +59,7 @@ or its responsibility materially changes, update this file in the same change.
 | `src/components/inventory/bulk-category-dialog.tsx`, `bulk-tags-dialog.tsx` | Bulk actions on selected rows |
 | `src/components/inventory/category-filter.tsx`, `tag-filter.tsx`, `tag-input.tsx` | Filter/input controls |
 | `src/components/inventory/line-list-editor.tsx`, `note-input.tsx`, `partial-date-picker.tsx`, `skill-link-input.tsx` | Field-level editors used inside `item-dialog.tsx` |
-| `src/components/inventory/note-tags-collapsible.tsx` | `NoteTagsCollapsible` — note+tags fields behind a "More" trigger, closed by default; shared by `item-dialog.tsx`, `application-form-dialog.tsx`, `persona-form-dialog.tsx`, `persona-editor-dialog.tsx` |
+| `src/components/inventory/note-tags-collapsible.tsx` | `NoteTagsCollapsible` — note+tags fields behind a "More" trigger, closed by default, plus an optional `children` slot rendered ahead of them (used by `application-form-dialog.tsx` for its other secondary fields); shared by `item-dialog.tsx`, `application-form-dialog.tsx`, `persona-form-dialog.tsx`, `persona-editor-dialog.tsx` |
 | `src/components/inventory/use-pool-data.ts` | Hook: filtering/sorting/selection state for a pool table |
 
 ## Domain: Persona & CV (tailoring + templates)
@@ -96,6 +96,7 @@ This section covers what's still persona/template-only.
 | `src/lib/application-store.tsx` | `ApplicationStoreProvider` — Supabase CRUD + state for applications/stages |
 | `src/lib/application-stage.ts` | Stage tree helpers: `stagesForApplication`, stage form/update field types |
 | `src/lib/application-status.ts`, `application-job-type.ts`, `application-work-type.ts` | Enum labels/options for application metadata |
+| `src/lib/linkedin-job-url.ts` | `cleanLinkedInJobUrl` — normalizes a pasted LinkedIn job link (view or search-results URL) down to `https://linkedin.com/jobs/view/:id`; used on blur by the application form's URL field |
 | `src/lib/stage-category.ts`, `stage-progress-status.ts`, `stage-templates.ts` | Stage taxonomy + reusable stage template CRUD |
 | `src/components/applications/application-list-panel.tsx`, `application-kanban-panel.tsx` | List view / kanban board of applications |
 | `src/components/applications/application-cv-setup.tsx` | The CV tab's lazy-setup empty state — Persona + Template picker (via `setApplicationCvBase`) or Import CV settings from another application, shown whenever `resolveApplicationCv` returns nothing yet. The Persona picker's "+ Create new persona…" opens `PersonaEditorDialog` and auto-selects the result (docs/specs/16-inline-persona-editing-in-cv-tab.md) |

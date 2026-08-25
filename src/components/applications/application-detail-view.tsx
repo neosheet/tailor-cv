@@ -138,7 +138,7 @@ function MissingSkillsField({
 }
 
 /**
- * Company/Position/Location/Job type/Working type/Deadline — the structured
+ * Company/Position/Location/Job type/Working type/Post date — the structured
  * job metadata fields, shared by both `variant`s' sidebar `dl`.
  */
 function JobMetaFields({ application }: { application: DbApplication }) {
@@ -153,7 +153,7 @@ function JobMetaFields({ application }: { application: DbApplication }) {
       <DetailField label="Working type">
         {application.workType ? WORK_TYPE_LABEL[application.workType] : "—"}
       </DetailField>
-      <DetailField label="Deadline">{formatDeadline(application.deadline)}</DetailField>
+      <DetailField label="Post date">{formatDeadline(application.deadline)}</DetailField>
     </>
   )
 }

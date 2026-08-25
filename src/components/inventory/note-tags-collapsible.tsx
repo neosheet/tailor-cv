@@ -13,7 +13,10 @@ import { cn } from "@/lib/utils"
 /**
  * Note + tags fields tucked behind a "More" trigger, closed by default —
  * shared secondary-fields section for every add/edit form that carries both
- * (item, application, persona dialogs).
+ * (item, application, persona dialogs). `children`, when passed, render
+ * ahead of Note/Tags inside the same collapsible — the application form uses
+ * it for its other secondary fields (title, job type, working type, cover
+ * letter, apply via) so they collapse behind the one "More" trigger too.
  */
 export function NoteTagsCollapsible({
   note,
@@ -23,6 +26,7 @@ export function NoteTagsCollapsible({
   noteId,
   tagsId,
   className,
+  children,
 }: {
   note: string | null
   onNoteChange: (note: string | null) => void
@@ -31,6 +35,7 @@ export function NoteTagsCollapsible({
   noteId?: string
   tagsId?: string
   className?: string
+  children?: React.ReactNode
 }) {
   const [open, setOpen] = React.useState(false)
 
@@ -43,6 +48,7 @@ export function NoteTagsCollapsible({
         More
       </CollapsibleTrigger>
       <CollapsibleContent className="flex flex-col gap-4 pt-3">
+        {children}
         <NoteInput id={noteId} value={note} onValueChange={onNoteChange} />
         <TagInput id={tagsId} value={tags} onValueChange={onTagsChange} />
       </CollapsibleContent>

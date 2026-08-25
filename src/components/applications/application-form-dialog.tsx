@@ -27,6 +27,7 @@ import { VacancyDetailEditor } from "@/components/applications/vacancy-detail-ed
 import type { ApplicationFormFields } from "@/lib/application"
 import { APPLICATION_JOB_TYPES, JOB_TYPE_LABEL } from "@/lib/application-job-type"
 import { APPLICATION_WORK_TYPES, WORK_TYPE_LABEL } from "@/lib/application-work-type"
+import { cleanLinkedInJobUrl } from "@/lib/linkedin-job-url"
 import { isEmptyHtml } from "@/lib/quill-html"
 import type { ApplicationJobType, ApplicationWorkType } from "@/mocks/types"
 
@@ -34,17 +35,17 @@ import type { ApplicationJobType, ApplicationWorkType } from "@/mocks/types"
 const NO_VALUE = "none"
 
 /**
- * Title, Company/Position/Location, Job type/Working type/Deadline, URL,
- * Vacancy detail, Cover letter, and Apply via — the fields an application
- * itself owns. CV setup is lazy and lives on the application detail view's
- * CV tab instead (docs/specs/15-cv-embedded-in-applications.md), so there's
- * no CV picker here. One component, used both for New Application and for
- * editing an existing one from the detail Sheet (`ApplicationDetailSheet`
- * opens this in edit mode rather than duplicating the field markup inline —
- * see that file's comment for why). Styled to match the rest of the
- * dialogs: an `InputGroup` for the title (optional — auto-derived from
- * Company/Position when left blank), plain `Field`s below including the
- * required Company and Position fields.
+ * Company/Position/Location/Post date/URL/Vacancy detail — the fields shown
+ * up front — plus Title/Job type/Working type/Cover letter/Apply via, which
+ * collapse behind the same "More" trigger as Note/Tags (`NoteTagsCollapsible`'s
+ * `children` slot). CV setup is lazy and lives on the application detail
+ * view's CV tab instead (docs/specs/15-cv-embedded-in-applications.md), so
+ * there's no CV picker here. One component, used both for New Application
+ * and for editing an existing one from the detail Sheet
+ * (`ApplicationDetailSheet` opens this in edit mode rather than duplicating
+ * the field markup inline — see that file's comment for why). The URL field
+ * auto-cleans a pasted LinkedIn job link on blur, down to
+ * `https://linkedin.com/jobs/view/:id` (`cleanLinkedInJobUrl`).
  */
 export function ApplicationFormDialog({
   open,
@@ -172,26 +173,6 @@ export function ApplicationFormDialog({
         </DialogHeader>
         <DialogBody className="flex flex-col gap-4 pt-2 -mb-4">
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="application-title" className="sr-only">
-                Title
-              </FieldLabel>
-              <InputGroup>
-                <InputGroupAddon>
-                  <BriefcaseIcon />
-                </InputGroupAddon>
-                <InputGroupInput
-                  id="application-title"
-                  placeholder="Auto-generated from position and company if left blank"
-                  autoFocus
-                  value={applicationTitle}
-                  onChange={(event) => setApplicationTitle(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleSubmit()
-                  }}
-                />
-              </InputGroup>
-            </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field>
                 <FieldLabel htmlFor="application-company">
@@ -200,6 +181,7 @@ export function ApplicationFormDialog({
                 <Input
                   id="application-company"
                   placeholder="Acme Inc."
+                  autoFocus
                   value={company}
                   onChange={(event) => setCompany(event.target.value)}
                 />
@@ -227,56 +209,13 @@ export function ApplicationFormDialog({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="application-deadline">Deadline</FieldLabel>
+                <FieldLabel htmlFor="application-deadline">Post date</FieldLabel>
                 <DeadlineDatePicker
                   id="application-deadline"
+                  label="Post date"
                   value={deadline}
                   onValueChange={setDeadline}
                 />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Field>
-                <FieldLabel htmlFor="application-job-type">Job type</FieldLabel>
-                <Select
-                  items={jobTypeOptions}
-                  value={jobType}
-                  onValueChange={(next) => setJobType(next as string)}
-                >
-                  <SelectTrigger id="application-job-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {jobTypeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="application-work-type">Working type</FieldLabel>
-                <Select
-                  items={workTypeOptions}
-                  value={workType}
-                  onValueChange={(next) => setWorkType(next as string)}
-                >
-                  <SelectTrigger id="application-work-type" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {workTypeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
               </Field>
             </div>
             <Field>
@@ -287,6 +226,7 @@ export function ApplicationFormDialog({
                 placeholder="Link to the job listing"
                 value={sourceUrl}
                 onChange={(event) => setSourceUrl(event.target.value)}
+                onBlur={() => setSourceUrl((current) => cleanLinkedInJobUrl(current))}
               />
             </Field>
             <Field>
@@ -298,36 +238,102 @@ export function ApplicationFormDialog({
                 placeholder="Paste the job description or notes"
               />
             </Field>
-            <Field>
-              <FieldLabel htmlFor="application-cover-letter">Cover letter</FieldLabel>
-              <VacancyDetailEditor
-                id="application-cover-letter"
-                value={coverLetter}
-                onValueChange={setCoverLetter}
-                placeholder="Write or paste your cover letter"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="application-apply-via">Apply via</FieldLabel>
-              <Input
-                id="application-apply-via"
-                placeholder="Email, URL, referral…"
-                value={applyVia}
-                onChange={(event) => setApplyVia(event.target.value)}
-              />
-            </Field>
           </FieldGroup>
 
-          {/* Secondary area: note/tags aren't part of the application's
-              identity, so they get their own muted panel — same treatment as
-              CvFormDialog's/ItemDialog's note/tags section. */}
+          {/* Secondary area: title, job/working type, cover letter, apply
+              via, and note/tags aren't part of the application's core
+              identity, so they collapse behind one "More" trigger in their
+              own muted panel — same treatment as CvFormDialog's/ItemDialog's
+              note/tags section. */}
           <FieldGroup className="-mx-4 mt-4 w-auto border-t bg-muted/50 px-4 py-4">
             <NoteTagsCollapsible
               note={note}
               onNoteChange={setNote}
               tags={tags}
               onTagsChange={setTags}
-            />
+            >
+              <Field>
+                <FieldLabel htmlFor="application-title" className="sr-only">
+                  Title
+                </FieldLabel>
+                <InputGroup>
+                  <InputGroupAddon>
+                    <BriefcaseIcon />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    id="application-title"
+                    placeholder="Auto-generated from position and company if left blank"
+                    value={applicationTitle}
+                    onChange={(event) => setApplicationTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") handleSubmit()
+                    }}
+                  />
+                </InputGroup>
+              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="application-job-type">Job type</FieldLabel>
+                  <Select
+                    items={jobTypeOptions}
+                    value={jobType}
+                    onValueChange={(next) => setJobType(next as string)}
+                  >
+                    <SelectTrigger id="application-job-type" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {jobTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="application-work-type">Working type</FieldLabel>
+                  <Select
+                    items={workTypeOptions}
+                    value={workType}
+                    onValueChange={(next) => setWorkType(next as string)}
+                  >
+                    <SelectTrigger id="application-work-type" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {workTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <Field>
+                <FieldLabel htmlFor="application-cover-letter">Cover letter</FieldLabel>
+                <VacancyDetailEditor
+                  id="application-cover-letter"
+                  value={coverLetter}
+                  onValueChange={setCoverLetter}
+                  placeholder="Write or paste your cover letter"
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="application-apply-via">Apply via</FieldLabel>
+                <Input
+                  id="application-apply-via"
+                  placeholder="Email, URL, referral…"
+                  value={applyVia}
+                  onChange={(event) => setApplyVia(event.target.value)}
+                />
+              </Field>
+            </NoteTagsCollapsible>
           </FieldGroup>
         </DialogBody>
         <DialogFooter>
