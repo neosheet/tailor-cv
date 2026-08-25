@@ -59,6 +59,7 @@ or its responsibility materially changes, update this file in the same change.
 | `src/components/inventory/bulk-category-dialog.tsx`, `bulk-tags-dialog.tsx` | Bulk actions on selected rows |
 | `src/components/inventory/category-filter.tsx`, `tag-filter.tsx`, `tag-input.tsx` | Filter/input controls |
 | `src/components/inventory/line-list-editor.tsx`, `note-input.tsx`, `partial-date-picker.tsx`, `skill-link-input.tsx` | Field-level editors used inside `item-dialog.tsx` |
+| `src/components/inventory/note-tags-collapsible.tsx` | `NoteTagsCollapsible` — note+tags fields behind a "More" trigger, closed by default; shared by `item-dialog.tsx`, `application-form-dialog.tsx`, `persona-form-dialog.tsx`, `persona-editor-dialog.tsx` |
 | `src/components/inventory/use-pool-data.ts` | Hook: filtering/sorting/selection state for a pool table |
 
 ## Domain: Persona & CV (tailoring + templates)

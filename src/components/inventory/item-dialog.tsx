@@ -36,8 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { NoteInput } from "@/components/inventory/note-input"
-import { TagInput } from "@/components/inventory/tag-input"
+import { NoteTagsCollapsible } from "@/components/inventory/note-tags-collapsible"
 import { SkillLinkInput } from "@/components/inventory/skill-link-input"
 import { PartialDatePicker } from "@/components/inventory/partial-date-picker"
 import { LineListEditor, type LineDraft } from "@/components/inventory/line-list-editor"
@@ -597,15 +596,12 @@ function ItemForm({
         which vary per kind) get their own muted panel so they read as
         metadata about the row rather than part of the main form. */}
       <FieldGroup className="-mx-4 mt-4 w-auto border-t bg-muted/50 px-4 py-4">
-        <NoteInput
-          value={state.note}
-          onValueChange={(note) => setState((prev) => ({ ...prev, note }))}
-        />
-
-        <TagInput
-          id="item-tags"
-          value={state.tags}
-          onValueChange={(tags) => setState((prev) => ({ ...prev, tags }))}
+        <NoteTagsCollapsible
+          note={state.note}
+          onNoteChange={(note) => setState((prev) => ({ ...prev, note }))}
+          tags={state.tags}
+          onTagsChange={(tags) => setState((prev) => ({ ...prev, tags }))}
+          tagsId="item-tags"
         />
       </FieldGroup>
     </>

@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { NoteInput } from "@/components/inventory/note-input"
-import { TagInput } from "@/components/inventory/tag-input"
+import { NoteTagsCollapsible } from "@/components/inventory/note-tags-collapsible"
 
 export type PersonaFormFields = {
   name: string
@@ -94,8 +93,12 @@ export function PersonaFormDialog({
               }}
             />
           </Field>
-          <NoteInput value={note} onValueChange={setNote} />
-          <TagInput value={tags} onValueChange={setTags} />
+          <NoteTagsCollapsible
+            note={note}
+            onNoteChange={setNote}
+            tags={tags}
+            onTagsChange={setTags}
+          />
         </DialogBody>
         <DialogFooter>
           <Button

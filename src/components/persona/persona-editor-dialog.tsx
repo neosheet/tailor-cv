@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Field } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { NoteInput } from "@/components/inventory/note-input"
-import { TagInput } from "@/components/inventory/tag-input"
+import { NoteTagsCollapsible } from "@/components/inventory/note-tags-collapsible"
 import { PersonaEditorPanel } from "@/components/persona/persona-editor-panel"
 import { createPersona, findPersona, type DbPersona } from "@/lib/persona"
 import { usePersonaStore } from "@/lib/persona-store"
@@ -126,8 +125,12 @@ function CreatePersonaStep({
           }}
         />
       </Field>
-      <NoteInput value={note} onValueChange={setNote} />
-      <TagInput value={tags} onValueChange={setTags} />
+      <NoteTagsCollapsible
+        note={note}
+        onNoteChange={setNote}
+        tags={tags}
+        onTagsChange={setTags}
+      />
       <div>
         <Button disabled={saving || !name.trim()} onClick={handleCreate}>
           {saving ? "Creating…" : "Create"}

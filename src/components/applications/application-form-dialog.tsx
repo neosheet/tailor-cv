@@ -21,8 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { NoteInput } from "@/components/inventory/note-input"
-import { TagInput } from "@/components/inventory/tag-input"
+import { NoteTagsCollapsible } from "@/components/inventory/note-tags-collapsible"
 import { DeadlineDatePicker } from "@/components/applications/deadline-date-picker"
 import { VacancyDetailEditor } from "@/components/applications/vacancy-detail-editor"
 import type { ApplicationFormFields } from "@/lib/application"
@@ -323,8 +322,12 @@ export function ApplicationFormDialog({
               identity, so they get their own muted panel — same treatment as
               CvFormDialog's/ItemDialog's note/tags section. */}
           <FieldGroup className="-mx-4 mt-4 w-auto border-t bg-muted/50 px-4 py-4">
-            <NoteInput value={note} onValueChange={setNote} />
-            <TagInput value={tags} onValueChange={setTags} />
+            <NoteTagsCollapsible
+              note={note}
+              onNoteChange={setNote}
+              tags={tags}
+              onTagsChange={setTags}
+            />
           </FieldGroup>
         </DialogBody>
         <DialogFooter>
