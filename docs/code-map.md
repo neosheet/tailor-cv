@@ -149,6 +149,25 @@ This section covers what's still persona/template-only.
 | `supabase/migrations/*.sql` | Schema history, chronological by timestamp filename |
 | `src/mocks/*` | Dev/seed mock data (personas, work, education, skills, projects, misc), `flatten.ts`, `types.ts` |
 
+## Chrome extension (`extension/`)
+
+Standalone MV3 popup-only extension (docs/specs/18-chrome-quick-add-extension.md,
+docs/plans/20-chrome-quick-add-extension.md) for quick-adding an application row
+from the active tab. Own `package.json`/`npm install`/build — doesn't touch the
+root app's `node_modules` or lockfile. Root `eslint.config.js` ignores this
+folder; root `tsconfig.json` does not reference it. Scaffolded in Phase 1 only
+(placeholder popup) — auth, the add-application form, and reused imports from
+`../src/` land in later phases.
+
+| File | Purpose |
+|---|---|
+| `extension/manifest.json` | MV3 manifest — `activeTab` + `storage` permissions only, no `host_permissions`/`background` |
+| `extension/vite.config.ts` | `@crxjs/vite-plugin` + `@vitejs/plugin-react` + `@tailwindcss/vite`; sets `server.fs.allow` so the dev server can read files imported (in later phases) from `../src/` outside this project root |
+| `extension/tsconfig.json` / `tsconfig.app.json` / `tsconfig.node.json` | Solution/app/node split mirroring the root project's pattern (a merged single-file config errors under `tsc -b` project references — the referenced project must be `composite`, which a "real" referencing project with its own `include` can't satisfy) |
+| `extension/src/popup.html`, `main.tsx`, `App.tsx` | Popup entry — placeholder-only content in this phase |
+| `extension/src/index.css` | Verbatim copy of root `src/index.css` (theme tokens/imports must match) |
+| `extension/src/icons/icon-{16,48,128}.png` | Placeholder toolbar icons |
+
 ## Docs (`docs/`)
 
 | File | Purpose |

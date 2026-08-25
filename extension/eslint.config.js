@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'extension']),
+  globalIgnores(['dist']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -16,16 +16,7 @@ export default defineConfig([
       reactRefresh.configs.vite,
     ],
     languageOptions: {
-      globals: globals.browser,
-    },
-  },
-  {
-    // Files owned by the shadcn CLI. Keep them byte-identical to upstream so
-    // `shadcn add --diff` stays useful — don't hand-fix lint errors in here.
-    files: ['src/components/ui/**/*.{ts,tsx}', 'src/hooks/use-mobile.ts'],
-    rules: {
-      'react-refresh/only-export-components': 'off',
-      'react-hooks/set-state-in-effect': 'off',
+      globals: { ...globals.browser, chrome: 'readonly' },
     },
   },
 ])
