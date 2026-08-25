@@ -6,7 +6,6 @@ import {
   FieldDescription,
   FieldError,
   FieldGroup,
-  FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
@@ -208,36 +207,30 @@ export function AddApplicationView() {
       )}
 
       <FieldGroup>
-        <div className="grid grid-cols-2 gap-3">
-          <Field>
-            <FieldLabel htmlFor="qa-company">
-              Company <span className="text-destructive">*</span>
-            </FieldLabel>
-            <Input
-              id="qa-company"
-              placeholder="Acme Inc."
-              autoFocus
-              value={company}
-              onChange={(event) => setCompany(event.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="qa-position">
-              Position <span className="text-destructive">*</span>
-            </FieldLabel>
-            <Input
-              id="qa-position"
-              placeholder="Senior Engineer"
-              value={position}
-              onChange={(event) => setPosition(event.target.value)}
-            />
-          </Field>
-        </div>
+        <Field>
+          <Input
+            id="qa-company"
+            aria-label="Company"
+            placeholder="Company"
+            autoFocus
+            value={company}
+            onChange={(event) => setCompany(event.target.value)}
+          />
+        </Field>
+        <Field>
+          <Input
+            id="qa-position"
+            aria-label="Position"
+            placeholder="Position"
+            value={position}
+            onChange={(event) => setPosition(event.target.value)}
+          />
+        </Field>
 
         <Field>
-          <FieldLabel htmlFor="qa-post-date">Post date</FieldLabel>
           <Input
             id="qa-post-date"
+            aria-label="Post date"
             type="date"
             value={postDate}
             onChange={(event) => setPostDate(event.target.value)}
@@ -245,9 +238,9 @@ export function AddApplicationView() {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="qa-url">URL</FieldLabel>
           <Input
             id="qa-url"
+            aria-label="URL"
             type="url"
             placeholder="Link to the job listing"
             value={sourceUrl}
@@ -262,12 +255,12 @@ export function AddApplicationView() {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="qa-vacancy-detail">Vacancy detail</FieldLabel>
           <VacancyDetailEditor
             id="qa-vacancy-detail"
             value={vacancyDetail}
             onValueChange={setVacancyDetail}
             placeholder="Paste the job description or notes"
+            hideToolbar
           />
         </Field>
       </FieldGroup>

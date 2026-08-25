@@ -14,6 +14,13 @@ const TOOLBAR_MODULES = {
 }
 
 /**
+ * `toolbar: false` only removes the button row — Quill's clipboard matchers
+ * still key off `formats` below, so pasted rich text (headings/lists/links)
+ * is preserved either way.
+ */
+const NO_TOOLBAR_MODULES = { toolbar: false }
+
+/**
  * Pasting a job listing off a web page carries along whatever inline
  * formats that page used — fonts, colors, sizes, images — even though the
  * toolbar above only exposes headings/bold/italic/underline/strike/lists/
@@ -35,11 +42,13 @@ export function VacancyDetailEditor({
   value,
   onValueChange,
   placeholder,
+  hideToolbar,
 }: {
   id?: string
   value: string
   onValueChange: (value: string) => void
   placeholder?: string
+  hideToolbar?: boolean
 }) {
   return (
     <div
@@ -47,7 +56,9 @@ export function VacancyDetailEditor({
         "rounded-lg border border-input transition-colors",
         "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
         "[&_.ql-toolbar]:rounded-t-lg [&_.ql-toolbar]:border-x-0 [&_.ql-toolbar]:border-t-0 [&_.ql-toolbar]:border-b-input",
-        "[&_.ql-container]:rounded-b-lg [&_.ql-container]:border-0 [&_.ql-container]:font-sans",
+        hideToolbar
+          ? "[&_.ql-container]:rounded-lg [&_.ql-container]:border-0 [&_.ql-container]:font-sans"
+          : "[&_.ql-container]:rounded-b-lg [&_.ql-container]:border-0 [&_.ql-container]:font-sans",
         "[&_.ql-editor]:min-h-24 [&_.ql-editor]:text-base [&_.ql-editor]:md:text-sm [&_.ql-editor]:break-words [&_.ql-editor]:[overflow-wrap:anywhere]",
         "[&_.ql-editor.ql-blank::before]:text-muted-foreground [&_.ql-editor.ql-blank::before]:not-italic",
         "[&_.ql-stroke]:stroke-foreground [&_.ql-fill]:fill-foreground [&_.ql-picker-label]:text-foreground"
@@ -58,7 +69,7 @@ export function VacancyDetailEditor({
         theme="snow"
         value={value}
         onChange={onValueChange}
-        modules={TOOLBAR_MODULES}
+        modules={hideToolbar ? NO_TOOLBAR_MODULES : TOOLBAR_MODULES}
         formats={ALLOWED_FORMATS}
         placeholder={placeholder}
       />
