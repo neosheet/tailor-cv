@@ -2,6 +2,9 @@ import * as React from "react"
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ArrowUpDownIcon,
   Ellipsis,
   PencilIcon,
   PlusIcon,
@@ -62,6 +65,18 @@ import type { GlobalApplicationStatus, DbApplication } from "@/mocks/types"
 
 const ALL_STATUSES = "all"
 
+type SortField = "appliedAt" | "updatedAt"
+type SortDir = "asc" | "desc"
+
+/** Nulls (no `appliedAt` yet) always sort last, regardless of direction. */
+function compareByDate(a: string | null, b: string | null, dir: SortDir): number {
+  if (a === null) return b === null ? 0 : 1
+  if (b === null) return -1
+
+  const diff = new Date(a).getTime() - new Date(b).getTime()
+  return dir === "asc" ? diff : -diff
+}
+
 /**
  * Everything search should match, flattened to one lowercase string. Mirrors
  * `searchableText` in `pool-panel.tsx`.
@@ -94,6 +109,37 @@ function emptyMessage(archived: boolean, query: string, tags: string[]): string 
   return archived ? "No archived applications." : "No applications yet."
 }
 
+/** Clickable column header for the Applied/Updated date columns — click to sort, click again to flip direction. */
+function SortableTableHead({
+  label,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  dir: SortDir
+  onClick: () => void
+}) {
+  const Icon = active ? (dir === "asc" ? ArrowUpIcon : ArrowDownIcon) : ArrowUpDownIcon
+
+  return (
+    <TableHead
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground data-[active=true]:text-foreground"
+        data-active={active}
+      >
+        {label}
+        <Icon className="size-3.5" />
+      </button>
+    </TableHead>
+  )
+}
+
 /** Table + status/search/tag filter + New Application — mirrors `CvListPanel`'s shape. */
 export function ApplicationListPanel({ archived = false }: { archived?: boolean }) {
   const store = useApplicationStore()
@@ -121,6 +167,25 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
     `applications:${archived ? "archive" : "list"}:tags`,
     []
   )
+  const [sortField, setSortField] = useSessionState<SortField>(
+    `applications:${archived ? "archive" : "list"}:sort-field`,
+    "appliedAt"
+  )
+  const [sortDir, setSortDir] = useSessionState<SortDir>(
+    `applications:${archived ? "archive" : "list"}:sort-dir`,
+    "desc"
+  )
+
+  // Clicking the active column flips direction; switching column starts
+  // newest-first, the more common thing to want when re-sorting.
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortDir("desc")
+    }
+  }
 
   // Re-derived from the store on every render (rather than held in state
   // directly) so the Sheet keeps reflecting the latest row through repeated
@@ -134,6 +199,7 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
     .filter((application) => statusFilter === ALL_STATUSES || application.globalStatus === statusFilter)
     .filter((application) => !needle || applicationSearchableText(application).includes(needle))
     .filter((application) => tagFilter.every((tag) => application.tags.includes(tag)))
+    .sort((a, b) => compareByDate(a[sortField], b[sortField], sortDir))
 
   // Offered tags come from the rows that survive the current filters, so every
   // suggestion narrows the list instead of emptying it.
@@ -187,10 +253,20 @@ export function ApplicationListPanel({ archived = false }: { archived?: boolean 
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Company</TableHead>
-              <TableHead>Applied</TableHead>
+              <SortableTableHead
+                label="Applied"
+                active={sortField === "appliedAt"}
+                dir={sortDir}
+                onClick={() => toggleSort("appliedAt")}
+              />
               <TableHead>Status</TableHead>
               <TableHead>URL</TableHead>
-              <TableHead>Updated</TableHead>
+              <SortableTableHead
+                label="Updated"
+                active={sortField === "updatedAt"}
+                dir={sortDir}
+                onClick={() => toggleSort("updatedAt")}
+              />
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
